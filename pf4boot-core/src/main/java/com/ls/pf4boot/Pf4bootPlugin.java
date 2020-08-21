@@ -1,10 +1,13 @@
 package com.ls.pf4boot;
 
 import com.google.common.base.Strings;
-import com.ls.pf4boot.autoconfigure.ShareService;
+import com.ls.pf4boot.autoconfigure.Export;
 import com.ls.pf4boot.internal.PluginRequestMappingHandlerMapping;
 import com.ls.pf4boot.internal.SpringExtensionFactory;
-import com.ls.pf4boot.spring.boot.*;
+import com.ls.pf4boot.spring.boot.Pf4bootApplication;
+import com.ls.pf4boot.spring.boot.Pf4bootPluginRestartedEvent;
+import com.ls.pf4boot.spring.boot.Pf4bootPluginStartedEvent;
+import com.ls.pf4boot.spring.boot.Pf4bootPluginStoppedEvent;
 import org.pf4j.Extension;
 import org.pf4j.Plugin;
 import org.pf4j.PluginState;
@@ -110,7 +113,7 @@ public abstract class Pf4bootPlugin extends Plugin {
   }
 
   private void registerShareServices() {
-    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(ShareService.class);
+    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(Export.class);
     for (String beanName : beans.keySet()) {
       Object bean = beans.get(beanName);
       registerBeanToMainContext(beanName, bean);
@@ -150,7 +153,7 @@ public abstract class Pf4bootPlugin extends Plugin {
   }
 
   private void unregisterShareServices() {
-    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(ShareService.class);
+    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(Export.class);
     for (String beanName : beans.keySet()) {
       unregisterBeanFromMainContext(beanName);
     }

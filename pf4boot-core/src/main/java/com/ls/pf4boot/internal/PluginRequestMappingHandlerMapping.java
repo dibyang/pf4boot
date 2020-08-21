@@ -1,5 +1,6 @@
 package com.ls.pf4boot.internal;
 
+import com.google.common.collect.Sets;
 import com.ls.pf4boot.Pf4bootPlugin;
 import com.ls.pf4boot.spring.boot.Pf4bootApplication;
 import org.springframework.context.ApplicationContext;
@@ -43,13 +44,12 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     LinkedHashSet<Object> beans = new LinkedHashSet<>();
     ApplicationContext applicationContext = pf4bootPlugin.getApplicationContext();
     //noinspection unchecked
-    Set<String> sharedBeanNames = (Set<String>) applicationContext.getBean(
-        Pf4bootApplication.BEAN_IMPORTED_BEAN_NAMES);
+
     beans.addAll(applicationContext.getBeansWithAnnotation(Controller.class)
-        .entrySet().stream().filter(beanEntry -> !sharedBeanNames.contains(beanEntry.getKey()))
+        .entrySet().stream()
         .map(Map.Entry::getValue).collect(Collectors.toList()));
     beans.addAll(applicationContext.getBeansWithAnnotation(RestController.class)
-        .entrySet().stream().filter(beanEntry -> !sharedBeanNames.contains(beanEntry.getKey()))
+        .entrySet().stream()
         .map(Map.Entry::getValue).collect(Collectors.toList()));
     return beans;
   }

@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
 public class Pf4bootApplication extends SpringApplication implements PluginApplication {
 
   public final static String BEAN_PLUGIN = "pf4j.plugin";
-  public final static String BEAN_IMPORTED_BEAN_NAMES = "sharedBeanNames";
 
   public static final String[] DEFAULT_EXCLUDE_APPLICATION_LISTENERS = {
       "org.springframework.cloud.bootstrap.BootstrapApplicationListener",

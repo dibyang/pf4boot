@@ -1,8 +1,6 @@
 package com.ls.pf4boot.spring.boot;
 
 
-import com.ls.pf4boot.Computer;
-import com.ls.pf4boot.ComputerImpl;
 import com.ls.pf4boot.Pf4bootPluginManager;
 import com.ls.pf4boot.internal.MainAppReadyListener;
 import com.ls.pf4boot.internal.MainAppStartedListener;
@@ -40,11 +38,6 @@ public class Pf4bootAutoConfiguration {
 
   @Autowired
   private WebMvcRegistrations mvcRegistrations;
-
-  @Bean
-  public Computer computer(){
-    return new ComputerImpl();
-  }
 
   @Bean
   @ConditionalOnMissingBean(PluginStateListener.class)

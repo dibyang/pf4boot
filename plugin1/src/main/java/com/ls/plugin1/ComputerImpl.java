@@ -1,5 +1,6 @@
 package com.ls.plugin1;
 
+import com.ls.pf4boot.autoconfigure.Export;
 import com.ls.pf4boot.autoconfigure.ShareService;
 import org.springframework.stereotype.Service;
 
@@ -9,10 +10,11 @@ import org.springframework.stereotype.Service;
  * @author yangzj
  * @version 1.0
  */
-@ShareService
-public class Computer2Impl implements Computer2 {
+@Export
+@Service
+public class ComputerImpl implements Computer {
   @Override
-  public double add2(double n1, double n2) {
+  public double add(double n1, double n2) {
     return n1+n2;
   }
 }

@@ -1,7 +1,7 @@
-package com.ls.pf4boot;
+package com.ls.plugin1;
 
 /**
- * Compluter
+ * Computer
  *
  * @author yangzj
  * @version 1.0
