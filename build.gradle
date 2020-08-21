@@ -1,0 +1,162 @@
+def isPluginProject(Project project) {
+    return project.hasProperty("plugin")
+}
+
+buildscript {
+    repositories {
+        maven {
+            name "REPO_NEXUS"
+            url "http://${nexus_host}:8081/repository/maven-public/"
+        }
+    }
+    dependencies {
+        classpath 'net.researchgate:gradle-release:2.6.0'
+    }
+}
+
+apply plugin: 'maven'
+apply plugin: 'net.researchgate.release'
+
+
+release {
+    failOnUnversionedFiles = true
+    failOnCommitNeeded = true
+    failOnPublishNeeded = true
+    failOnSnapshotDependencies = false
+    failOnUpdateNeeded = true
+    revertOnFail = true
+    tagTemplate = 'v${version}'
+    scmAdapters = [
+        net.researchgate.release.GitAdapter
+    ]
+
+    git {
+        requireBranch = 'master'
+        pushToRemote = 'origin'
+        pushToBranchPrefix = ''
+        commitVersionFileOnly = false
+        signTag = false
+    }
+
+}
+
+
+subprojects {
+
+    buildscript {
+        repositories {
+            mavenLocal()
+            maven {
+                name "REPO_NEXUS"
+                url "http://${nexus_host}:8081/repository/maven-public/"
+            }
+            mavenCentral()
+        }
+    }
+
+    apply plugin: 'java'
+    apply plugin: 'maven'
+
+    afterReleaseBuild.dependsOn uploadArchives
+
+    configurations.all {
+        resolutionStrategy {
+            // cache dynamic versions for 10 seconds
+            cacheDynamicVersionsFor 10, 'seconds'
+            // don't cache changing modules at all
+            cacheChangingModulesFor 0, 'seconds'
+        }
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = "UTF-8"
+    }
+
+    group 'com.ls.pf4boot'
+    version = project.rootProject.version
+
+    ext{
+        nexus_host = project.rootProject.nexus_host
+    }
+
+    sourceCompatibility = project.rootProject.jdkVersion
+    targetCompatibility = project.rootProject.jdkVersion
+
+
+    repositories {
+        mavenLocal()
+        maven {
+            name "REPO_NEXUS"
+            url "http://${nexus_host}:8081/repository/maven-public/"
+        }
+        mavenCentral()
+    }
+
+    dependencies {
+        compile("org.springframework.boot:spring-boot-starter-web:${spring_boot_version}")
+        //compile("org.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
+        compile("org.springframework.boot:spring-boot-devtools:${spring_boot_version}")
+        //compile("com.h2database:h2:1.4.196")
+        compile("com.google.guava:guava:28.1-jre")
+        compile("com.google.code.gson:gson:2.8.6")
+        compile("org.apache.commons:commons-lang3:3.9")
+        compile("org.slf4j:slf4j-api:${slf4j_version}")
+        testCompile("junit:junit:4.12")
+        annotationProcessor "org.pf4j:pf4j:${pf4j_version}"
+        testAnnotationProcessor "org.pf4j:pf4j:${pf4j_version}"
+    }
+
+    uploadArchives {
+        repositories {
+            mavenDeployer {
+                repository(url: "http://${nexus_host}:8081/repository/maven-releases/") {
+                    authentication(userName: project.rootProject.username, password: project.rootProject.password)
+                }
+                snapshotRepository(url: "http://${nexus_host}:8081/repository/maven-snapshots/") {
+                    authentication(userName: project.rootProject.username, password: project.rootProject.password)
+                }
+            }
+        }
+    }
+
+    if (isPluginProject(project)) {
+
+        Properties pluginProp = new Properties()
+        pluginProp.load(file('plugin.properties').newDataInputStream())
+
+        task buildPlugin(type: Jar) {
+            group 'build'
+            dependsOn build
+            manifest.attributes(
+                "Plugin-Id": pluginProp.get("plugin.id"),
+                "Plugin-Class": pluginProp.get("plugin.class"),
+                "Plugin-Version": pluginProp.get("plugin.version"),
+                "Plugin-Provider": pluginProp.get("plugin.provider"),
+                "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
+
+            with jar
+            doLast {
+                // Deploy built plugins...
+            }
+        }
+
+        task deployPluginToLocal(type: Copy) {
+            group 'build'
+            dependsOn buildPlugin
+            from "$buildDir/libs/"
+            into "$rootDir/dist/plugins/${plugin}/"
+        }
+    }
+
+    task sourcesJar(type: Jar, dependsOn: classes) {
+        description = 'Build source jar'
+        classifier = 'sources'
+        from sourceSets.main.allSource
+    }
+
+    artifacts {
+        archives jar
+        archives sourcesJar
+    }
+
+}

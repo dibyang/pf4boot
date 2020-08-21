@@ -1,0 +1,34 @@
+server:
+  port: 6688
+  servlet:
+    context-path:
+    multipart:
+      enabled: true
+      max-file-size: 20MB
+      max-request-size: 200MB
+      max-http-header-size: 102400
+spring:
+  mvc:
+    view:
+      suffix: .html
+    static-path-pattern: /**
+  resources:
+    static-locations: classpath:/webui/,classpath:/static/
+  flyway:
+    enabled: false
+  pf4boot:
+    runtime-mode: development
+    enabled: true
+    classes-directories:
+      - "build/classes/java/main"
+      - "build/resources/main"
+    lib-directories:
+      - "libs"
+    main:
+      allow-bean-definition-overriding: true
+    controller:
+      base-path: /api/pf4boot/
+logging:
+  file: ./logs/spring.log
+  level:
+    root: INFO

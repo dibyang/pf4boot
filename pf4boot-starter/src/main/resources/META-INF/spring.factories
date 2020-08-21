@@ -1,0 +1,5 @@
+# Auto Configure
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+  com.ls.pf4boot.spring.boot.Pf4bootAutoConfiguration,\
+  com.ls.pf4boot.spring.boot.Pf4bootMvcPatchAutoConfiguration,\
+  com.ls.pf4boot.spring.boot.FlywayClassLoaderConfiguration
