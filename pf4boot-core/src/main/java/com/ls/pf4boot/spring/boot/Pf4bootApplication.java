@@ -79,30 +79,6 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
 
   }
 
-  public Set<Object> getAllSources() {
-    Set<Object> allSources = new LinkedHashSet<>();
-    Set<Object> sources = super.getAllSources();
-    allSources.addAll(sources);
-    /*
-    for (Object source : sources) {
-      if(source instanceof Class<?>){
-        Class<?> clazz = (Class<?>)source;
-        allSources.add(clazz.getPackage());
-        SpringBootApplication application = clazz.getAnnotation(SpringBootApplication.class);
-        if(application!=null){
-          if(application.scanBasePackages().length>0){
-            allSources.addAll(Arrays.asList(application.scanBasePackages()));
-          }
-          if(application.scanBasePackageClasses().length>0){
-            allSources.addAll(Arrays.asList(application.scanBasePackageClasses()));
-          }
-        }
-      }
-    }// */
-    return Collections.unmodifiableSet(allSources);
-  }
-
-
   /**
    * Properties that need to be set when this app is started as a plugin.
    * Note that this method only takes effect before {@link #run(String...)} method.
@@ -127,7 +103,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     super.bindToSpringApplication(environment);
 
     pluginFirstClasses = new ArrayList<>();
-    String pluginFirstClassesProp = null;
+    String pluginFirstClassesProp;
     int i = 0;
     do {
       pluginFirstClassesProp = getProperties(environment, "pluginFirstClasses", i++);
@@ -137,7 +113,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     } while (pluginFirstClassesProp != null);
 
     pluginOnlyResources = new ArrayList<>();
-    String pluginOnlyResourcesProp = null;
+    String pluginOnlyResourcesProp;
     i = 0;
     do {
       pluginOnlyResourcesProp = getProperties(environment, "pluginOnlyResources", i++);

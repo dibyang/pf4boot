@@ -11,7 +11,5 @@ import org.springframework.boot.SpringApplication;
  */
 @SpringBootPlugin
 public class Plugin1Starter {
-  public static void main(String[] args) {
-    SpringApplication.run(Plugin1Starter.class, args);
-  }
+
 }

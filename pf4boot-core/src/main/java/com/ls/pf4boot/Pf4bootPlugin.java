@@ -1,7 +1,10 @@
 package com.ls.pf4boot;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.ls.pf4boot.autoconfigure.Export;
+import com.ls.pf4boot.autoconfigure.PluginStarter;
+import com.ls.pf4boot.autoconfigure.SpringBootPlugin;
 import com.ls.pf4boot.internal.PluginRequestMappingHandlerMapping;
 import com.ls.pf4boot.internal.SpringExtensionFactory;
 import com.ls.pf4boot.spring.boot.Pf4bootApplication;
@@ -14,6 +17,10 @@ import org.pf4j.PluginState;
 import org.pf4j.PluginWrapper;
 import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
 import org.springframework.boot.Banner;
+import org.springframework.cglib.core.NamingPolicy;
+import org.springframework.cglib.core.Predicate;
+import org.springframework.cglib.proxy.Enhancer;
+import org.springframework.cglib.proxy.NoOp;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.support.GenericApplicationContext;
@@ -58,7 +65,10 @@ public abstract class Pf4bootPlugin extends Plugin {
 
   public Pf4bootPlugin(PluginWrapper wrapper) {
     super(wrapper);
-    pf4bootApplication = createSpringBootstrap();
+    PluginStarter pluginStarter = this.getClass().getAnnotation(PluginStarter.class);
+    Preconditions.checkState(pluginStarter!=null,"PluginStarter annotation is missing.");
+    Class<?>[] starterClasses = pluginStarter.value();
+    pf4bootApplication = new Pf4bootApplication(this, starterClasses);
   }
 
   private PluginRequestMappingHandlerMapping getMainRequestMapping() {
@@ -158,8 +168,6 @@ public abstract class Pf4bootPlugin extends Plugin {
       unregisterBeanFromMainContext(beanName);
     }
   }
-
-  protected abstract Pf4bootApplication createSpringBootstrap();
 
   public GenericApplicationContext getApplicationContext() {
     return (GenericApplicationContext) applicationContext;
