@@ -25,10 +25,11 @@ public class PluginListableBeanFactory extends DefaultListableBeanFactory {
 
   @Override
   public Object getBean(String name) throws BeansException {
-    Object bean = super.getBean(name);
-    if (bean instanceof EventListenerMethodProcessor) {
-      ((EventListenerMethodProcessor) bean).postProcessBeanFactory(this);
+
+    if (name.equals("entityManagerFactory")) {
+      System.out.println("name = " + name);
     }
+    Object bean = super.getBean(name);
     return bean;
   }
 }

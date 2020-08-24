@@ -10,7 +10,9 @@ import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.core.annotation.AliasFor;
+import org.springframework.stereotype.Repository;
 
+import javax.swing.text.html.parser.Entity;
 import java.lang.annotation.*;
 
 /**

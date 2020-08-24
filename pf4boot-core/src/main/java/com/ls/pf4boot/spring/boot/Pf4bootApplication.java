@@ -1,10 +1,10 @@
 package com.ls.pf4boot.spring.boot;
 
 import com.ls.pf4boot.Pf4bootPlugin;
-import com.ls.pf4boot.PluginApplication;
 import com.ls.pf4boot.Pf4bootPluginManager;
-import com.ls.pf4boot.internal.PluginListableBeanFactory;
+import com.ls.pf4boot.PluginApplication;
 import com.ls.pf4boot.internal.Pf4bootPluginClassLoader;
+import com.ls.pf4boot.internal.PluginListableBeanFactory;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -25,7 +25,6 @@ import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.io.DefaultResourceLoader;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.ReflectionUtils;
 
 import java.lang.reflect.Field;
@@ -152,7 +151,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     }
 
     DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
-    AnnotationConfigApplicationContext applicationContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory);
+    AnnotationConfigApplicationContext applicationContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory,plugin);
     applicationContext.setParent(mainApplicationContext);
 
     applicationContext.setClassLoader(pluginClassLoader);

@@ -4,4 +4,5 @@ include 'plugin1'
 include 'pf4boot-core'
 include 'demo-app'
 include 'plugin2'
+include 'demo-lib'
 

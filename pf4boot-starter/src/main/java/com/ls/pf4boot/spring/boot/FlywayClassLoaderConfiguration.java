@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @AutoConfigureAfter(FlywayAutoConfiguration.class)
-@ConditionalOnProperty(prefix = "spring.flyway", name = "enabled", matchIfMissing = false)
+@ConditionalOnProperty(prefix = "spring.flyway", name = "enabled", matchIfMissing = true)
 @ConditionalOnBean(Pf4bootPlugin.class)
 public class FlywayClassLoaderConfiguration {
 

@@ -1,4 +1,6 @@
 
 dependencies {
     compile project(":pf4boot-starter")
+    compile project(":demo-lib")
+    compile("com.h2database:h2:1.4.196")
 }
