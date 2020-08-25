@@ -1,7 +1,8 @@
-package com.ls.pf4boot;
+package com.ls.pf4boot.jpa;
 
 import org.hibernate.engine.spi.SessionImplementor;
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -12,6 +13,7 @@ import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateSettings;
 import org.springframework.boot.autoconfigure.orm.jpa.JpaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.jdbc.SchemaManagementProvider;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.orm.jpa.JpaTransactionManager;
@@ -37,7 +39,9 @@ import java.util.function.Supplier;
 @ConditionalOnClass({ LocalContainerEntityManagerFactoryBean.class, EntityManager.class, SessionImplementor.class })
 @EnableConfigurationProperties({JpaProperties.class,HibernateProperties.class})
 @AutoConfigureAfter({ DataSourceAutoConfiguration.class })
-public class PluginJPASupport {
+public class PluginJPAStarter {
+  private final HibernateDefaultDdlAutoProvider defaultDdlAutoProvider;
+
   @Autowired
   private EntityManagerFactoryBuilder entityManagerFactoryBuilder;
 
@@ -53,9 +57,16 @@ public class PluginJPASupport {
   @Autowired
   private BeanFactory beanFactory;
 
+  public DataSource getDataSource() {
+    return dataSource;
+  }
+
+  public PluginJPAStarter(ObjectProvider<SchemaManagementProvider> providers) {
+    this.defaultDdlAutoProvider = new HibernateDefaultDdlAutoProvider(providers);
+  }
 
   protected Map<String, Object> getVendorProperties() {
-    Supplier<String> defaultDdlMode = () -> "update";
+    Supplier<String> defaultDdlMode = () -> this.defaultDdlAutoProvider.getDefaultDdlAuto(getDataSource());
     return new LinkedHashMap<>(this.hibernateProperties
         .determineHibernateProperties(properties.getProperties(), new HibernateSettings()
             .ddlAuto(defaultDdlMode)));

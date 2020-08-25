@@ -25,4 +25,16 @@ public class UserMgrController {
     return userMgr.getAllUsers();
   }
 
+  @RequestMapping("/add")
+  public List<User> add(String username, String password){
+    userMgr.addUser(username,password);
+    return userMgr.getAllUsers();
+  }
+
+  @RequestMapping("/remove")
+  public List<User> remove(String username){
+    userMgr.removeUser(username);
+    return userMgr.getAllUsers();
+  }
+
 }

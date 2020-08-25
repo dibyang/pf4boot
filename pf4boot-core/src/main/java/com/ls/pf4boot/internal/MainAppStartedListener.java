@@ -39,8 +39,6 @@ public class MainAppStartedListener implements ApplicationListener<ApplicationSt
         });
         pluginManager.setMainApplicationStarted(true);
       }
-    }else{
-      log.info("plugin application started:{}",plugin.getWrapper().getPluginId());
     }
   }
 

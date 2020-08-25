@@ -33,8 +33,6 @@ public class MainAppReadyListener implements ApplicationListener<ApplicationRead
         ApplicationContext pluginAppCtx = pf4bootPlugin.getApplicationContext();
         pluginAppCtx.publishEvent(new Pf4bootMainAppReadyEvent(applicationContext));
       });
-    }else{
-      log.info("plugin application ready:{}",plugin.getWrapper().getPluginId());
     }
   }
 

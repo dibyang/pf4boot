@@ -1,8 +1,6 @@
 package com.ls.pf4boot.internal;
 
-import com.google.common.collect.Sets;
 import com.ls.pf4boot.Pf4bootPlugin;
-import com.ls.pf4boot.spring.boot.Pf4bootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RestController;
