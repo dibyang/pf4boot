@@ -134,6 +134,9 @@ subprojects {
             pluginProp.store(file('plugin.properties').newDataOutputStream(),null)
         }
         jar {
+            into('libs') {
+                from configurations.inline
+            }
             manifest.attributes(
                 "Build-Time": LocalDateTime.now(),
                 "Plugin-Id": pluginProp.get("plugin.id"),
@@ -143,11 +146,21 @@ subprojects {
                 "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
         }
 
+        task addInlineToManifest() {
+            String[] inline = new File("$buildDir/inline").list()
+            if (inline!=null&&inline.length>0) {
+                jar.manifest.attributes('Class-Path': inline.collect { "libs/$it" }.join(' '))
+            }
+        }
+        jar.dependsOn += addInlineToManifest
+
         task copyInlineTolib(type: Copy) {
             group 'build'
             from configurations.inline
             into "$buildDir/inline"
         }
+
+        build.dependsOn += copyInlineTolib
 
     }
 

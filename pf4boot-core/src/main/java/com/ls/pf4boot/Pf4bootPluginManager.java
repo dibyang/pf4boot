@@ -1,5 +1,6 @@
 package com.ls.pf4boot;
 
+import com.ls.pf4boot.internal.PropertiesPluginDescriptorFinder2;
 import com.ls.pf4boot.spring.boot.PluginStartingError;
 import com.ls.pf4boot.spring.boot.Pf4bootPluginStateChangedEvent;
 import com.ls.pf4boot.internal.SpringExtensionFactory;
@@ -63,6 +64,13 @@ public class Pf4bootPluginManager extends DefaultPluginManager
         .add(new JarPluginRepository(getPluginsRoot()), this::isNotDevelopment)
         .add(new DefaultPluginRepository(getPluginsRoot()), this::isNotDevelopment);
     return this.pluginRepository;
+  }
+
+  @Override
+  protected PluginDescriptorFinder createPluginDescriptorFinder() {
+    return new CompoundPluginDescriptorFinder()
+        .add(new PropertiesPluginDescriptorFinder2())
+        .add(new ManifestPluginDescriptorFinder());
   }
 
   public PluginRepository getPluginRepository() {

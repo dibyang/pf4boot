@@ -119,7 +119,7 @@ public class Pf4bootAutoConfiguration {
                   pluginClassLoader.addFile(pluginPath.toFile());
                   return pluginClassLoader;
                 }
-              }, this::isNotDevelopment);
+              });
         }
       }
 
