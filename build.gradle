@@ -61,6 +61,10 @@ subprojects {
 
     afterReleaseBuild.dependsOn uploadArchives
 
+    configurations {
+        inline
+        compile.extendsFrom(inline)
+    }
     configurations.all {
         resolutionStrategy {
             // cache dynamic versions for 10 seconds
@@ -125,13 +129,16 @@ subprojects {
 
         Properties pluginProp = new Properties()
         pluginProp.load(file('plugin.properties').newDataInputStream())
-
+        if(pluginProp.get("plugin.id")!=project.version){
+            pluginProp.setProperty("plugin.version",project.version)
+            pluginProp.store(file('plugin.properties').newDataOutputStream(),null)
+        }
         jar {
             manifest.attributes(
                 "Build-Time": LocalDateTime.now(),
                 "Plugin-Id": pluginProp.get("plugin.id"),
                 "Plugin-Class": pluginProp.get("plugin.class"),
-                "Plugin-Version": project.version,
+                "Plugin-Version": pluginProp.get("plugin.version"),
                 "Plugin-Provider": pluginProp.get("plugin.provider"),
                 "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
         }
