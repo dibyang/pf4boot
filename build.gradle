@@ -129,7 +129,7 @@ subprojects {
 
         Properties pluginProp = new Properties()
         pluginProp.load(file('plugin.properties').newDataInputStream())
-        if(pluginProp.get("plugin.id")!=project.version){
+        if(project.version != pluginProp.get("plugin.version")){
             pluginProp.setProperty("plugin.version",project.version)
             pluginProp.store(file('plugin.properties').newDataOutputStream(),null)
         }
