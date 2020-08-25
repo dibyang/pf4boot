@@ -143,6 +143,12 @@ subprojects {
                 "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
         }
 
+        task copyInlineTolib(type: Copy) {
+            group 'build'
+            from configurations.inline
+            into "$buildDir/inline"
+        }
+
     }
 
     task sourcesJar(type: Jar, dependsOn: classes) {

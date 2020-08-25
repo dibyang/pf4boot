@@ -24,6 +24,7 @@ spring:
       - "build/resources/main"
     lib-directories:
       - "libs"
+      - "build/inline"
     main:
       allow-bean-definition-overriding: true
     controller:
