@@ -135,28 +135,7 @@ subprojects {
                 "Plugin-Provider": pluginProp.get("plugin.provider"),
                 "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
         }
-        task buildPlugin(type: Jar) {
-            group 'build'
-            dependsOn build
-            manifest.attributes(
-                "Plugin-Id": pluginProp.get("plugin.id"),
-                "Plugin-Class": pluginProp.get("plugin.class"),
-                "Plugin-Version": project.version,
-                "Plugin-Provider": pluginProp.get("plugin.provider"),
-                "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
 
-            with jar
-            doLast {
-                // Deploy built plugins...
-            }
-        }
-
-        task deployPluginToLocal(type: Copy) {
-            group 'build'
-            dependsOn buildPlugin
-            from "$buildDir/libs/"
-            into "$rootDir/dist/plugins/${plugin}/"
-        }
     }
 
     task sourcesJar(type: Jar, dependsOn: classes) {
