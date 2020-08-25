@@ -1,3 +1,5 @@
+import java.time.LocalDateTime
+
 def isPluginProject(Project project) {
     return project.hasProperty("plugin")
 }
@@ -124,13 +126,22 @@ subprojects {
         Properties pluginProp = new Properties()
         pluginProp.load(file('plugin.properties').newDataInputStream())
 
+        jar {
+            manifest.attributes(
+                "Build-Time": LocalDateTime.now(),
+                "Plugin-Id": pluginProp.get("plugin.id"),
+                "Plugin-Class": pluginProp.get("plugin.class"),
+                "Plugin-Version": project.version,
+                "Plugin-Provider": pluginProp.get("plugin.provider"),
+                "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
+        }
         task buildPlugin(type: Jar) {
             group 'build'
             dependsOn build
             manifest.attributes(
                 "Plugin-Id": pluginProp.get("plugin.id"),
                 "Plugin-Class": pluginProp.get("plugin.class"),
-                "Plugin-Version": pluginProp.get("plugin.version"),
+                "Plugin-Version": project.version,
                 "Plugin-Provider": pluginProp.get("plugin.provider"),
                 "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
 

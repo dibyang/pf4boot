@@ -87,9 +87,8 @@ public abstract class Pf4bootPlugin extends Plugin {
     applicationContext = pf4bootApplication.run();
     getMainRequestMapping().registerControllers(this);
 
-    //unregister ShareServices
+    //register ShareServices
     registerShareServices();
-
     // register Extensions
     registerExtensions();
 
