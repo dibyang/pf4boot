@@ -9,7 +9,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.context.support.GenericApplicationContext;
 
-
+/**
+ * SpringExtensionFactory
+ *
+ * @author yangzj
+ * @version 1.0
+ */
 public class SpringExtensionFactory implements ExtensionFactory {
 
   private static final Logger log = LoggerFactory.getLogger(SpringExtensionFactory.class);

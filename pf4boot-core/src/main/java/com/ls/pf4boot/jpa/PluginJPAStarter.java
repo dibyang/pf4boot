@@ -1,5 +1,8 @@
 package com.ls.pf4boot.jpa;
 
+import com.google.common.collect.Sets;
+import com.ls.pf4boot.Pf4bootPlugin;
+import com.ls.pf4boot.spring.boot.Pf4bootApplication;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -8,6 +11,7 @@ import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.domain.EntityScanPackages;
+import org.springframework.boot.autoconfigure.domain.EntityScanner;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateSettings;
@@ -27,6 +31,7 @@ import javax.sql.DataSource;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -35,7 +40,6 @@ import java.util.function.Supplier;
  * @author yangzj
  * @version 1.0
  */
-
 @ConditionalOnClass({ LocalContainerEntityManagerFactoryBean.class, EntityManager.class, SessionImplementor.class })
 @EnableConfigurationProperties({JpaProperties.class,HibernateProperties.class})
 @AutoConfigureAfter({ DataSourceAutoConfiguration.class })
@@ -76,7 +80,7 @@ public class PluginJPAStarter {
   public LocalContainerEntityManagerFactoryBean entityManagerFactory(EntityManagerFactoryBuilder factoryBuilder) {
     return factoryBuilder.dataSource(this.dataSource).mappingResources(getMappingResources())
         .properties(getVendorProperties())
-        .packages("com.ls.demo","com.ls.plugin1.dao").build();
+        .packages(getPackagesToScan()).build();
   }
 
   @Bean
@@ -86,10 +90,20 @@ public class PluginJPAStarter {
 
 
   protected String[] getPackagesToScan() {
-    List<String> packages = EntityScanPackages.get(this.beanFactory).getPackageNames();
-    if (packages.isEmpty() && AutoConfigurationPackages.has(this.beanFactory)) {
-      packages = AutoConfigurationPackages.get(this.beanFactory);
+    Set<String> packages = Sets.newHashSet();
+    List<String> pkg = EntityScanPackages.get(this.beanFactory).getPackageNames();
+    if(!pkg.isEmpty()){
+      packages.addAll(pkg);
     }
+    if (AutoConfigurationPackages.has(this.beanFactory)) {
+      pkg = AutoConfigurationPackages.get(this.beanFactory);
+      if(!pkg.isEmpty()){
+        packages.addAll(pkg);
+      }
+    }
+
+    Pf4bootPlugin plugin = Pf4bootApplication.getPlugin(this.beanFactory);
+    packages.add(plugin.getClass().getPackage().getName());
     return StringUtils.toStringArray(packages);
   }
 

@@ -34,6 +34,7 @@ public class Pf4bootAnnotationConfigApplicationContext extends AnnotationConfigA
   public Pf4bootAnnotationConfigApplicationContext(DefaultListableBeanFactory beanFactory, Pf4bootPlugin plugin) {
     super(beanFactory);
     this.plugin = plugin;
+
   }
 
   @Override
@@ -43,28 +44,6 @@ public class Pf4bootAnnotationConfigApplicationContext extends AnnotationConfigA
 
   protected void initApplicationEventMulticaster(){
     super.initApplicationEventMulticaster();
-  }
-
-
-  @Override
-  protected void finishBeanFactoryInitialization(ConfigurableListableBeanFactory beanFactory) {
-    LocalContainerEntityManagerFactoryBean entityManagerFactoryBean = beanFactory.getBean(LocalContainerEntityManagerFactoryBean.class);
-    if(entityManagerFactoryBean!=null){
-      String[] packagesToScan = this.getPackagesToScan(this);
-      System.out.println("packagesToScan = " + packagesToScan);
-
-    }
-    super.finishBeanFactoryInitialization(beanFactory);
-
-
-  }
-
-  protected String[] getPackagesToScan(BeanFactory beanFactory) {
-    List<String> packages = EntityScanPackages.get(beanFactory).getPackageNames();
-    if (packages.isEmpty() && AutoConfigurationPackages.has(beanFactory)) {
-      packages = AutoConfigurationPackages.get(beanFactory);
-    }
-    return StringUtils.toStringArray(packages);
   }
 
   @Override

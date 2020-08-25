@@ -155,44 +155,19 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     applicationContext.setParent(mainApplicationContext);
 
     applicationContext.setClassLoader(pluginClassLoader);
-
     applicationContext.getBeanFactory().registerSingleton(BEAN_PLUGIN, plugin);
     applicationContext.getBeanFactory().autowireBean(plugin);
-
 
     return applicationContext;
   }
 
   @Override
-  protected void afterRefresh(ConfigurableApplicationContext context, ApplicationArguments args) {
+  protected void applyInitializers(ConfigurableApplicationContext context){
+    super.applyInitializers(context);
+    context.setId(this.plugin.getWrapper().getPluginId());
 
   }
 
-  private void hackBeanFactory(ApplicationContext applicationContext) {
-
-
-    BeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
-    Field beanFactoryField = ReflectionUtils.findField(
-        applicationContext.getClass(), "beanFactory");
-    if (beanFactoryField != null) {
-      beanFactoryField.setAccessible(true);
-      ReflectionUtils.setField(beanFactoryField, applicationContext, beanFactory);
-    }
-  }
-
-  protected void registerBeanFromMainContext(AbstractApplicationContext applicationContext,
-                                             String beanName) {
-    try {
-      Object bean = mainApplicationContext.getBean(beanName);
-      applicationContext.getBeanFactory().registerSingleton(beanName, bean);
-      applicationContext.getBeanFactory().autowireBean(bean);
-
-      log.info("Bean {} is registered from main ApplicationContext", beanName);
-
-    } catch (NoSuchBeanDefinitionException ex) {
-      log.warn("Bean {} is not found in main ApplicationContext", beanName);
-    }
-  }
 
   private String getProperties(Environment env, String propName, int index) {
     String prop = env.getProperty(String.format("pf4boot-plugin.%s[%s]", propName, index));
@@ -216,4 +191,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
   }
 
 
+  public static Pf4bootPlugin getPlugin(BeanFactory beanFactory){
+    return beanFactory.getBean(BEAN_PLUGIN,Pf4bootPlugin.class);
+  }
 }

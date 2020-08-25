@@ -12,7 +12,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-
+/**
+ * PluginRequestMappingHandlerMapping
+ *
+ * @author yangzj
+ * @version 1.0
+ */
 public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMapping {
 
   /**

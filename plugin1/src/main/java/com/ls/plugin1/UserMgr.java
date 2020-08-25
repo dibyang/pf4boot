@@ -14,4 +14,5 @@ public interface UserMgr {
   List<User> getAllUsers();
   void addUser(String username, String password);
   void removeUser(String username);
+  void removeUserAndBooks(String username);
 }

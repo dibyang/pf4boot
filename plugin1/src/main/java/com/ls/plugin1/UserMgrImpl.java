@@ -1,9 +1,13 @@
 package com.ls.plugin1;
 
+import com.ls.demo.dao.BookRepository;
+import com.ls.pf4boot.autoconfigure.Export;
 import com.ls.plugin1.dao.entity.User;
 import com.ls.plugin1.dao.repository.UserRepository;
+import org.pf4j.Extension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -14,10 +18,14 @@ import java.util.List;
  * @version 1.0
  */
 @Service
+@Export
 public class UserMgrImpl implements UserMgr {
 
   @Autowired
   private UserRepository userRepository;
+
+  @Autowired
+  private BookRepository bookRepository;
 
   @Override
   public List<User> getAllUsers() {
@@ -32,8 +40,16 @@ public class UserMgrImpl implements UserMgr {
     userRepository.saveAndFlush(user);
   }
 
+
   @Override
   public void removeUser(String username) {
     userRepository.deleteById(username);
+  }
+
+  @Override
+  @Transactional
+  public void removeUserAndBooks(String username) {
+    userRepository.deleteById(username);
+    bookRepository.deleteByAuthor(username);
   }
 }

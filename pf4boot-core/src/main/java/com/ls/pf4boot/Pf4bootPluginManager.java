@@ -14,7 +14,12 @@ import javax.annotation.PostConstruct;
 import java.nio.file.Path;
 import java.util.*;
 
-
+/**
+ * Pf4bootPluginManager
+ *
+ * @author yangzj
+ * @version 1.0
+ */
 public class Pf4bootPluginManager extends DefaultPluginManager
     implements ApplicationContextAware {
   static final Logger log = LoggerFactory.getLogger(Pf4bootPluginManager.class);

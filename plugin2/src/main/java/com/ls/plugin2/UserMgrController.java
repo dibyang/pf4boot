@@ -1,5 +1,6 @@
-package com.ls.plugin1;
+package com.ls.plugin2;
 
+import com.ls.plugin1.UserMgr;
 import com.ls.plugin1.dao.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,7 +34,7 @@ public class UserMgrController {
 
   @RequestMapping("/remove")
   public List<User> remove(String username){
-    userMgr.removeUser(username);
+    userMgr.removeUserAndBooks(username);
     return userMgr.getAllUsers();
   }
 

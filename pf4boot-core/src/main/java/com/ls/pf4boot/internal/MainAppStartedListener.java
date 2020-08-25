@@ -13,7 +13,12 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
 
-
+/**
+ * MainAppStartedListener
+ *
+ * @author yangzj
+ * @version 1.0
+ */
 @Component
 public class MainAppStartedListener implements ApplicationListener<ApplicationStartedEvent> {
   static final Logger log = LoggerFactory.getLogger(MainAppStartedListener.class);

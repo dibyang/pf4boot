@@ -1,4 +1,4 @@
-package com.ls.pf4boot.spring.boot.model;
+package com.ls.pf4boot.model;
 
 import com.ls.pf4boot.spring.boot.PluginStartingError;
 import org.pf4j.PluginDependency;
@@ -8,7 +8,12 @@ import org.pf4j.PluginState;
 import java.util.ArrayList;
 import java.util.List;
 
-
+/**
+ * PluginInfo
+ *
+ * @author yangzj
+ * @version 1.0
+ */
 public class PluginInfo implements PluginDescriptor {
 
   public String pluginId;

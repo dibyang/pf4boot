@@ -14,7 +14,12 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.stream.Collectors;
 
-
+/**
+ * Pf4bootPluginClassLoader
+ *
+ * @author yangzj
+ * @version 1.0
+ */
 public class Pf4bootPluginClassLoader extends PluginClassLoader {
 
   private static final Logger log = LoggerFactory.getLogger(Pf4bootPluginClassLoader.class);

@@ -91,6 +91,19 @@ public abstract class Pf4bootPlugin extends Plugin {
     registerShareServices();
 
     // register Extensions
+    registerExtensions();
+
+    ApplicationContextProvider.registerApplicationContext(applicationContext);
+    applicationContext.publishEvent(new Pf4bootPluginStartedEvent(applicationContext));
+    if (getPluginManager().isMainApplicationStarted()) {
+      // if main application context is not ready, don't send restart event
+      applicationContext.publishEvent(new Pf4bootPluginRestartedEvent(applicationContext));
+    }
+
+    log.debug("Plugin {} is started in {}ms", getWrapper().getPluginId(), System.currentTimeMillis() - startTs);
+  }
+
+  private void registerExtensions() {
     Set<String> extensionClassNames = getWrapper().getPluginManager()
         .getExtensionClassNames(getWrapper().getPluginId());
     for (String extensionClassName : extensionClassNames) {
@@ -106,15 +119,6 @@ public abstract class Pf4bootPlugin extends Plugin {
         throw new IllegalArgumentException(e.getMessage(), e);
       }
     }
-
-    ApplicationContextProvider.registerApplicationContext(applicationContext);
-    applicationContext.publishEvent(new Pf4bootPluginStartedEvent(applicationContext));
-    if (getPluginManager().isMainApplicationStarted()) {
-      // if main application context is not ready, don't send restart event
-      applicationContext.publishEvent(new Pf4bootPluginRestartedEvent(applicationContext));
-    }
-
-    log.debug("Plugin {} is started in {}ms", getWrapper().getPluginId(), System.currentTimeMillis() - startTs);
   }
 
   private void registerShareServices() {
@@ -134,6 +138,17 @@ public abstract class Pf4bootPlugin extends Plugin {
     //unregister ShareServices
     unregisterShareServices();
     // unregister Extensions
+    unregisterExtensions();
+
+    getMainRequestMapping().unregisterControllers(this);
+    applicationContext.publishEvent(new Pf4bootPluginStoppedEvent(applicationContext));
+    ApplicationContextProvider.unregisterApplicationContext(applicationContext);
+    ((ConfigurableApplicationContext) applicationContext).close();
+
+    log.debug("Plugin {} is stopped", getWrapper().getPluginId());
+  }
+
+  private void unregisterExtensions() {
     Set<String> extensionClassNames = getWrapper().getPluginManager()
         .getExtensionClassNames(getWrapper().getPluginId());
     for (String extensionClassName : extensionClassNames) {
@@ -148,13 +163,6 @@ public abstract class Pf4bootPlugin extends Plugin {
         throw new IllegalArgumentException(e.getMessage(), e);
       }
     }
-
-    getMainRequestMapping().unregisterControllers(this);
-    applicationContext.publishEvent(new Pf4bootPluginStoppedEvent(applicationContext));
-    ApplicationContextProvider.unregisterApplicationContext(applicationContext);
-    ((ConfigurableApplicationContext) applicationContext).close();
-
-    log.debug("Plugin {} is stopped", getWrapper().getPluginId());
   }
 
   private void unregisterShareServices() {

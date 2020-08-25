@@ -5,7 +5,12 @@ import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.event.EventListenerMethodProcessor;
 
-
+/**
+ * PluginListableBeanFactory
+ *
+ * @author yangzj
+ * @version 1.0
+ */
 public class PluginListableBeanFactory extends DefaultListableBeanFactory {
 
   private ClassLoader classLoader;

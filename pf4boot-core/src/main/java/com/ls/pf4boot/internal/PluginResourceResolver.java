@@ -13,7 +13,12 @@ import org.springframework.web.servlet.resource.PathResourceResolver;
 import java.io.IOException;
 import java.util.Arrays;
 
-
+/**
+ * PluginResourceResolver
+ *
+ * @author yangzj
+ * @version 1.0
+ */
 public class PluginResourceResolver extends PathResourceResolver {
 
   @Autowired
