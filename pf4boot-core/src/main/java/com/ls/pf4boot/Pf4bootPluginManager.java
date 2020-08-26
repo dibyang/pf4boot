@@ -75,9 +75,9 @@ public class Pf4bootPluginManager extends DefaultPluginManager
   protected PluginRepository createPluginRepository() {
     this.pluginRepository = new CompoundPluginRepository()
         .add(new LinkPluginRepository(getPluginsRoot()))
+        .add(new DefaultPluginRepository(getPluginsRoot()))
         .add(new DevelopmentPluginRepository(getPluginsRoot()), this::isDevelopment)
-        .add(new JarPluginRepository(getPluginsRoot()), this::isNotDevelopment)
-        .add(new DefaultPluginRepository(getPluginsRoot()), this::isNotDevelopment);
+        .add(new JarPluginRepository(getPluginsRoot()), this::isNotDevelopment);
     return this.pluginRepository;
   }
 
@@ -101,7 +101,7 @@ public class Pf4bootPluginManager extends DefaultPluginManager
       }
     } else {
       return new CompoundPluginLoader()
-          .add(new Pf4bootPluginLoader(this,properties), this::isDevelopment)
+          .add(new Pf4bootPluginLoader(this,properties))
           .add(new JarPf4bootPluginLoader(this));
     }
   }

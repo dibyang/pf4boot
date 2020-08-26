@@ -18,8 +18,8 @@ uploadArchives {
 dependencies {
     compile project(":demo-app")
     compile("com.h2database:h2:1.4.196")
-    plugin("com.ls.pf4boot:plugin1:0.4.1@zip")
-    plugin("com.ls.pf4boot:plugin2:0.4.1@zip")
+    plugin("com.ls.pf4boot:plugin1:0.4.2@zip")
+    plugin("com.ls.pf4boot:plugin2:0.4.2@zip")
 }
 
 ext.packname='demo-app'
@@ -61,6 +61,7 @@ ospackage {
 }
 
 buildRpm {
+    group 'build'
     link("/etc/init.d/$packname", "/$packname/bin/init.sh")
     preInstall file("package-scripts/preInstallCentos.sh")
     postInstall file("package-scripts/postInstallCentos.sh")
@@ -69,5 +70,5 @@ buildRpm {
 
 
 task buildOSPacks(dependsOn:[buildRpm]){
-
+    group 'build'
 }
