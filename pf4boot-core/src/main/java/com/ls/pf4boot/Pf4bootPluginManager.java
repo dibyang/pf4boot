@@ -1,9 +1,12 @@
 package com.ls.pf4boot;
 
-import com.ls.pf4boot.internal.PropertiesPluginDescriptorFinder2;
+import com.ls.pf4boot.loader.JarPf4bootPluginLoader;
+import com.ls.pf4boot.loader.Pf4bootPluginLoader;
+import com.ls.pf4boot.spring.boot.Pf4bootProperties;
 import com.ls.pf4boot.spring.boot.PluginStartingError;
 import com.ls.pf4boot.spring.boot.Pf4bootPluginStateChangedEvent;
 import com.ls.pf4boot.internal.SpringExtensionFactory;
+import com.ls.pf4boot.spring.boot.PropertyPluginStatusProvider;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +15,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 import javax.annotation.PostConstruct;
+import java.lang.reflect.Constructor;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -32,13 +36,24 @@ public class Pf4bootPluginManager extends DefaultPluginManager
   private String[] profiles;
   private PluginRepository pluginRepository;
   private final Map<String, PluginStartingError> startingErrors = new HashMap<>();
+  private Pf4bootProperties properties;
 
-  public Pf4bootPluginManager() {
-    super();
+  public Pf4bootPluginManager(Pf4bootProperties properties) {
+    this.properties = properties;
+    this.initialize();
   }
 
-  public Pf4bootPluginManager(Path pluginsRoot) {
-    super(pluginsRoot);
+  public Pf4bootPluginManager(Path pluginsRoot, Pf4bootProperties properties) {
+    this.pluginsRoot = pluginsRoot;
+    this.properties = properties;
+    this.initialize();
+  }
+
+  @Override
+  protected void initialize() {
+    if(properties!=null) {
+      super.initialize();
+    }
   }
 
   @Override
@@ -71,6 +86,32 @@ public class Pf4bootPluginManager extends DefaultPluginManager
     return new CompoundPluginDescriptorFinder()
         .add(new PropertiesPluginDescriptorFinder2())
         .add(new ManifestPluginDescriptorFinder());
+  }
+
+  @Override
+  protected PluginLoader createPluginLoader() {
+    if (properties.getCustomPluginLoader() != null) {
+      Class<PluginLoader> clazz = properties.getCustomPluginLoader();
+      try {
+        Constructor<?> constructor = clazz.getConstructor(PluginManager.class);
+        return (PluginLoader) constructor.newInstance(this);
+      } catch (Exception ex) {
+        throw new IllegalArgumentException(String.format("Create custom PluginLoader %s failed. Make sure" +
+            "there is a constructor with one argument that accepts PluginLoader", clazz.getName()));
+      }
+    } else {
+      return new CompoundPluginLoader()
+          .add(new Pf4bootPluginLoader(this,properties), this::isDevelopment)
+          .add(new JarPf4bootPluginLoader(this));
+    }
+  }
+
+  @Override
+  protected PluginStatusProvider createPluginStatusProvider() {
+    if (PropertyPluginStatusProvider.isPropertySet(properties)) {
+      return new PropertyPluginStatusProvider(properties);
+    }
+    return super.createPluginStatusProvider();
   }
 
   public PluginRepository getPluginRepository() {

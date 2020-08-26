@@ -154,8 +154,8 @@ subprojects {
             from configurations.inline
             into "$buildDir/inline"
         }
-
         build.dependsOn += copyInlineTolib
+        jar.dependsOn += copyInlineTolib
 
         task buildJarPlugin(type: Jar) {
             group 'build'

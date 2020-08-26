@@ -7,6 +7,7 @@ import com.ls.pf4boot.internal.MainAppStartedListener;
 import com.ls.pf4boot.internal.PluginResourceResolver;
 import com.ls.pf4boot.internal.Pf4bootPluginClassLoader;
 import com.ls.pf4boot.loader.JarPf4bootPluginLoader;
+import com.ls.pf4boot.loader.Pf4bootPluginLoader;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,7 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.net.URL;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
@@ -85,50 +87,7 @@ public class Pf4bootAutoConfiguration {
       System.setProperty("pf4j.pluginsDir", appHome + File.separator + pluginsRoot);
     }
 
-    Pf4bootPluginManager pluginManager = new Pf4bootPluginManager(
-        new File(pluginsRoot).toPath()) {
-      @Override
-      protected PluginLoader createPluginLoader() {
-        if (properties.getCustomPluginLoader() != null) {
-          Class<PluginLoader> clazz = properties.getCustomPluginLoader();
-          try {
-            Constructor<?> constructor = clazz.getConstructor(PluginManager.class);
-            return (PluginLoader) constructor.newInstance(this);
-          } catch (Exception ex) {
-            throw new IllegalArgumentException(String.format("Create custom PluginLoader %s failed. Make sure" +
-                "there is a constructor with one argument that accepts PluginLoader", clazz.getName()));
-          }
-        } else {
-          return new CompoundPluginLoader()
-              .add(new DefaultPluginLoader(this) {
-                @Override
-                protected PluginClassLoader createPluginClassLoader(Path pluginPath,
-                                                                    PluginDescriptor pluginDescriptor) {
-                  if (properties.getClassesDirectories() != null && properties.getClassesDirectories().size() > 0) {
-                    for (String classesDirectory : properties.getClassesDirectories()) {
-                      pluginClasspath.addClassesDirectories(classesDirectory);
-                    }
-                  }
-                  if (properties.getLibDirectories() != null && properties.getLibDirectories().size() > 0) {
-                    for (String libDirectory : properties.getLibDirectories()) {
-                      pluginClasspath.addJarsDirectories(libDirectory);
-                    }
-                  }
-                  return new Pf4bootPluginClassLoader(pluginManager, pluginDescriptor);
-                }
-              }, this::isDevelopment)
-              .add(new JarPf4bootPluginLoader(this));
-        }
-      }
-
-      @Override
-      protected PluginStatusProvider createPluginStatusProvider() {
-        if (PropertyPluginStatusProvider.isPropertySet(properties)) {
-          return new PropertyPluginStatusProvider(properties);
-        }
-        return super.createPluginStatusProvider();
-      }
-    };
+    Pf4bootPluginManager pluginManager = new Pf4bootPluginManager(new File(pluginsRoot).toPath(),properties);
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));

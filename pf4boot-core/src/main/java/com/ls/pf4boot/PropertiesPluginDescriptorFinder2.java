@@ -1,4 +1,4 @@
-package com.ls.pf4boot.internal;
+package com.ls.pf4boot;
 
 import org.pf4j.PropertiesPluginDescriptorFinder;
 import org.pf4j.util.FileUtils;
