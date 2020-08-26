@@ -1,6 +1,73 @@
+plugins {
+    id "nebula.ospackage" version "8.4.1"
+}
 
+build {
+    enabled = false
+}
+jar {
+    enabled = false
+}
+install {
+    enabled = false
+}
+uploadArchives {
+    enabled = false
+}
 
 dependencies {
     compile project(":demo-app")
     compile("com.h2database:h2:1.4.196")
+    plugin("com.ls.pf4boot:plugin1:0.4.1@zip")
+    plugin("com.ls.pf4boot:plugin2:0.4.1@zip")
+}
+
+ext.packname='demo-app'
+
+ospackage {
+    packageName = "$packname"
+    epoch= 1
+    release = '1'
+    os = LINUX
+    user = 'root'
+    conflicts("$packname")
+
+    into "/$packname"
+
+    from("bin"){
+        into "bin"
+        fileMode = 0555
+    }
+
+    from("config"){
+        fileType CONFIG | NOREPLACE
+        into "config"
+    }
+
+    from(configurations.runtime){
+        into "lib"
+        exclude '*-sources.jar','*-javadoc.jar'
+    }
+
+    from("plugins"){
+        into "plugins"
+        exclude "plugins.link"
+    }
+
+    from(configurations.plugin){
+        into "plugins"
+    }
+
+}
+
+buildRpm {
+    link("/etc/init.d/$packname", "/$packname/bin/init.sh")
+    preInstall file("package-scripts/preInstallCentos.sh")
+    postInstall file("package-scripts/postInstallCentos.sh")
+    preUninstall file("package-scripts/preUninstallCentos.sh")
+}
+
+
+task buildOSPacks(dependsOn:[buildRpm]){
+
 }
