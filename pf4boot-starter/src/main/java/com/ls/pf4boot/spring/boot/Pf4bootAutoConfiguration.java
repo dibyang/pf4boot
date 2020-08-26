@@ -6,6 +6,7 @@ import com.ls.pf4boot.internal.MainAppReadyListener;
 import com.ls.pf4boot.internal.MainAppStartedListener;
 import com.ls.pf4boot.internal.PluginResourceResolver;
 import com.ls.pf4boot.internal.Pf4bootPluginClassLoader;
+import com.ls.pf4boot.loader.JarPf4bootPluginLoader;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,12 +22,16 @@ import org.springframework.context.annotation.Import;
 import org.springframework.util.StringUtils;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.net.URL;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
 import java.util.function.Consumer;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
 
 @Configuration
 @ConditionalOnClass({PluginManager.class, Pf4bootPluginManager.class})
@@ -112,14 +117,7 @@ public class Pf4bootAutoConfiguration {
                   return new Pf4bootPluginClassLoader(pluginManager, pluginDescriptor);
                 }
               }, this::isDevelopment)
-              .add(new JarPluginLoader(this) {
-                @Override
-                public ClassLoader loadPlugin(Path pluginPath, PluginDescriptor pluginDescriptor) {
-                  PluginClassLoader pluginClassLoader = new Pf4bootPluginClassLoader(pluginManager, pluginDescriptor);
-                  pluginClassLoader.addFile(pluginPath.toFile());
-                  return pluginClassLoader;
-                }
-              });
+              .add(new JarPf4bootPluginLoader(this));
         }
       }
 

@@ -40,15 +40,27 @@ public class LinkPluginRepository extends BasePluginRepository {
       return Collections.emptyList();
     }
 
-    List<File> pFiles = new ArrayList<>();
     List<File> links = readLinks(files[0]);
-    pFiles.addAll(links);
     if (comparator != null) {
-      Collections.sort(pFiles, comparator);
+      links.sort(comparator);
     }
-    List<Path> paths = new ArrayList<>(pFiles.size());
-    for (File file : pFiles) {
-      paths.add(file.toPath());
+    List<Path> paths = new ArrayList<>(links.size());
+    for (File file : links) {
+      Path pluginPath = file.toPath();
+      if(FileUtils.isZipFile(pluginPath)){
+        try {
+          FileUtils.expandIfZip(pluginPath);
+          String fileName = pluginPath.getFileName().toString();
+          String directoryName = fileName.substring(0, fileName.lastIndexOf("."));
+          Path pluginDirectory = pluginPath.resolveSibling(directoryName);
+          paths.add(pluginDirectory);
+        } catch (IOException e) {
+          log.error("Cannot expand plugin zip '{}'", file);
+          log.error(e.getMessage(), e);
+        }
+      }else {
+        paths.add(pluginPath);
+      }
     }
     return paths;
   }
@@ -57,14 +69,12 @@ public class LinkPluginRepository extends BasePluginRepository {
     List<File> links = new ArrayList<>();
     try {
       List<String> lines = Files.readAllLines(linksFile.toPath());
-      if (lines != null) {
-        for (String line : lines) {
-          if (line != null) {
-            if (!line.startsWith("#")) {
-              File file = new File(line);
-              if (file.exists()) {
-                links.add(file);
-              }
+      for (String line : lines) {
+        if (line != null) {
+          if (!line.startsWith("#")) {
+            File file = new File(line);
+            if (file.exists()) {
+              links.add(file);
             }
           }
         }
@@ -88,16 +98,14 @@ public class LinkPluginRepository extends BasePluginRepository {
   private void removeFromLinks(File linksFile, Path pluginPath) {
     try {
       List<String> lines = Files.readAllLines(linksFile.toPath());
-      if (lines != null) {
-        Iterator<String> iterator = lines.iterator();
-        while (iterator.hasNext()) {
-          String line = iterator.next();
-          if (line != null) {
-            if (!line.startsWith("#")) {
-              File file = new File(line);
-              if(file.toPath().equals(pluginPath)){
-                iterator.remove();
-              }
+      Iterator<String> iterator = lines.iterator();
+      while (iterator.hasNext()) {
+        String line = iterator.next();
+        if (line != null) {
+          if (!line.startsWith("#")) {
+            File file = new File(line);
+            if(file.toPath().equals(pluginPath)){
+              iterator.remove();
             }
           }
         }

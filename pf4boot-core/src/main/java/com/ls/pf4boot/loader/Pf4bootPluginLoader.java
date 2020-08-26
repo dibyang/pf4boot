@@ -1,5 +1,6 @@
-package com.ls.pf4boot;
+package com.ls.pf4boot.loader;
 
+import com.ls.pf4boot.Pf4bootPluginManager;
 import com.ls.pf4boot.internal.Pf4bootPluginClassLoader;
 import com.ls.pf4boot.spring.boot.Pf4bootProperties;
 import org.pf4j.DefaultPluginLoader;

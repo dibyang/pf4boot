@@ -23,7 +23,7 @@ spring:
       - "build/classes/java/main"
       - "build/resources/main"
     lib-directories:
-      - "libs"
+      - "lib"
       - "build/inline"
     main:
       allow-bean-definition-overriding: true

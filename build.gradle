@@ -1,6 +1,6 @@
 import java.time.LocalDateTime
 
-def isPluginProject(Project project) {
+static def isPluginProject(Project project) {
     return project.hasProperty("plugin")
 }
 
@@ -125,45 +125,6 @@ subprojects {
         }
     }
 
-    if (isPluginProject(project)) {
-
-        Properties pluginProp = new Properties()
-        pluginProp.load(file('plugin.properties').newDataInputStream())
-        if(project.version != pluginProp.get("plugin.version")){
-            pluginProp.setProperty("plugin.version",project.version)
-            pluginProp.store(file('plugin.properties').newDataOutputStream(),null)
-        }
-        jar {
-            into('libs') {
-                from configurations.inline
-            }
-            manifest.attributes(
-                "Build-Time": LocalDateTime.now(),
-                "Plugin-Id": pluginProp.get("plugin.id"),
-                "Plugin-Class": pluginProp.get("plugin.class"),
-                "Plugin-Version": pluginProp.get("plugin.version"),
-                "Plugin-Provider": pluginProp.get("plugin.provider"),
-                "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
-        }
-
-        task addInlineToManifest() {
-            String[] inline = new File("$buildDir/inline").list()
-            if (inline!=null&&inline.length>0) {
-                jar.manifest.attributes('Class-Path': inline.collect { "libs/$it" }.join(' '))
-            }
-        }
-        jar.dependsOn += addInlineToManifest
-
-        task copyInlineTolib(type: Copy) {
-            group 'build'
-            from configurations.inline
-            into "$buildDir/inline"
-        }
-
-        build.dependsOn += copyInlineTolib
-
-    }
-
     task sourcesJar(type: Jar, dependsOn: classes) {
         description = 'Build source jar'
         classifier = 'sources'
@@ -174,5 +135,77 @@ subprojects {
         archives jar
         archives sourcesJar
     }
+
+    if (isPluginProject(project)) {
+
+        Properties pluginProp = new Properties()
+        pluginProp.load(file('plugin.properties').newDataInputStream())
+        if(project.version != pluginProp.get("plugin.version")){
+            pluginProp.setProperty("plugin.version",project.version)
+            pluginProp.store(file('plugin.properties').newDataOutputStream(),null)
+        }
+        jar {
+
+        }
+
+
+        task copyInlineTolib(type: Copy) {
+            group 'build'
+            from configurations.inline
+            into "$buildDir/inline"
+        }
+
+        build.dependsOn += copyInlineTolib
+
+        task buildJarPlugin(type: Jar) {
+            group 'build'
+            dependsOn build
+            destinationDir file("$buildDir/libs/")
+            entryCompression ZipEntryCompression.STORED
+            into('lib') {
+                from configurations.inline
+            }
+            manifest.attributes(
+                "Build-Time": LocalDateTime.now(),
+                "Plugin-Id": pluginProp.get("plugin.id"),
+                "Plugin-Class": pluginProp.get("plugin.class"),
+                "Plugin-Version": pluginProp.get("plugin.version"),
+                "Plugin-Provider": pluginProp.get("plugin.provider"),
+                "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
+            with jar
+            doLast {
+                // Deploy built plugins...
+            }
+        }
+
+        task addInlineToManifest() {
+            String[] inline = new File("$buildDir/inline").list()
+            if (inline!=null&&inline.length>0) {
+                jar.manifest.attributes('Class-Path': inline.collect { "lib/$it" }.join(' '))
+            }
+        }
+        buildJarPlugin.dependsOn += addInlineToManifest
+
+        task buildZipPlugin(type: Zip) {
+            group 'build'
+            dependsOn jar
+            destinationDir file("$buildDir/libs/")
+            baseName project.name
+            from 'plugin.properties'
+            into('lib') {
+                from "$buildDir/libs/$jar.archiveFileName"
+                from configurations.inline
+            }
+
+            doLast {
+                // Deploy built plugins...
+            }
+        }
+        artifacts {
+            archives buildZipPlugin
+        }
+    }
+
+
 
 }
