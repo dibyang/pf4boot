@@ -56,3 +56,4 @@ logging:
     name: ./logs/demo.log
   level:
     root: INFO
+    org.springframework.web: trace
