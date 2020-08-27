@@ -158,7 +158,76 @@ public class Pf4bootPluginManager extends AbstractPluginManager
 
   @Override
   protected PluginWrapper loadPluginFromPath(Path pluginPath) {
-    return super.loadPluginFromPath(pluginPath);
+    // Test for plugin path duplication
+    String pluginId = idForPath(pluginPath);
+    if (pluginId != null) {
+      throw new PluginAlreadyLoadedException(pluginId, pluginPath);
+    }
+
+    // Retrieve and validate the plugin descriptor
+    PluginDescriptorFinder pluginDescriptorFinder = getPluginDescriptorFinder();
+    log.debug("Use '{}' to find plugins descriptors", pluginDescriptorFinder);
+    log.debug("Finding plugin descriptor for plugin '{}'", pluginPath);
+    PluginDescriptor pluginDescriptor = pluginDescriptorFinder.find(pluginPath);
+    validatePluginDescriptor(pluginDescriptor);
+
+    // Check there are no loaded plugins with the retrieved id
+    pluginId = pluginDescriptor.getPluginId();
+    if (plugins.containsKey(pluginId)) {
+      PluginWrapper loadedPlugin = getPlugin(pluginId);
+      log.warn("duplicate plugin found : {}, {} and {}",pluginId,loadedPlugin.getDescriptor().getVersion(), pluginDescriptor.getVersion());
+      if(versionManager.compareVersions(loadedPlugin.getDescriptor().getVersion(),pluginDescriptor.getVersion())<0){
+        unloadPlugin(pluginId);
+      }else{
+        return loadedPlugin;
+      }
+      /*
+      throw new PluginRuntimeException("There is an already loaded plugin ({}) "
+          + "with the same id ({}) as the plugin at path '{}'. Simultaneous loading "
+          + "of plugins with the same PluginId is not currently supported.\n"
+          + "As a workaround you may include PluginVersion and PluginProvider "
+          + "in PluginId.",
+          loadedPlugin, pluginId, pluginPath);//*/
+    }
+
+    log.debug("Found descriptor {}", pluginDescriptor);
+    String pluginClassName = pluginDescriptor.getPluginClass();
+    log.debug("Class '{}' for plugin '{}'",  pluginClassName, pluginPath);
+
+    // load plugin
+    log.debug("Loading plugin '{}'", pluginPath);
+    ClassLoader pluginClassLoader = getPluginLoader().loadPlugin(pluginPath, pluginDescriptor);
+    log.debug("Loaded plugin '{}' with class loader '{}'", pluginPath, pluginClassLoader);
+
+    // create the plugin wrapper
+    log.debug("Creating wrapper for plugin '{}'", pluginPath);
+    PluginWrapper pluginWrapper = new PluginWrapper(this, pluginDescriptor, pluginPath, pluginClassLoader);
+    pluginWrapper.setPluginFactory(getPluginFactory());
+
+    // test for disabled plugin
+    if (isPluginDisabled(pluginDescriptor.getPluginId())) {
+      log.info("Plugin '{}' is disabled", pluginPath);
+      pluginWrapper.setPluginState(PluginState.DISABLED);
+    }
+
+    // validate the plugin
+    if (!isPluginValid(pluginWrapper)) {
+      log.warn("Plugin '{}' is invalid and it will be disabled", pluginPath);
+      pluginWrapper.setPluginState(PluginState.DISABLED);
+    }
+
+    log.debug("Created wrapper '{}' for plugin '{}'", pluginWrapper, pluginPath);
+
+    pluginId = pluginDescriptor.getPluginId();
+
+    // add plugin to the list with plugins
+    plugins.put(pluginId, pluginWrapper);
+    getUnresolvedPlugins().add(pluginWrapper);
+
+    // add plugin class loader to the list with class loaders
+    getPluginClassLoaders().put(pluginId, pluginClassLoader);
+
+    return pluginWrapper;
   }
 
   public PluginRepository getPluginRepository() {

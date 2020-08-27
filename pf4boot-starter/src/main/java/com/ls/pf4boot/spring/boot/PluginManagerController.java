@@ -54,7 +54,7 @@ public class PluginManagerController {
       PluginDescriptor descriptor = pluginManager
           .getPluginDescriptorFinder().find(path);
       return PluginInfo.build(descriptor, null, null, null, false);
-    }).collect(Collectors.toList()));
+    }).filter(pluginInfo -> loadedPlugins.stream().noneMatch(plugin->plugin.getPluginId().equals(pluginInfo.pluginId))).collect(Collectors.toList()));
 
     return plugins;
   }
