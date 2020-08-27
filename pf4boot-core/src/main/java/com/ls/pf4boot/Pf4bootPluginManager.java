@@ -90,13 +90,13 @@ public class Pf4bootPluginManager extends AbstractPluginManager
 
   @Override
   protected PluginRepository createPluginRepository() {
-    PluginRepository repository = new CompoundPluginRepository()
+    pluginRepository = new CompoundPluginRepository()
         .add(new LinkPluginRepository(pluginsRoot))
         .add(new Pf4bootPluginRepository(pluginsRoot))
         .add(new ZipPluginRepository(pluginsRoot))
         .add(new DevelopmentPluginRepository(pluginsRoot), this::isDevelopment)
         .add(new JarPluginRepository(pluginsRoot), this::isNotDevelopment);
-    return repository;
+    return pluginRepository;
   }
 
   @Override
