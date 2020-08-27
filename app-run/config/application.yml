@@ -19,7 +19,7 @@ spring:
   pf4boot:
     #prod=deployment
     #dev=development
-    runtime-mode: prod
+    runtime-mode: dev
     enabled: true
     classes-directories:
       - "build/classes/java/main"
@@ -55,5 +55,5 @@ logging:
   file:
     name: ./logs/demo.log
   level:
-    root: INFO
+    root: info
     org.springframework.web: trace

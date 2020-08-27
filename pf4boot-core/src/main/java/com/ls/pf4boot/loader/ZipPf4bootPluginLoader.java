@@ -39,7 +39,7 @@ public class ZipPf4bootPluginLoader implements PluginLoader {
   @Override
   public ClassLoader loadPlugin(Path pluginPath, PluginDescriptor pluginDescriptor) {
     PluginClassLoader pluginClassLoader = new Pf4bootPluginClassLoader(pluginManager, pluginDescriptor);
-    File cache = pluginManager.getPluginsRoot().resolve("cache").toFile();
+    File cache = pluginManager.getPluginsRoot().resolveSibling("plugin-cache").toFile();
     if(!cache.exists()){
       cache.mkdirs();
     }
