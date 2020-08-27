@@ -1,5 +1,5 @@
 server:
-  port: 6688
+  port: 6699
   servlet:
     context-path:
     multipart:
@@ -50,6 +50,7 @@ spring:
         trace: true
         web-allow-others: true
 logging:
-  file: ./logs/demo.log
+  file:
+    name: ./logs/demo.log
   level:
     root: INFO

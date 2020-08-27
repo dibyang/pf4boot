@@ -30,6 +30,7 @@ spring:
     controller:
       base-path: /api/pf4boot/
 logging:
-  file: ./logs/spring.log
+  file:
+    name: ./logs/pf4boot.log
   level:
     root: INFO

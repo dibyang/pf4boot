@@ -50,6 +50,7 @@ spring:
         trace: true
         web-allow-others: true
 logging:
-  file: ./logs/demo.log
+  file:
+    name: ./logs/demo.log
   level:
     root: INFO
