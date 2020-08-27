@@ -25,6 +25,18 @@ dependencies {
 
 ext.packname='demo-app'
 
+task prepackage(type: Copy)  {
+    group 'build'
+    copy
+    {
+        from("./package-scripts/"){
+            include('*.sh')
+            filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [app_name:packname])
+        }
+        into "$buildDir/ready"
+    }
+}
+
 ospackage {
     packageName = "$packname"
     epoch= 1
@@ -32,12 +44,13 @@ ospackage {
     os = LINUX
     user = 'root'
     conflicts("$packname")
-
+    prepackage
     into "/$packname"
 
     from("bin"){
         into "bin"
         fileMode = 0555
+        filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [app_name:packname])
     }
 
     from("config-prod"){
@@ -64,9 +77,9 @@ ospackage {
 buildRpm {
     group 'build'
     link("/etc/init.d/$packname", "/$packname/bin/init.sh")
-    preInstall file("package-scripts/preInstallCentos.sh")
-    postInstall file("package-scripts/postInstallCentos.sh")
-    preUninstall file("package-scripts/preUninstallCentos.sh")
+    preInstall file("$buildDir/ready/preInstallCentos.sh")
+    postInstall file("$buildDir/ready/postInstallCentos.sh")
+    preUninstall file("$buildDir/ready/preUninstallCentos.sh")
 }
 
 

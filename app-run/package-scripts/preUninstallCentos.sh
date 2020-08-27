@@ -1,5 +1,5 @@
 #!/bin/bash
-
+name=@app_name@
 if [ "$1" == "0" ]; then
-service demo-app stop
+service $name stop
 fi

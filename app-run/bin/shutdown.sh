@@ -3,7 +3,7 @@
 oldpath=$(pwd)
 basepath=$(cd `dirname $0`; pwd)
 
-name=demo-app
+name=@app_name@
 approot=`dirname $basepath`
 cd $approot
 

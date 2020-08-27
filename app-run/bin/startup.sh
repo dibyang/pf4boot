@@ -1,11 +1,10 @@
 #!/bin/bash
-
+name=@app_name@
 oldpath=$(pwd)
 basepath=$(cd `dirname $0`; pwd)
 
 approot=`dirname $basepath`
 cd $approot
-name=demo-app
 
 instance=`ps -ef | grep app.home=$approot | sed '/grep/d'`
 if [ -n "$instance" ]; then
