@@ -17,7 +17,9 @@ spring:
   flyway:
     enabled: false
   pf4boot:
-    runtime-mode: development
+    #prod=deployment
+    #dev=development
+    runtime-mode: dev
     enabled: true
     classes-directories:
       - "build/classes/java/main"

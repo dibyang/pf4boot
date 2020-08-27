@@ -1,11 +1,12 @@
 package com.ls.pf4boot;
 
+import com.ls.pf4boot.internal.SpringExtensionFactory;
 import com.ls.pf4boot.loader.JarPf4bootPluginLoader;
 import com.ls.pf4boot.loader.Pf4bootPluginLoader;
+import com.ls.pf4boot.loader.ZipPf4bootPluginLoader;
+import com.ls.pf4boot.spring.boot.Pf4bootPluginStateChangedEvent;
 import com.ls.pf4boot.spring.boot.Pf4bootProperties;
 import com.ls.pf4boot.spring.boot.PluginStartingError;
-import com.ls.pf4boot.spring.boot.Pf4bootPluginStateChangedEvent;
-import com.ls.pf4boot.internal.SpringExtensionFactory;
 import com.ls.pf4boot.spring.boot.PropertyPluginStatusProvider;
 import org.pf4j.*;
 import org.slf4j.Logger;
@@ -15,8 +16,10 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 import javax.annotation.PostConstruct;
+import java.io.File;
 import java.lang.reflect.Constructor;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 /**
@@ -25,7 +28,7 @@ import java.util.*;
  * @author yangzj
  * @version 1.0
  */
-public class Pf4bootPluginManager extends DefaultPluginManager
+public class Pf4bootPluginManager extends AbstractPluginManager
     implements ApplicationContextAware {
   static final Logger log = LoggerFactory.getLogger(Pf4bootPluginManager.class);
 
@@ -38,22 +41,39 @@ public class Pf4bootPluginManager extends DefaultPluginManager
   private final Map<String, PluginStartingError> startingErrors = new HashMap<>();
   private Pf4bootProperties properties;
 
+  public static final String PLUGINS_DIR_CONFIG_PROPERTY_NAME = "pf4j.pluginsConfigDir";
+
+
   public Pf4bootPluginManager(Pf4bootProperties properties) {
     this.properties = properties;
-    this.initialize();
+    this.doInitialize();
   }
 
   public Pf4bootPluginManager(Path pluginsRoot, Pf4bootProperties properties) {
     this.pluginsRoot = pluginsRoot;
     this.properties = properties;
-    this.initialize();
+    this.doInitialize();
+  }
+
+
+  @Override
+  protected PluginDescriptorFinder createPluginDescriptorFinder() {
+    return new CompoundPluginDescriptorFinder()
+        .add(new PropertiesPluginDescriptorFinder2())
+        .add(new ManifestPluginDescriptorFinder());
   }
 
   @Override
-  protected void initialize() {
-    if(properties!=null) {
-      super.initialize();
-    }
+  protected ExtensionFinder createExtensionFinder() {
+    DefaultExtensionFinder extensionFinder = new DefaultExtensionFinder(this);
+    addPluginStateListener(extensionFinder);
+
+    return extensionFinder;
+  }
+
+  @Override
+  protected PluginFactory createPluginFactory() {
+    return new DefaultPluginFactory();
   }
 
   @Override
@@ -62,30 +82,21 @@ public class Pf4bootPluginManager extends DefaultPluginManager
   }
 
   @Override
-  public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-    this.mainApplicationContext = applicationContext;
-  }
-
-  @Override
-  public PluginDescriptorFinder getPluginDescriptorFinder() {
-    return super.getPluginDescriptorFinder();
+  protected PluginStatusProvider createPluginStatusProvider() {
+    String configDir = System.getProperty(PLUGINS_DIR_CONFIG_PROPERTY_NAME);
+    Path configPath = configDir != null ? Paths.get(configDir) : getPluginsRoot();
+    return new DefaultPluginStatusProvider(configPath);
   }
 
   @Override
   protected PluginRepository createPluginRepository() {
-    this.pluginRepository = new CompoundPluginRepository()
-        .add(new LinkPluginRepository(getPluginsRoot()))
-        .add(new DefaultPluginRepository(getPluginsRoot()))
-        .add(new DevelopmentPluginRepository(getPluginsRoot()), this::isDevelopment)
-        .add(new JarPluginRepository(getPluginsRoot()), this::isNotDevelopment);
-    return this.pluginRepository;
-  }
-
-  @Override
-  protected PluginDescriptorFinder createPluginDescriptorFinder() {
-    return new CompoundPluginDescriptorFinder()
-        .add(new PropertiesPluginDescriptorFinder2())
-        .add(new ManifestPluginDescriptorFinder());
+    PluginRepository repository = new CompoundPluginRepository()
+        .add(new LinkPluginRepository(pluginsRoot))
+        .add(new Pf4bootPluginRepository(pluginsRoot))
+        .add(new ZipPluginRepository(pluginsRoot))
+        .add(new DevelopmentPluginRepository(pluginsRoot), this::isDevelopment)
+        .add(new JarPluginRepository(pluginsRoot), this::isNotDevelopment);
+    return repository;
   }
 
   @Override
@@ -101,17 +112,53 @@ public class Pf4bootPluginManager extends DefaultPluginManager
       }
     } else {
       return new CompoundPluginLoader()
-          .add(new Pf4bootPluginLoader(this,properties))
-          .add(new JarPf4bootPluginLoader(this));
+          .add(new ZipPf4bootPluginLoader(this))
+          .add(new Pf4bootPluginLoader(this, properties),this::isDevelopment)
+          .add(new JarPf4bootPluginLoader(this),this::isDevelopment);
     }
   }
 
   @Override
-  protected PluginStatusProvider createPluginStatusProvider() {
-    if (PropertyPluginStatusProvider.isPropertySet(properties)) {
-      return new PropertyPluginStatusProvider(properties);
+  protected VersionManager createVersionManager() {
+    return new DefaultVersionManager();
+  }
+
+  @Override
+  protected void initialize() {
+
+  }
+
+  protected void doInitialize() {
+    super.initialize();
+
+    if (isDevelopment()) {
+      addPluginStateListener(new LoggingPluginStateListener());
     }
-    return super.createPluginStatusProvider();
+
+    log.info("PF4J version {} in '{}' mode", getVersion(), getRuntimeMode());
+  }
+
+
+  @Override
+  public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+    this.mainApplicationContext = applicationContext;
+  }
+
+  @Override
+  public PluginDescriptorFinder getPluginDescriptorFinder() {
+    return super.getPluginDescriptorFinder();
+  }
+
+  @Override
+  public void loadPlugins() {
+    super.loadPlugins();
+  }
+
+
+
+  @Override
+  protected PluginWrapper loadPluginFromPath(Path pluginPath) {
+    return super.loadPluginFromPath(pluginPath);
   }
 
   public PluginRepository getPluginRepository() {

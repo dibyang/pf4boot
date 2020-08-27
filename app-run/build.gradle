@@ -39,7 +39,7 @@ ospackage {
         fileMode = 0555
     }
 
-    from("config"){
+    from("config-prod"){
         fileType CONFIG | NOREPLACE
         into "config"
     }
@@ -51,7 +51,7 @@ ospackage {
 
     from("plugins"){
         into "plugins"
-        exclude "plugins.link"
+        include "disabled.txt"
     }
 
     from(configurations.plugin){

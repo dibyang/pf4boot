@@ -1,2 +1,4 @@
-../plugin1/
-../plugin2/
+#../plugin1/
+#../plugin2/
+../plugin1/build/libs/plugin1-0.4.3-SNAPSHOT.zip
+../plugin2/build/libs/plugin2-0.4.3-SNAPSHOT.zip

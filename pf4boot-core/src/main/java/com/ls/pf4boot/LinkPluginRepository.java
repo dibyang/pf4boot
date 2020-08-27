@@ -47,20 +47,7 @@ public class LinkPluginRepository extends BasePluginRepository {
     List<Path> paths = new ArrayList<>(links.size());
     for (File file : links) {
       Path pluginPath = file.toPath();
-      if(FileUtils.isZipFile(pluginPath)){
-        try {
-          FileUtils.expandIfZip(pluginPath);
-          String fileName = pluginPath.getFileName().toString();
-          String directoryName = fileName.substring(0, fileName.lastIndexOf("."));
-          Path pluginDirectory = pluginPath.resolveSibling(directoryName);
-          paths.add(pluginDirectory);
-        } catch (IOException e) {
-          log.error("Cannot expand plugin zip '{}'", file);
-          log.error(e.getMessage(), e);
-        }
-      }else {
-        paths.add(pluginPath);
-      }
+      paths.add(pluginPath);
     }
     return paths;
   }

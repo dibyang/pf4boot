@@ -128,8 +128,8 @@ public class Pf4bootProperties {
     return runtimeMode;
   }
 
-  public void setRuntimeMode(RuntimeMode runtimeMode) {
-    this.runtimeMode = runtimeMode;
+  public void setRuntimeMode(String runtimeMode) {
+    this.runtimeMode = RuntimeMode.byName(runtimeMode);
   }
 
   public String getPluginsRoot() {

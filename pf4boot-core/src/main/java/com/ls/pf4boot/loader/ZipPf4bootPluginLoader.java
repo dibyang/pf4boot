@@ -1,18 +1,21 @@
 package com.ls.pf4boot.loader;
 
 import com.ls.pf4boot.internal.Pf4bootPluginClassLoader;
-import com.ls.pf4boot.loader.archive.Archive;
-import com.ls.pf4boot.loader.archive.JarFileArchive;
-import com.ls.pf4boot.loader.jar.JarFile;
-import org.pf4j.*;
+import org.pf4j.PluginClassLoader;
+import org.pf4j.PluginDescriptor;
+import org.pf4j.PluginLoader;
+import org.pf4j.PluginManager;
 import org.pf4j.util.FileUtils;
+import org.pf4j.util.JarFileFilter;
+import org.pf4j.util.Unzip;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Iterator;
+import java.nio.file.attribute.FileTime;
 
 /**
  * ZipPf4bootPluginLoader
@@ -36,19 +39,46 @@ public class ZipPf4bootPluginLoader implements PluginLoader {
   @Override
   public ClassLoader loadPlugin(Path pluginPath, PluginDescriptor pluginDescriptor) {
     PluginClassLoader pluginClassLoader = new Pf4bootPluginClassLoader(pluginManager, pluginDescriptor);
-    pluginClassLoader.addFile(pluginPath.toFile());
-    JarFile.registerUrlProtocolHandler();
-    try {
-      JarFileArchive archive = new JarFileArchive(pluginPath.toFile());
-      Iterator<Archive> archives = archive.getNestedArchives(s -> s.getName().startsWith("lib/"), n -> n.getName().endsWith(".jar"));
-      while(archives.hasNext()){
-        pluginClassLoader.addURL(archives.next().getUrl());
+    File cache = pluginManager.getPluginsRoot().resolve("cache").toFile();
+    if(!cache.exists()){
+      cache.mkdirs();
+    }
+    if(FileUtils.isZipFile(pluginPath)){
+      try {
+        String fileName = pluginPath.getFileName().toString();
+        String directoryName = fileName.substring(0, fileName.lastIndexOf("."));
+        Path pluginDirectory = cache.toPath().resolve(directoryName);
+
+        expandIfZip(pluginPath, pluginDirectory);
+        File[] libs = pluginDirectory.resolve("lib").toFile().listFiles(new JarFileFilter());
+        for (File lib : libs) {
+          pluginClassLoader.addFile(lib);
+        }
+      } catch (IOException e) {
+        log.error("Cannot expand plugin zip '{}'", pluginPath);
+        log.error(e.getMessage(), e);
       }
-    } catch (IOException e) {
-      log.warn(null,e);
     }
     return pluginClassLoader;
   }
 
+  public static Path expandIfZip(Path filePath, Path pluginDirectory) throws IOException {
+    if (!FileUtils.isZipFile(filePath)) {
+      return filePath;
+    }
+
+    FileTime pluginZipDate = Files.getLastModifiedTime(filePath);
+
+    if (!Files.exists(pluginDirectory) || pluginZipDate.compareTo(Files.getLastModifiedTime(pluginDirectory)) > 0) {
+      // expand '.zip' file
+      Unzip unzip = new Unzip();
+      unzip.setSource(filePath.toFile());
+      unzip.setDestination(pluginDirectory.toFile());
+      unzip.extract();
+      log.info("Expanded plugin zip '{}' in '{}'", filePath.getFileName(), pluginDirectory.getFileName());
+    }
+
+    return pluginDirectory;
+  }
 
 }
