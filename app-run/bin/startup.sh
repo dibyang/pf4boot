@@ -26,6 +26,13 @@ JAVA_OPTS="$JAVA_OPTS -cp :$approot/lib/* -Dapp.home=$approot"
 
 eval java  $JAVA_OPTS  com.ls.demo.Application \
  1> /dev/null 2> /dev/null "&"
-echo "$name is start"
+
+instance=`ps -ef | grep app.home=$approot | sed '/grep/d'`
+if [ -n "$instance" ]; then
+  echo "$name started"
+else
+	echo "$name start failed"
+fi
+
 
 
