@@ -17,8 +17,9 @@ public class Application {
 
 
   public static void main(String[] args) {
+    logger.trace("app run....");
     SpringApplicationBuilder builder = new SpringApplicationBuilder();
-    builder.profiles("no_security");
+    //builder.profiles("no_security");
     builder.sources(Application.class);
     builder.build().run();
   }

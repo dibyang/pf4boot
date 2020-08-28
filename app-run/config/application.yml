@@ -1,3 +1,4 @@
+debug: true
 server:
   port: 6688
   servlet:
@@ -55,5 +56,4 @@ logging:
   file:
     name: ./logs/demo.log
   level:
-    root: info
-    org.springframework.web: trace
+    web: debug
