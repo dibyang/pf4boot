@@ -1,4 +1,3 @@
-debug: true
 server:
   port: 6688
   servlet:
@@ -31,7 +30,7 @@ spring:
     main:
       allow-bean-definition-overriding: true
     controller:
-      base-path: /api/pf4boot/
+      base-path: /api/pf4boot
   datasource:
     url: jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
     platform: h2
@@ -56,4 +55,5 @@ logging:
   file:
     name: ./logs/demo.log
   level:
-    web: debug
+    root: info
+    org.springframework.web: trace

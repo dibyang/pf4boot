@@ -1,7 +1,7 @@
 package com.ls.pf4boot.spring.boot;
 
 import com.ls.pf4boot.Pf4bootPluginManager;
-import com.ls.pf4boot.internal.PluginRequestMappingHandlerMapping;
+import org.springframework.web.servlet.mvc.method.annotation.PluginRequestMappingHandlerMapping;
 import org.pf4j.PluginManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;

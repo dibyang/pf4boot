@@ -1,4 +1,4 @@
-package com.ls.pf4boot.internal;
+package org.springframework.web.servlet.mvc.method.annotation;
 
 import com.ls.pf4boot.Pf4bootPlugin;
 import org.springframework.context.ApplicationContext;
