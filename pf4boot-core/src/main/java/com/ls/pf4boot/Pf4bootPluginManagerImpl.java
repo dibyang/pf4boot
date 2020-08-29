@@ -1,5 +1,7 @@
 package com.ls.pf4boot;
 
+import com.ls.pf4boot.internal.Pf4bootPluginFactory;
+import com.ls.pf4boot.internal.SpringExtensionFactory;
 import com.ls.pf4boot.loader.JarPf4bootPluginLoader;
 import com.ls.pf4boot.loader.Pf4bootPluginLoader;
 import com.ls.pf4boot.loader.ZipPf4bootPluginLoader;
@@ -70,7 +72,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   @Override
   protected PluginFactory createPluginFactory() {
-    return new DefaultPluginFactory();
+    return new Pf4bootPluginFactory();
   }
 
   @Override

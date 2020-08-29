@@ -1,6 +1,6 @@
 package com.ls.pf4boot.spring.boot;
 
-import com.ls.pf4boot.Pf4bootPlugin;
+import com.ls.pf4boot.Pf4bootPluginService;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,12 +18,12 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @AutoConfigureAfter(FlywayAutoConfiguration.class)
 @ConditionalOnProperty(prefix = "spring.flyway", name = "enabled", matchIfMissing = true)
-@ConditionalOnBean(Pf4bootPlugin.class)
+@ConditionalOnBean(Pf4bootPluginService.class)
 public class FlywayClassLoaderConfiguration {
 
   @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
   @Autowired
-  private Pf4bootPlugin plugin;
+  private Pf4bootPluginService plugin;
 
   @Autowired
   private ApplicationContext applicationContext;

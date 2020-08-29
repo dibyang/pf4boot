@@ -5,7 +5,6 @@ import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
@@ -24,7 +23,7 @@ import java.util.stream.Collectors;
 
 public class Pf4bootApplication extends SpringApplication implements PluginApplication {
 
-  public final static String BEAN_PLUGIN = "pf4j.plugin";
+
 
   public static final String[] DEFAULT_EXCLUDE_APPLICATION_LISTENERS = {
       "org.springframework.cloud.bootstrap.BootstrapApplicationListener",
@@ -32,7 +31,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
       "org.springframework.cloud.context.restart.RestartListener",
   };
   private final static Logger log = LoggerFactory.getLogger(Pf4bootApplication.class);
-  private final Pf4bootPlugin plugin;
+  private final Pf4bootPluginService plugin;
 
   private final ApplicationContext mainApplicationContext;
 
@@ -51,12 +50,12 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
   /**
    * Constructor should be the only thing need to take care for this Class.
    * Generally new an instance and {@link #run(String...)} it
-   * in {@link Pf4bootPlugin#createSpringBootstrap()} method.
+   * in {@link Pf4bootPluginService#createSpringBootstrap()} method.
    *
    * @param primarySources {@link SpringApplication} that annotated with @SpringBootApplication
    */
   @SuppressWarnings("JavadocReference")
-  public Pf4bootApplication(Pf4bootPlugin plugin,
+  public Pf4bootApplication(Pf4bootPluginService plugin,
                             Class<?>... primarySources) {
     super(new DefaultResourceLoader(plugin.getWrapper().getPluginClassLoader()), primarySources);
     this.plugin = plugin;
@@ -148,7 +147,6 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     applicationContext.setClassLoader(pluginClassLoader);
     applicationContext.getBeanFactory().registerSingleton(BEAN_PLUGIN, plugin);
     applicationContext.getBeanFactory().autowireBean(plugin);
-
     return applicationContext;
   }
 
@@ -171,7 +169,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
   }
 
   @Override
-  public Pf4bootPlugin getPlugin() {
+  public Pf4bootPluginService getPlugin() {
     return this.plugin;
   }
 
@@ -181,8 +179,4 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     }
   }
 
-
-  public static Pf4bootPlugin getPlugin(BeanFactory beanFactory){
-    return beanFactory.getBean(BEAN_PLUGIN,Pf4bootPlugin.class);
-  }
 }

@@ -1,6 +1,7 @@
 package com.ls.pf4boot.internal;
 
 import com.ls.pf4boot.Pf4bootPlugin;
+import com.ls.pf4boot.Pf4bootPluginService;
 import com.ls.pf4boot.Pf4bootPluginManager;
 import com.ls.pf4boot.PluginApplication;
 import com.ls.pf4boot.spring.boot.Pf4bootMainAppReadyEvent;
@@ -34,8 +35,8 @@ public class MainAppReadyListener implements ApplicationListener<ApplicationRead
     Pf4bootPlugin plugin = this.getPlugin(event.getSource());
     if (plugin==null){
       pluginManager.getPlugins(PluginState.STARTED).forEach(pluginWrapper -> {
-        Pf4bootPlugin pf4bootPlugin = (Pf4bootPlugin) pluginWrapper.getPlugin();
-        ApplicationContext pluginAppCtx = pf4bootPlugin.getApplicationContext();
+        Pf4bootPluginService pf4BootPluginService = (Pf4bootPluginService) pluginWrapper.getPlugin();
+        ApplicationContext pluginAppCtx = pf4BootPluginService.getApplicationContext();
         pluginAppCtx.publishEvent(new Pf4bootMainAppReadyEvent(applicationContext));
       });
     }

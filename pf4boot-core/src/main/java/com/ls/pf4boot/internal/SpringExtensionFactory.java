@@ -1,5 +1,7 @@
-package com.ls.pf4boot;
+package com.ls.pf4boot.internal;
 
+import com.ls.pf4boot.Pf4bootPluginManager;
+import com.ls.pf4boot.Pf4bootPluginService;
 import org.pf4j.ExtensionFactory;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
@@ -57,7 +59,7 @@ public class SpringExtensionFactory implements ExtensionFactory {
 
   private GenericApplicationContext getApplicationContext(Class<?> extensionClass) {
     PluginWrapper pluginWrapper = pluginManager.whichPlugin(extensionClass);
-    Pf4bootPlugin plugin = (Pf4bootPlugin) pluginWrapper.getPlugin();
+    Pf4bootPluginService plugin = (Pf4bootPluginService) pluginWrapper.getPlugin();
     return plugin.getApplicationContext();
   }
 }

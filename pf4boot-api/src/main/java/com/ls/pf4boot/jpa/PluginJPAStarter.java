@@ -1,9 +1,9 @@
 package com.ls.pf4boot.jpa;
 
 import com.google.common.collect.Sets;
-import com.ls.pf4boot.Pf4bootPlugin;
-import com.ls.pf4boot.spring.boot.Pf4bootApplication;
+import com.ls.pf4boot.PluginApplication;
 import org.hibernate.engine.spi.SessionImplementor;
+import org.pf4j.Plugin;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,7 +11,6 @@ import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.domain.EntityScanPackages;
-import org.springframework.boot.autoconfigure.domain.EntityScanner;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateSettings;
@@ -102,13 +101,19 @@ public class PluginJPAStarter {
       }
     }
 
-    Pf4bootPlugin plugin = Pf4bootApplication.getPlugin(this.beanFactory);
-    packages.add(plugin.getClass().getPackage().getName());
+    Plugin plugin = getPlugin(this.beanFactory);
+    String className = plugin.getWrapper().getDescriptor().getPluginClass();
+
+    packages.add(className.substring(0,className.lastIndexOf(".")));
     return StringUtils.toStringArray(packages);
   }
 
   private String[] getMappingResources() {
     List<String> mappingResources = this.properties.getMappingResources();
     return (!ObjectUtils.isEmpty(mappingResources) ? StringUtils.toStringArray(mappingResources) : null);
+  }
+
+  public static Plugin getPlugin(BeanFactory beanFactory){
+    return beanFactory.getBean(PluginApplication.BEAN_PLUGIN, Plugin.class);
   }
 }

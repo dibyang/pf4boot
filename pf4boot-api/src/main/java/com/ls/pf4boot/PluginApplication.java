@@ -8,5 +8,6 @@ package com.ls.pf4boot;
  *  Mark the interface as a plug-in application
  */
 public interface PluginApplication {
+  public final static String BEAN_PLUGIN = "pf4j.plugin";
   Pf4bootPlugin getPlugin();
 }
