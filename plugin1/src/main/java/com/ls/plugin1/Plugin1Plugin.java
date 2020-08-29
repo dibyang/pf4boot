@@ -2,7 +2,7 @@ package com.ls.plugin1;
 
 import com.ls.pf4boot.Pf4bootPlugin;
 import com.ls.pf4boot.jpa.PluginJPAStarter;
-import com.ls.pf4boot.autoconfigure.PluginStarter;
+import com.ls.pf4boot.annotation.PluginStarter;
 import org.pf4j.PluginWrapper;
 
 /**

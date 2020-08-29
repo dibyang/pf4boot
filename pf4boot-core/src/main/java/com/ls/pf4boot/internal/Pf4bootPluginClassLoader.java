@@ -1,6 +1,7 @@
 package com.ls.pf4boot.internal;
 
 import com.ls.pf4boot.Pf4bootPluginManager;
+import com.ls.pf4boot.PluginClassLoader4boot;
 import org.pf4j.ClassLoadingStrategy;
 import org.pf4j.PluginClassLoader;
 import org.pf4j.PluginDescriptor;
@@ -20,7 +21,7 @@ import java.util.stream.Collectors;
  * @author yangzj
  * @version 1.0
  */
-public class Pf4bootPluginClassLoader extends PluginClassLoader {
+public class Pf4bootPluginClassLoader extends PluginClassLoader implements PluginClassLoader4boot {
 
   private static final Logger log = LoggerFactory.getLogger(Pf4bootPluginClassLoader.class);
 
@@ -34,6 +35,7 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader {
     super(pluginManager, pluginDescriptor, ((Pf4bootPluginManager)pluginManager).getMainApplicationContext().getClassLoader(), ClassLoadingStrategy.APD);
   }
 
+  @Override
   public void setPluginFirstClasses(List<String> pluginFirstClasses) {
     this.pluginFirstClasses = pluginFirstClasses.stream()
         .map(pluginFirstClass -> pluginFirstClass
@@ -43,6 +45,7 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader {
         .collect(Collectors.toList());
   }
 
+  @Override
   public void setPluginOnlyResources(List<String> pluginOnlyResources) {
     this.pluginOnlyResources = pluginOnlyResources.stream()
         .map(pluginFirstClass -> pluginFirstClass

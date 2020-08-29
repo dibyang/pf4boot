@@ -1,18 +1,12 @@
 package com.ls.pf4boot.spring.boot;
 
-import com.ls.pf4boot.Pf4bootPlugin;
-import com.ls.pf4boot.Pf4bootPluginManager;
-import com.ls.pf4boot.PluginApplication;
-import com.ls.pf4boot.internal.Pf4bootPluginClassLoader;
-import com.ls.pf4boot.internal.PluginListableBeanFactory;
+import com.ls.pf4boot.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanFactory;
-import org.springframework.beans.factory.NoSuchBeanDefinitionException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
-import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -20,14 +14,11 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.MapPropertySource;
 import org.springframework.core.io.DefaultResourceLoader;
-import org.springframework.util.ReflectionUtils;
 
-import java.lang.reflect.Field;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -141,12 +132,12 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
   public ConfigurableApplicationContext createApplicationContext() {
     setWebApplicationType(WebApplicationType.NONE);
 
-    if (pluginClassLoader instanceof Pf4bootPluginClassLoader) {
+    if (pluginClassLoader instanceof PluginClassLoader4boot) {
       if (pluginFirstClasses != null) {
-        ((Pf4bootPluginClassLoader) pluginClassLoader).setPluginFirstClasses(pluginFirstClasses);
+        ((PluginClassLoader4boot) pluginClassLoader).setPluginFirstClasses(pluginFirstClasses);
       }
       if (pluginOnlyResources != null) {
-        ((Pf4bootPluginClassLoader) pluginClassLoader).setPluginOnlyResources(pluginOnlyResources);
+        ((PluginClassLoader4boot) pluginClassLoader).setPluginOnlyResources(pluginOnlyResources);
       }
     }
 

@@ -1,10 +1,9 @@
 package com.ls.plugin1;
 
 import com.ls.demo.dao.BookRepository;
-import com.ls.pf4boot.autoconfigure.Export;
+import com.ls.pf4boot.annotation.Export;
 import com.ls.plugin1.dao.entity.User;
 import com.ls.plugin1.dao.repository.UserRepository;
-import org.pf4j.Extension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

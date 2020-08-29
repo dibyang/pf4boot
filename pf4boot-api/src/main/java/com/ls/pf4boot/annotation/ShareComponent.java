@@ -1,4 +1,4 @@
-package com.ls.pf4boot.autoconfigure;
+package com.ls.pf4boot.annotation;
 
 import org.springframework.core.annotation.AliasFor;
 import org.springframework.stereotype.Component;

@@ -1,6 +1,5 @@
-package com.ls.pf4boot.model;
+package com.ls.pf4boot.modal;
 
-import com.ls.pf4boot.spring.boot.PluginStartingError;
 import org.pf4j.PluginDependency;
 import org.pf4j.PluginDescriptor;
 import org.pf4j.PluginState;

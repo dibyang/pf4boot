@@ -6,4 +6,5 @@ include 'demo-app'
 include 'plugin2'
 include 'demo-lib'
 include 'app-run'
+include 'pf4boot-api'
 

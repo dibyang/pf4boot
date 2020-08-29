@@ -1,8 +1,7 @@
 package com.ls.plugin2;
 
 import com.ls.pf4boot.Pf4bootPlugin;
-import com.ls.pf4boot.autoconfigure.PluginStarter;
-import com.ls.pf4boot.spring.boot.Pf4bootApplication;
+import com.ls.pf4boot.annotation.PluginStarter;
 import org.pf4j.PluginWrapper;
 
 /**

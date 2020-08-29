@@ -1,9 +1,11 @@
-package com.ls.pf4boot.autoconfigure;
+package com.ls.pf4boot.annotation;
 
 import java.lang.annotation.*;
 
 /**
- * PluginStarter
+ * Export
+ *
+ * Exporting components or services for plug-ins
  *
  * @author yangzj
  * @version 1.0
@@ -11,6 +13,5 @@ import java.lang.annotation.*;
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface PluginStarter {
-  Class<?>[] value();
+public @interface Export {
 }

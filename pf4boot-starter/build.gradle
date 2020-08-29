@@ -9,5 +9,5 @@ dependencies {
     compile("org.flywaydb:flyway-core:${flyway_version}")
     compile("ch.qos.logback:logback-core:${logbak_version}")
     compile("ch.qos.logback:logback-classic:${logbak_version}")
-    annotationProcessor "org.springframework.boot:spring-boot-autoconfigure-processor:${spring_boot_version}"
+    //annotationProcessor "org.springframework.boot:spring-boot-annotation-processor:${spring_boot_version}"
 }

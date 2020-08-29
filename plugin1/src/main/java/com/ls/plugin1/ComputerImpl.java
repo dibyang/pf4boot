@@ -1,7 +1,6 @@
 package com.ls.plugin1;
 
-import com.ls.pf4boot.autoconfigure.Export;
-import com.ls.pf4boot.autoconfigure.ShareService;
+import com.ls.pf4boot.annotation.Export;
 import org.springframework.stereotype.Service;
 
 /**

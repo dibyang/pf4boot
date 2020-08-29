@@ -1,7 +1,7 @@
 package com.ls.pf4boot.spring.boot;
 
 import com.ls.pf4boot.Pf4bootPluginManager;
-import com.ls.pf4boot.model.PluginInfo;
+import com.ls.pf4boot.modal.PluginInfo;
 import org.pf4j.PluginDescriptor;
 import org.pf4j.PluginRuntimeException;
 import org.pf4j.PluginState;

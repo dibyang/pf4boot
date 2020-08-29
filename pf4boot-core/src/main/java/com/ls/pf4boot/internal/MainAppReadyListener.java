@@ -1,8 +1,8 @@
 package com.ls.pf4boot.internal;
 
-import com.ls.pf4boot.PluginApplication;
 import com.ls.pf4boot.Pf4bootPlugin;
 import com.ls.pf4boot.Pf4bootPluginManager;
+import com.ls.pf4boot.PluginApplication;
 import com.ls.pf4boot.spring.boot.Pf4bootMainAppReadyEvent;
 import org.pf4j.PluginState;
 import org.slf4j.Logger;

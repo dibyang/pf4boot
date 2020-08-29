@@ -1,7 +1,6 @@
 package com.ls.plugin2;
 
-import com.ls.pf4boot.autoconfigure.SpringBootPlugin;
-import org.springframework.boot.SpringApplication;
+import com.ls.pf4boot.annotation.SpringBootPlugin;
 
 /**
  * Plugin2Starter

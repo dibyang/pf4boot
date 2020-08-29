@@ -1,6 +1,6 @@
 package com.ls.plugin1;
 
-import com.ls.pf4boot.autoconfigure.ShareService;
+import com.ls.pf4boot.annotation.ShareService;
 import com.ls.demo.dao.Book;
 import com.ls.demo.dao.BookRepository;
 import org.springframework.beans.factory.annotation.Autowired;

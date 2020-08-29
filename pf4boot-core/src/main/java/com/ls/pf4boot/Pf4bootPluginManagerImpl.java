@@ -1,13 +1,11 @@
 package com.ls.pf4boot;
 
-import com.ls.pf4boot.internal.SpringExtensionFactory;
 import com.ls.pf4boot.loader.JarPf4bootPluginLoader;
 import com.ls.pf4boot.loader.Pf4bootPluginLoader;
 import com.ls.pf4boot.loader.ZipPf4bootPluginLoader;
+import com.ls.pf4boot.modal.PluginStartingError;
 import com.ls.pf4boot.spring.boot.Pf4bootPluginStateChangedEvent;
 import com.ls.pf4boot.spring.boot.Pf4bootProperties;
-import com.ls.pf4boot.spring.boot.PluginStartingError;
-import com.ls.pf4boot.spring.boot.PropertyPluginStatusProvider;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,21 +14,20 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 
 import javax.annotation.PostConstruct;
-import java.io.File;
 import java.lang.reflect.Constructor;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
 /**
- * Pf4bootPluginManager
+ * Pf4bootPluginManagerImpl
  *
  * @author yangzj
  * @version 1.0
  */
-public class Pf4bootPluginManager extends AbstractPluginManager
-    implements ApplicationContextAware {
-  static final Logger log = LoggerFactory.getLogger(Pf4bootPluginManager.class);
+public class Pf4bootPluginManagerImpl extends AbstractPluginManager
+    implements Pf4bootPluginManager, ApplicationContextAware {
+  static final Logger log = LoggerFactory.getLogger(Pf4bootPluginManagerImpl.class);
 
   private volatile boolean mainApplicationStarted;
   private ApplicationContext mainApplicationContext;
@@ -44,12 +41,12 @@ public class Pf4bootPluginManager extends AbstractPluginManager
   public static final String PLUGINS_DIR_CONFIG_PROPERTY_NAME = "pf4j.pluginsConfigDir";
 
 
-  public Pf4bootPluginManager(Pf4bootProperties properties) {
+  public Pf4bootPluginManagerImpl(Pf4bootProperties properties) {
     this.properties = properties;
     this.doInitialize();
   }
 
-  public Pf4bootPluginManager(Path pluginsRoot, Pf4bootProperties properties) {
+  public Pf4bootPluginManagerImpl(Path pluginsRoot, Pf4bootProperties properties) {
     this.pluginsRoot = pluginsRoot;
     this.properties = properties;
     this.doInitialize();
@@ -234,42 +231,52 @@ public class Pf4bootPluginManager extends AbstractPluginManager
     return pluginRepository;
   }
 
+  @Override
   public void setAutoStartPlugin(boolean autoStartPlugin) {
     this.autoStartPlugin = autoStartPlugin;
   }
 
+  @Override
   public boolean isAutoStartPlugin() {
     return autoStartPlugin;
   }
 
+  @Override
   public void setMainApplicationStarted(boolean mainApplicationStarted) {
     this.mainApplicationStarted = mainApplicationStarted;
   }
 
+  @Override
   public void setProfiles(String[] profiles) {
     this.profiles = profiles;
   }
 
+  @Override
   public String[] getProfiles() {
     return profiles;
   }
 
+  @Override
   public void presetProperties(Map<String, Object> presetProperties) {
     this.presetProperties.putAll(presetProperties);
   }
 
+  @Override
   public void presetProperties(String name, Object value) {
     this.presetProperties.put(name, value);
   }
 
+  @Override
   public Map<String, Object> getPresetProperties() {
     return presetProperties;
   }
 
+  @Override
   public ApplicationContext getMainApplicationContext() {
     return mainApplicationContext;
   }
 
+  @Override
   public boolean isMainApplicationStarted() {
     return mainApplicationStarted;
   }
@@ -390,11 +397,13 @@ public class Pf4bootPluginManager extends AbstractPluginManager
     return doStopPlugin(pluginId, true);
   }
 
+  @Override
   public void restartPlugins() {
     doStopPlugins();
     startPlugins();
   }
 
+  @Override
   public PluginState restartPlugin(String pluginId) {
     PluginState pluginState = doStopPlugin(pluginId, false);
     if (pluginState != PluginState.STARTED) doStartPlugin(pluginId, false);
@@ -403,6 +412,7 @@ public class Pf4bootPluginManager extends AbstractPluginManager
     return pluginState;
   }
 
+  @Override
   public void reloadPlugins(boolean restartStartedOnly) {
     doStopPlugins();
     List<String> startedPluginIds = new ArrayList<>();
@@ -426,6 +436,7 @@ public class Pf4bootPluginManager extends AbstractPluginManager
     }
   }
 
+  @Override
   public PluginState reloadPlugins(String pluginId) {
     PluginWrapper plugin = getPlugin(pluginId);
     doStopPlugin(pluginId, false);

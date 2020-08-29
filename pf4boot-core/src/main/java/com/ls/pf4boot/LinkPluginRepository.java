@@ -21,7 +21,7 @@ import java.util.List;
  * @version 1.0
  */
 public class LinkPluginRepository extends BasePluginRepository {
-  static final Logger log = LoggerFactory.getLogger(Pf4bootPluginManager.class);
+  static final Logger log = LoggerFactory.getLogger(LinkPluginRepository.class);
 
   public LinkPluginRepository(Path pluginsRoot) {
     super(pluginsRoot);

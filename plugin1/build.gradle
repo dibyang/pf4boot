@@ -1,5 +1,5 @@
 
 dependencies {
-  compile project(":pf4boot-core")
+  compile project(":pf4boot-api")
   compile project(":demo-lib")
 }

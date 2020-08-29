@@ -1,7 +1,5 @@
-package com.ls.pf4boot.internal;
+package com.ls.pf4boot;
 
-import com.ls.pf4boot.Pf4bootPlugin;
-import com.ls.pf4boot.Pf4bootPluginManager;
 import org.pf4j.ExtensionFactory;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;

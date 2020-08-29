@@ -2,12 +2,10 @@ package com.ls.pf4boot.spring.boot;
 
 
 import com.ls.pf4boot.Pf4bootPluginManager;
+import com.ls.pf4boot.Pf4bootPluginManagerImpl;
 import com.ls.pf4boot.internal.MainAppReadyListener;
 import com.ls.pf4boot.internal.MainAppStartedListener;
 import com.ls.pf4boot.internal.PluginResourceResolver;
-import com.ls.pf4boot.internal.Pf4bootPluginClassLoader;
-import com.ls.pf4boot.loader.JarPf4bootPluginLoader;
-import com.ls.pf4boot.loader.Pf4bootPluginLoader;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,20 +21,13 @@ import org.springframework.context.annotation.Import;
 import org.springframework.util.StringUtils;
 
 import java.io.File;
-import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.net.URL;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
 import java.util.function.Consumer;
-import java.util.jar.Attributes;
-import java.util.jar.JarFile;
 
 @Configuration
-@ConditionalOnClass({PluginManager.class, Pf4bootPluginManager.class})
+@ConditionalOnClass({PluginManager.class, Pf4bootPluginManagerImpl.class})
 @ConditionalOnProperty(prefix = Pf4bootProperties.PREFIX, value = "enabled", havingValue = "true")
 @EnableConfigurationProperties({Pf4bootProperties.class, Pf4bootPluginProperties.class})
 @Import({MainAppStartedListener.class, MainAppReadyListener.class})
@@ -87,7 +78,7 @@ public class Pf4bootAutoConfiguration {
       System.setProperty("pf4j.pluginsDir", appHome + File.separator + pluginsRoot);
     }
 
-    Pf4bootPluginManager pluginManager = new Pf4bootPluginManager(new File(pluginsRoot).toPath(),properties);
+    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(new File(pluginsRoot).toPath(),properties);
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));

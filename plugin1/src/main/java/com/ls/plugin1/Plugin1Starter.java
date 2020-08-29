@@ -1,6 +1,6 @@
 package com.ls.plugin1;
 
-import com.ls.pf4boot.autoconfigure.SpringBootPlugin;
+import com.ls.pf4boot.annotation.SpringBootPlugin;
 import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 /**

@@ -1,4 +1,4 @@
-package com.ls.pf4boot.internal;
+package com.ls.pf4boot;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;

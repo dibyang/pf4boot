@@ -1,4 +1,4 @@
-package com.ls.pf4boot.spring.boot;
+package com.ls.pf4boot.modal;
 
 
 import java.io.Serializable;
