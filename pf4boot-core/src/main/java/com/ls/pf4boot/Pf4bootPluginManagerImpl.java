@@ -1,6 +1,9 @@
 package com.ls.pf4boot;
 
+import com.google.common.eventbus.EventBus;
+import com.ls.pf4boot.annotation.EventListenerService;
 import com.ls.pf4boot.internal.Pf4bootPluginFactory;
+import com.ls.pf4boot.internal.Pf4bootPluginStateListener;
 import com.ls.pf4boot.internal.SpringExtensionFactory;
 import com.ls.pf4boot.loader.JarPf4bootPluginLoader;
 import com.ls.pf4boot.loader.Pf4bootPluginLoader;
@@ -39,18 +42,21 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   private PluginRepository pluginRepository;
   private final Map<String, PluginStartingError> startingErrors = new HashMap<>();
   private Pf4bootProperties properties;
+  private final Pf4bootEventBus eventBus;
 
   public static final String PLUGINS_DIR_CONFIG_PROPERTY_NAME = "pf4j.pluginsConfigDir";
 
 
-  public Pf4bootPluginManagerImpl(Pf4bootProperties properties) {
+  public Pf4bootPluginManagerImpl(Pf4bootProperties properties,Pf4bootEventBus eventBus) {
     this.properties = properties;
+    this.eventBus = eventBus;
     this.doInitialize();
   }
 
-  public Pf4bootPluginManagerImpl(Path pluginsRoot, Pf4bootProperties properties) {
+  public Pf4bootPluginManagerImpl(Path pluginsRoot, Pf4bootProperties properties,Pf4bootEventBus eventBus) {
     this.pluginsRoot = pluginsRoot;
     this.properties = properties;
+    this.eventBus = eventBus;
     this.doInitialize();
   }
 
@@ -129,10 +135,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   protected void doInitialize() {
     super.initialize();
-
-    if (isDevelopment()) {
-      addPluginStateListener(new LoggingPluginStateListener());
-    }
+    addPluginStateListener(new Pf4bootPluginStateListener(eventBus));
 
     log.info("PF4J version {} in '{}' mode", getVersion(), getRuntimeMode());
   }
@@ -141,6 +144,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
     this.mainApplicationContext = applicationContext;
+
   }
 
   @Override
