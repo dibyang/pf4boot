@@ -3,6 +3,7 @@ package com.ls.pf4boot;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.ls.pf4boot.annotation.Export;
+import com.ls.pf4boot.annotation.PFEventListener;
 import com.ls.pf4boot.annotation.PluginStarter;
 import com.ls.pf4boot.internal.SpringExtensionFactory;
 import org.pf4j.Plugin;
@@ -94,6 +95,8 @@ public class Pf4bootPluginService extends Pf4bootPlugin {
     log.debug("Starting plugin {} ......", getWrapper().getPluginId());
     application.setBannerMode(Banner.Mode.OFF);
     applicationContext = application.run();
+    registerPluginListeners();
+
     getMainRequestMapping().registerControllers(this);
 
     //register ShareServices
@@ -109,6 +112,14 @@ public class Pf4bootPluginService extends Pf4bootPlugin {
     }
     plugin.start();
     log.debug("Plugin {} is started in {}ms", getWrapper().getPluginId(), System.currentTimeMillis() - startTs);
+  }
+
+  private void registerPluginListeners() {
+    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(PFEventListener.class);
+    for (String beanName : beans.keySet()) {
+      Object bean = beans.get(beanName);
+      this.getPluginManager().getPf4bootEventBus().register(bean);
+    }
   }
 
   private void registerExtensions() {
@@ -144,17 +155,30 @@ public class Pf4bootPluginService extends Pf4bootPlugin {
     log.debug("Stopping plugin {} ......", getWrapper().getPluginId());
     plugin.stop();
     releaseResource();
-    //unregister ShareServices
-    unregisterShareServices();
+
     // unregister Extensions
     unregisterExtensions();
 
+    //unregister ShareServices
+    unregisterShareServices();
+
     getMainRequestMapping().unregisterControllers(this);
     applicationContext.publishEvent(new Pf4bootPluginStoppedEvent(applicationContext));
+
+    unregisterPluginListeners();
+
     ApplicationContextProvider.unregisterApplicationContext(applicationContext);
     ((ConfigurableApplicationContext) applicationContext).close();
 
     log.debug("Plugin {} is stopped", getWrapper().getPluginId());
+  }
+
+  private void unregisterPluginListeners() {
+    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(PFEventListener.class);
+    for (String beanName : beans.keySet()) {
+      Object bean = beans.get(beanName);
+      this.getPluginManager().getPf4bootEventBus().unregister(bean);
+    }
   }
 
   private void unregisterExtensions() {

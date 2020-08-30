@@ -1,7 +1,5 @@
 package com.ls.pf4boot;
 
-import com.google.common.eventbus.EventBus;
-import com.ls.pf4boot.annotation.EventListenerService;
 import com.ls.pf4boot.internal.Pf4bootPluginFactory;
 import com.ls.pf4boot.internal.Pf4bootPluginStateListener;
 import com.ls.pf4boot.internal.SpringExtensionFactory;
@@ -297,6 +295,11 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   public PluginStartingError getPluginStartingError(String pluginId) {
     return startingErrors.get(pluginId);
+  }
+
+  @Override
+  public Pf4bootEventBus getPf4bootEventBus() {
+    return eventBus;
   }
 
   //*************************************************************************

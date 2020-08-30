@@ -14,8 +14,9 @@ import java.lang.annotation.*;
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
+@PFEventListener
 @Service
-public @interface EventListenerService {
+public @interface PFEventListenerService {
   @AliasFor(annotation = Service.class)
   String value() default "";
 }

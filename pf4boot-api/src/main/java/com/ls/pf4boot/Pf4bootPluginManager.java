@@ -51,4 +51,5 @@ public interface Pf4bootPluginManager extends PluginManager {
   PluginDescriptorFinder getPluginDescriptorFinder();
 
   PluginStartingError getPluginStartingError(String pluginId);
+  Pf4bootEventBus getPf4bootEventBus();
 }

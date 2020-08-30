@@ -1,6 +1,6 @@
 package com.ls.pf4boot.internal;
 
-import com.ls.pf4boot.annotation.EventListenerService;
+import com.ls.pf4boot.annotation.PFEventListenerService;
 import org.pf4j.LoggingPluginStateListener;
 
 /**
@@ -9,6 +9,6 @@ import org.pf4j.LoggingPluginStateListener;
  * @author yangzj
  * @version 1.0
  */
-@EventListenerService
+@PFEventListenerService
 public class LoggingPluginStateListener2 extends LoggingPluginStateListener {
 }
