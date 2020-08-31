@@ -1,6 +1,6 @@
 package com.ls.pf4boot.spring.boot;
 
-import com.ls.pf4boot.Pf4bootPluginService;
+import com.ls.pf4boot.Pf4bootPlugin;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -13,9 +13,9 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
  */
 public class Pf4bootAnnotationConfigApplicationContext extends AnnotationConfigApplicationContext {
 
-  private final Pf4bootPluginService plugin;
+  private final Pf4bootPlugin plugin;
 
-  public Pf4bootAnnotationConfigApplicationContext(DefaultListableBeanFactory beanFactory, Pf4bootPluginService plugin) {
+  public Pf4bootAnnotationConfigApplicationContext(DefaultListableBeanFactory beanFactory, Pf4bootPlugin plugin) {
     super(beanFactory);
     this.plugin = plugin;
 

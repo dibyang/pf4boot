@@ -54,6 +54,7 @@ import java.util.Set;
  *
  * @see Pf4bootApplication
  */
+@Deprecated
 public class Pf4bootPluginService extends Pf4bootPlugin {
 
   private final Plugin plugin;

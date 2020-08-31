@@ -31,7 +31,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
       "org.springframework.cloud.context.restart.RestartListener",
   };
   private final static Logger log = LoggerFactory.getLogger(Pf4bootApplication.class);
-  private final Pf4bootPluginService plugin;
+  private final Pf4bootPlugin plugin;
 
   private final ApplicationContext mainApplicationContext;
 
@@ -55,12 +55,13 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
    * @param primarySources {@link SpringApplication} that annotated with @SpringBootApplication
    */
   @SuppressWarnings("JavadocReference")
-  public Pf4bootApplication(Pf4bootPluginService plugin,
+  public Pf4bootApplication(Pf4bootPlugin plugin,
                             Class<?>... primarySources) {
     super(new DefaultResourceLoader(plugin.getWrapper().getPluginClassLoader()), primarySources);
     this.plugin = plugin;
-    this.mainApplicationContext = plugin.getMainApplicationContext();
     this.pluginClassLoader = plugin.getWrapper().getPluginClassLoader();
+    this.mainApplicationContext = plugin.getMainApplicationContext();
+
     Map<String, Object> presetProperties = ((Pf4bootPluginManager)
         plugin.getWrapper().getPluginManager()).getPresetProperties();
     if (presetProperties != null) this.presetProperties.putAll(presetProperties);
@@ -169,7 +170,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
   }
 
   @Override
-  public Pf4bootPluginService getPlugin() {
+  public Pf4bootPlugin getPlugin() {
     return this.plugin;
   }
 
