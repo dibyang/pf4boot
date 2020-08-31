@@ -1,5 +1,6 @@
 package com.ls.plugin1;
 
+import com.ls.pf4boot.Pf4bootPlugin;
 import com.ls.pf4boot.annotation.ShareService;
 import com.ls.demo.dao.Book;
 import com.ls.demo.dao.BookRepository;
@@ -18,6 +19,7 @@ import java.util.List;
 public class BookMgrImpl implements BookMgr {
   @Autowired
   private BookRepository bookRepository;
+
 
   @Override
   public List<Book> getAllBooks() {

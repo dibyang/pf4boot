@@ -50,7 +50,7 @@ import java.util.Set;
  *
  * @see Pf4bootApplication
  */
-public class Pf4bootPluginHandler extends Pf4bootPlugin {
+public class Pf4bootPluginHandler extends Pf4bootPlugin implements PluginHandler {
 
   private final Plugin plugin;
 

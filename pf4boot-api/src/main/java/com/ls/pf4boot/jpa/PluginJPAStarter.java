@@ -2,6 +2,7 @@ package com.ls.pf4boot.jpa;
 
 import com.google.common.collect.Sets;
 import com.ls.pf4boot.PluginApplication;
+import com.ls.pf4boot.PluginHandler;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.pf4j.Plugin;
 import org.springframework.beans.factory.BeanFactory;
@@ -90,21 +91,20 @@ public class PluginJPAStarter {
 
   protected String[] getPackagesToScan() {
     Set<String> packages = Sets.newHashSet();
-    List<String> pkg = EntityScanPackages.get(this.beanFactory).getPackageNames();
-    if(!pkg.isEmpty()){
-      packages.addAll(pkg);
+    List<String> pkgs = EntityScanPackages.get(this.beanFactory).getPackageNames();
+    if(!pkgs.isEmpty()){
+      packages.addAll(pkgs);
     }
     if (AutoConfigurationPackages.has(this.beanFactory)) {
-      pkg = AutoConfigurationPackages.get(this.beanFactory);
-      if(!pkg.isEmpty()){
-        packages.addAll(pkg);
+      pkgs = AutoConfigurationPackages.get(this.beanFactory);
+      if(!pkgs.isEmpty()){
+        packages.addAll(pkgs);
       }
     }
 
     Plugin plugin = getPlugin(this.beanFactory);
-    String className = plugin.getWrapper().getDescriptor().getPluginClass();
-
-    packages.add(className.substring(0,className.lastIndexOf(".")));
+    String pkg = ((PluginHandler)plugin).getPlugin().getClass().getPackage().getName();
+    packages.add(pkg);
     return StringUtils.toStringArray(packages);
   }
 
