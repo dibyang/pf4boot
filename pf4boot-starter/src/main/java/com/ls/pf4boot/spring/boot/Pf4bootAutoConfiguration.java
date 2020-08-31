@@ -1,14 +1,14 @@
 package com.ls.pf4boot.spring.boot;
 
 
-import com.ls.pf4boot.Pf4bootEventBus;
-import com.ls.pf4boot.Pf4bootEventBusImpl;
-import com.ls.pf4boot.Pf4bootPluginManager;
-import com.ls.pf4boot.Pf4bootPluginManagerImpl;
+import com.ls.pf4boot.*;
 import com.ls.pf4boot.internal.MainAppReadyListener;
 import com.ls.pf4boot.internal.MainAppStartedListener;
 import com.ls.pf4boot.internal.PluginResourceResolver;
-import org.pf4j.*;
+import org.pf4j.PluginDescriptor;
+import org.pf4j.PluginManager;
+import org.pf4j.PluginStateListener;
+import org.pf4j.RuntimeMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +32,7 @@ import java.util.function.Consumer;
 @ConditionalOnClass({PluginManager.class, Pf4bootPluginManagerImpl.class})
 @ConditionalOnProperty(prefix = Pf4bootProperties.PREFIX, value = "enabled", havingValue = "true")
 @EnableConfigurationProperties({Pf4bootProperties.class, Pf4bootPluginProperties.class})
-@Import({MainAppStartedListener.class, MainAppReadyListener.class})
+@Import({DefaultPluginEventListener.class,MainAppStartedListener.class, MainAppReadyListener.class})
 public class Pf4bootAutoConfiguration {
   static final Logger log = LoggerFactory.getLogger(Pf4bootAutoConfiguration.class);
 
@@ -44,6 +44,7 @@ public class Pf4bootAutoConfiguration {
   public Pf4bootEventBus eventBus(){
     return new Pf4bootEventBusImpl();
   }
+
 
   @Bean
   @ConditionalOnMissingBean(PluginStateListener.class)

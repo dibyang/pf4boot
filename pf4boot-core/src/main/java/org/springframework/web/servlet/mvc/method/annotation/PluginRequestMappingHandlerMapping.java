@@ -1,6 +1,6 @@
 package org.springframework.web.servlet.mvc.method.annotation;
 
-import com.ls.pf4boot.Pf4bootPluginService;
+import com.ls.pf4boot.Pf4bootPluginHandler;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,11 +27,11 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     super.detectHandlerMethods(controller);
   }
 
-  public void registerControllers(Pf4bootPluginService pf4BootPluginService) {
+  public void registerControllers(Pf4bootPluginHandler pf4BootPluginService) {
     getControllerBeans(pf4BootPluginService).forEach(bean -> registerController(pf4BootPluginService, bean));
   }
 
-  private void registerController(Pf4bootPluginService pf4BootPluginService, Object controller) {
+  private void registerController(Pf4bootPluginHandler pf4BootPluginService, Object controller) {
     String beanName = controller.getClass().getName();
     // unregister RequestMapping if already registered
     unregisterController(pf4BootPluginService, controller);
@@ -39,10 +39,10 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     detectHandlerMethods(controller);
   }
 
-  public void unregisterControllers(Pf4bootPluginService pf4BootPluginService) {
+  public void unregisterControllers(Pf4bootPluginHandler pf4BootPluginService) {
     getControllerBeans(pf4BootPluginService).forEach(bean -> unregisterController(pf4BootPluginService, bean));
   }
-  public Set<Object> getControllerBeans(Pf4bootPluginService pf4BootPluginService) {
+  public Set<Object> getControllerBeans(Pf4bootPluginHandler pf4BootPluginService) {
     LinkedHashSet<Object> beans = new LinkedHashSet<>();
     ApplicationContext applicationContext = pf4BootPluginService.getApplicationContext();
     //noinspection unchecked
@@ -56,7 +56,7 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     return beans;
   }
 
-  private void unregisterController(Pf4bootPluginService pf4BootPluginService, Object controller) {
+  private void unregisterController(Pf4bootPluginHandler pf4BootPluginService, Object controller) {
     new HashMap<>(getHandlerMethods()).forEach((mapping, handlerMethod) -> {
       if (controller == handlerMethod.getBean()) super.unregisterMapping(mapping);
     });

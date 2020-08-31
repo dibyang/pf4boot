@@ -1,12 +1,12 @@
 package com.ls.pf4boot.annotation;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.core.annotation.AliasFor;
-import org.springframework.stereotype.Service;
 
 import java.lang.annotation.*;
 
 /**
- * EventListenerService
+ * PFEventListenerBean
  *
  * @author yangzj
  * @version 1.0
@@ -14,9 +14,9 @@ import java.lang.annotation.*;
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-@PFEventListener
-@Service
-public @interface PFEventListenerService {
-  @AliasFor(annotation = Service.class)
-  String value() default "";
+@EventListener
+@Bean
+public @interface EventListenerBean {
+  @AliasFor(annotation = Bean.class)
+  String[] value() default {};
 }

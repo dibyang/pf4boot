@@ -60,7 +60,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     super(new DefaultResourceLoader(plugin.getWrapper().getPluginClassLoader()), primarySources);
     this.plugin = plugin;
     this.pluginClassLoader = plugin.getWrapper().getPluginClassLoader();
-    this.mainApplicationContext = plugin.getMainApplicationContext();
+    this.mainApplicationContext = ((Pf4bootPluginManager)plugin.getWrapper().getPluginManager()).getMainApplicationContext();
 
     Map<String, Object> presetProperties = ((Pf4bootPluginManager)
         plugin.getWrapper().getPluginManager()).getPresetProperties();

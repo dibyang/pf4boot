@@ -15,11 +15,6 @@ import org.springframework.context.support.GenericApplicationContext;
  */
 public class Pf4bootPlugin extends Plugin {
 
-  private SpringApplication application = null;
-
-  private ApplicationContext applicationContext = null;
-
-
   /**
    * Constructor to be used by plugin manager for plugin instantiation.
    * Your plugins have to provide constructor with this exact signature to
@@ -29,29 +24,5 @@ public class Pf4bootPlugin extends Plugin {
    */
   public Pf4bootPlugin(PluginWrapper wrapper) {
     super(wrapper);
-  }
-
-  public SpringApplication getApplication() {
-    return application;
-  }
-
-  public void setApplication(SpringApplication application) {
-    this.application = application;
-  }
-
-  public ApplicationContext getApplicationContext() {
-    return applicationContext;
-  }
-
-  public void setApplicationContext(ApplicationContext applicationContext) {
-    this.applicationContext = applicationContext;
-  }
-
-  public GenericApplicationContext getMainApplicationContext() {
-    return (GenericApplicationContext) getPluginManager().getMainApplicationContext();
-  }
-
-  private Pf4bootPluginManager getPluginManager() {
-    return (Pf4bootPluginManager)this.getWrapper().getPluginManager();
   }
 }

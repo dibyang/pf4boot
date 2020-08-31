@@ -1,9 +1,10 @@
 package com.ls.pf4boot.internal;
 
 import com.ls.pf4boot.Pf4bootPlugin;
-import com.ls.pf4boot.Pf4bootPluginService;
+import com.ls.pf4boot.Pf4bootPluginHandler;
 import com.ls.pf4boot.Pf4bootPluginManager;
 import com.ls.pf4boot.PluginApplication;
+import com.ls.pf4boot.annotation.EventListener;
 import com.ls.pf4boot.spring.boot.Pf4bootMainAppStartedEvent;
 import org.pf4j.PluginState;
 import org.slf4j.Logger;
@@ -13,6 +14,8 @@ import org.springframework.boot.context.event.ApplicationStartedEvent;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
+
+import java.util.Map;
 
 /**
  * MainAppStartedListener
@@ -33,13 +36,17 @@ public class MainAppStartedListener implements ApplicationListener<ApplicationSt
   public void onApplicationEvent(ApplicationStartedEvent event) {
     Pf4bootPlugin plugin = this.getPlugin(event.getSource());
     if (plugin==null){
+      Map<String, Object> beans = event.getApplicationContext().getBeansWithAnnotation(EventListener.class);
+      for (Object listener : beans.values()) {
+        pluginManager.getPf4bootEventBus().register(listener);
+      }
       if(!pluginManager.isMainApplicationStarted()){
         if (pluginManager.isAutoStartPlugin()) {
           pluginManager.startPlugins();
         }
 
         pluginManager.getPlugins(PluginState.STARTED).forEach(pluginWrapper -> {
-          Pf4bootPluginService pf4BootPluginService = (Pf4bootPluginService) pluginWrapper.getPlugin();
+          Pf4bootPluginHandler pf4BootPluginService = (Pf4bootPluginHandler) pluginWrapper.getPlugin();
           ApplicationContext pluginAppCtx = pf4BootPluginService.getApplicationContext();
           pluginAppCtx.publishEvent(new Pf4bootMainAppStartedEvent(applicationContext));
         });

@@ -302,6 +302,11 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     return eventBus;
   }
 
+  @Override
+  public void post(Object event) {
+    eventBus.post(event);
+  }
+
   //*************************************************************************
   // Plugin State Manipulation
   //*************************************************************************

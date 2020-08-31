@@ -8,8 +8,8 @@ import java.lang.annotation.*;
  * @author yangzj
  * @version 1.0
  */
-@Target({ElementType.TYPE})
+@Target({ElementType.TYPE,ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
-public @interface PFEventListener {
+public @interface EventListener {
 }
