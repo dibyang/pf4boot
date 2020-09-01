@@ -1,5 +1,6 @@
 
 dependencies {
+  compileOnly("org.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
   compile project(":pf4boot-api")
   compile project(":demo-lib")
 }

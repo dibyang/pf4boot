@@ -6,8 +6,8 @@ plugins {
 dependencies {
     compile project(":pf4boot-core")
     compile("org.springframework.boot:spring-boot-starter-web:${spring_boot_version}")
-    compile("org.flywaydb:flyway-core:${flyway_version}")
-    compile("ch.qos.logback:logback-core:${logbak_version}")
-    compile("ch.qos.logback:logback-classic:${logbak_version}")
+    compileOnly("org.flywaydb:flyway-core:${flyway_version}")
+    compileOnly("ch.qos.logback:logback-core:${logbak_version}")
+    compileOnly("ch.qos.logback:logback-classic:${logbak_version}")
     //annotationProcessor "org.springframework.boot:spring-boot-annotation-processor:${spring_boot_version}"
 }
