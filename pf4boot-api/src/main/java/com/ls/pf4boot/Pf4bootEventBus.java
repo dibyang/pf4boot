@@ -6,8 +6,7 @@ package com.ls.pf4boot;
  * @author yangzj
  * @version 1.0
  */
-public interface Pf4bootEventBus {
-  void post(Object event);
+public interface Pf4bootEventBus extends Pf4bootEventPoster {
   void register(Object listener);
   void unregister(Object listener);
 }
