@@ -1,6 +1,7 @@
 package com.ls.pf4boot;
 
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.EventBus2;
 
 /**
  * Pf4bootEventBusImpl
@@ -12,7 +13,8 @@ public class Pf4bootEventBusImpl implements Pf4bootEventBus {
   private final EventBus eventBus;
 
   public Pf4bootEventBusImpl() {
-    this.eventBus = new EventBus();
+    this.eventBus = new EventBus2();
+
   }
 
   @Override
