@@ -104,7 +104,7 @@ subprojects {
         //compile("org.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
         //compile("org.springframework.boot:spring-boot-devtools:${spring_boot_version}")
         //compile("com.h2database:h2:1.4.196")
-        compile("com.google.guava:guava:28.1-jre")
+        compile("com.google.guava:guava:31.0-jre")
         compile("com.google.code.gson:gson:2.8.6")
         compile("org.apache.commons:commons-lang3:3.9")
         compile("org.slf4j:slf4j-api:${slf4j_version}")
