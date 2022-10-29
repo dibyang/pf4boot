@@ -1,4 +1,4 @@
 # Auto Configure
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-  com.ls.pf4boot.spring.boot.Pf4bootAutoConfiguration,\
-  com.ls.pf4boot.spring.boot.Pf4bootMvcPatchAutoConfiguration
+  net.xdob.pf4boot.spring.boot.Pf4bootAutoConfiguration,\
+  net.xdob.pf4boot.spring.boot.Pf4bootMvcPatchAutoConfiguration

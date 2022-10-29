@@ -99,7 +99,7 @@ subprojects {
         options.encoding = "UTF-8"
     }
 
-    group 'com.ls.pf4boot'
+    group 'net.xdob.pf4boot'
     version = project.rootProject.version
 
 

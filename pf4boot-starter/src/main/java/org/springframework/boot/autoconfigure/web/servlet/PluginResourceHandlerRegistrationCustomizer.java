@@ -1,7 +1,7 @@
 package org.springframework.boot.autoconfigure.web.servlet;
 
-import com.ls.pf4boot.internal.PluginResourceResolver;
-import com.ls.pf4boot.spring.boot.Pf4bootPluginStateChangedEvent;
+import net.xdob.pf4boot.internal.PluginResourceResolver;
+import net.xdob.pf4boot.spring.boot.Pf4bootPluginStateChangedEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.web.ResourceProperties;

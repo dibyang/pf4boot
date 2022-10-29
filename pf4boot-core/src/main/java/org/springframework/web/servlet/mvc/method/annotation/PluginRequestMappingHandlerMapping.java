@@ -1,6 +1,6 @@
 package org.springframework.web.servlet.mvc.method.annotation;
 
-import com.ls.pf4boot.Pf4bootPluginHandler;
+import net.xdob.pf4boot.Pf4bootPluginHandler;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RestController;
