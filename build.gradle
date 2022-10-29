@@ -28,6 +28,16 @@ apply plugin: 'maven'
 apply plugin: 'signing'
 apply plugin: 'net.researchgate.release'
 
+
+/**
+ * signing.properties 文件内容示例如下
+ * signing.keyId=xx
+ * signing.password=xxx
+ * signing.secretKeyRingFile=C:/Users/admin/.gnupg/**_SECRET.gpg
+ *
+ * ossrhUsername=xx
+ * ossrhPassword=xxx
+ */
 File signing_cfg = new File("$project.rootDir/signing.properties")
 if(signing_cfg.exists()) {
     Properties props = new Properties()
@@ -78,6 +88,12 @@ subprojects {
 
     apply plugin: 'java'
     apply plugin: 'maven'
+    apply plugin: 'signing'
+
+    // 将构建的包签名
+    signing {
+        sign configurations.archives
+    }
 
     afterReleaseBuild.dependsOn uploadArchives
 
@@ -172,15 +188,38 @@ subprojects {
         }
     }
 
-    task sourcesJar(type: Jar, dependsOn: classes) {
-        description = 'Build source jar'
+    //对于典型的 Java 项目，您可以添加一个javadocJar以及一个 sourcesJar任务
+    task javadocJar(type: Jar) {
+        classifier = 'javadoc'
+        from javadoc
+    }
+
+    task sourcesJar(type: Jar) {
         classifier = 'sources'
         from sourceSets.main.allSource
     }
 
+    // javadoc 配置，这里是自定义了 java doc 的一些配置
+    javadoc {
+        description = "Generates project-level javadoc for use in -javadoc jar"
+
+        options.memberLevel = org.gradle.external.javadoc.JavadocMemberLevel.PROTECTED
+        options.author = true
+        options.version = true
+        options.header = project.name
+        options.addStringOption('Xdoclint:none', '-quiet')
+
+        // suppress warnings due to cross-module @see and @link references;
+        // note that global 'api' task does display all warnings.
+        logging.captureStandardError LogLevel.INFO
+        logging.captureStandardOutput LogLevel.INFO // suppress "## warnings" message
+        options.encoding = "UTF-8"  //编码一定要配置否则直接出错
+        options.charSet = 'UTF-8'
+    }
+
+    // 并将它们与项目 jar 本身一起连接到 artifacts 集合中：
     artifacts {
-        archives jar
-        archives sourcesJar
+        archives javadocJar, sourcesJar
     }
 
     if (isPluginProject(project)) {
