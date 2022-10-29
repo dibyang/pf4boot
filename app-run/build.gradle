@@ -18,8 +18,8 @@ uploadArchives {
 dependencies {
     compile project(":demo-app")
     compile("com.h2database:h2:1.4.196")
-    plugin("com.ls.pf4boot:plugin1:0.4.3@zip")
-    plugin("com.ls.pf4boot:plugin2:0.4.3@zip")
+    plugin("net.xdob.pf4boot:plugin1:0.10.0@zip")
+    plugin("net.xdob.pf4boot:plugin2:0.10.0@zip")
 }
 
 ext.packname='demo-app'

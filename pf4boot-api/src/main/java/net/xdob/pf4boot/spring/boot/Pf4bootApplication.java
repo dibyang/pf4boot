@@ -1,6 +1,5 @@
 package net.xdob.pf4boot.spring.boot;
 
-import com.ls.pf4boot.*;
 import net.xdob.pf4boot.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;

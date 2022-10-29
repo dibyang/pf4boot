@@ -1,4 +1,7 @@
 
+uploadArchives {
+    enabled = false
+}
 
 dependencies {
     inline("org.apache.commons:commons-text:1.9")

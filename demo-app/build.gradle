@@ -1,4 +1,11 @@
 
+install {
+    enabled = false
+}
+uploadArchives {
+    enabled = false
+}
+
 dependencies {
     compile project(":pf4boot-starter")
     compile project(":demo-lib")

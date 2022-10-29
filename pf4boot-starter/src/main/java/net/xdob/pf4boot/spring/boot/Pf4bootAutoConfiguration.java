@@ -1,7 +1,6 @@
 package net.xdob.pf4boot.spring.boot;
 
 
-import com.ls.pf4boot.*;
 import net.xdob.pf4boot.internal.MainAppReadyListener;
 import net.xdob.pf4boot.internal.MainAppStartedListener;
 import net.xdob.pf4boot.internal.PluginResourceResolver;

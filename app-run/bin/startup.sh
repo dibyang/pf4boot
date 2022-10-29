@@ -24,7 +24,7 @@ JAVA_OPTS="$JAVA_OPTS -cp :$approot/lib/* -Dapp.home=$approot"
 #JAVA_OPTS="$JAVA_OPTS -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5006"
 
 
-eval java  $JAVA_OPTS  com.ls.demo.Application \
+eval java  $JAVA_OPTS  net.xdob.demo.Application \
  1> /dev/null 2> /dev/null "&"
 
 instance=`ps -ef | grep app.home=$approot | sed '/grep/d'`

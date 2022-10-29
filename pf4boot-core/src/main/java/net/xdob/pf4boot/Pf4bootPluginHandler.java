@@ -6,7 +6,6 @@ import net.xdob.pf4boot.annotation.Export;
 import net.xdob.pf4boot.annotation.EventListener;
 import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.internal.SpringExtensionFactory;
-import com.ls.pf4boot.spring.boot.*;
 import net.xdob.pf4boot.spring.boot.*;
 import org.pf4j.Plugin;
 import org.springframework.web.servlet.mvc.method.annotation.PluginRequestMappingHandlerMapping;
