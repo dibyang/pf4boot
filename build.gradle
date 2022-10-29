@@ -6,18 +6,41 @@ static def isPluginProject(Project project) {
 
 buildscript {
     repositories {
-        maven {
-            name "REPO_NEXUS"
-            url "http://${nexus_host}:8081/repository/maven-public/"
-        }
+        mavenLocal()
+        maven { url 'https://maven.aliyun.com/repository/public/' }
+        mavenCentral()
     }
     dependencies {
         classpath 'net.researchgate:gradle-release:2.6.0'
     }
+    //skip Test tasks
+    gradle.taskGraph.whenReady {
+        tasks.each { task ->
+            if (task.name.contains("test")) {
+                task.enabled = false
+            }
+        }
+    }
 }
 
+apply plugin: 'java'
 apply plugin: 'maven'
+apply plugin: 'signing'
 apply plugin: 'net.researchgate.release'
+
+File signing_cfg = new File("$project.rootDir/signing.properties")
+if(signing_cfg.exists()) {
+    Properties props = new Properties()
+    props.load(new FileInputStream(signing_cfg))
+    props.each { prop ->
+        project.ext.set(prop.key, prop.value)
+    }
+
+    // 将构建的包签名
+    signing {
+        sign configurations.archives
+    }
+}
 
 
 release {
@@ -48,10 +71,7 @@ subprojects {
     buildscript {
         repositories {
             mavenLocal()
-            maven {
-                name "REPO_NEXUS"
-                url "http://${nexus_host}:8081/repository/maven-public/"
-            }
+            maven { url 'https://maven.aliyun.com/repository/public/' }
             mavenCentral()
         }
     }
@@ -82,9 +102,6 @@ subprojects {
     group 'com.ls.pf4boot'
     version = project.rootProject.version
 
-    ext{
-        nexus_host = project.rootProject.nexus_host
-    }
 
     sourceCompatibility = project.rootProject.jdkVersion
     targetCompatibility = project.rootProject.jdkVersion
@@ -92,10 +109,7 @@ subprojects {
 
     repositories {
         mavenLocal()
-        maven {
-            name "REPO_NEXUS"
-            url "http://${nexus_host}:8081/repository/maven-public/"
-        }
+        maven { url 'https://maven.aliyun.com/repository/public/' }
         mavenCentral()
     }
 
@@ -116,11 +130,43 @@ subprojects {
     uploadArchives {
         repositories {
             mavenDeployer {
-                repository(url: "http://${nexus_host}:8081/repository/maven-releases/") {
-                    authentication(userName: project.rootProject.username, password: project.rootProject.password)
+                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
+
+                repository(url: "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/") {
+                    authentication(userName: findProperty("ossrhUsername")?:"", password: findProperty("ossrhPassword")?:"")
                 }
-                snapshotRepository(url: "http://${nexus_host}:8081/repository/maven-snapshots/") {
-                    authentication(userName: project.rootProject.username, password: project.rootProject.password)
+
+                snapshotRepository(url: "https://s01.oss.sonatype.org/content/repositories/snapshots/") {
+                    authentication(userName: findProperty("ossrhUsername")?:"", password: findProperty("ossrhPassword")?:"")
+                }
+
+                pom.project {
+                    name 'pf4boot'
+                    packaging 'jar'
+                    // optionally artifactId can be defined here
+                    description "基于pf4j 设计的Spring Boot插件框架"
+                    url 'https://github.com/dibyang/pf4boot'
+
+                    scm {
+                        connection 'scm:git:https://github.com/dibyang/pf4boot.git'
+                        developerConnection 'scm:git:https://github.com/dibyang/pf4boot.git'
+                        url 'https://github.com/dibyang/pf4boot.git'
+                    }
+
+                    licenses {
+                        license {
+                            name 'GNU Lesser General Public License v3.0'
+                            url 'https://www.gnu.org/licenses/lgpl.html'
+                        }
+                    }
+
+                    developers {
+                        developer {
+                            id 'yangzj'
+                            name 'Yang zhijian'
+                            email '3227817@qq.com'
+                        }
+                    }
                 }
             }
         }
