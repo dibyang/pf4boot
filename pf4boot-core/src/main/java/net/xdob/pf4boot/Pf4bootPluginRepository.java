@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -22,8 +23,12 @@ public class Pf4bootPluginRepository extends BasePluginRepository {
 
   private static final Logger log = LoggerFactory.getLogger(DefaultPluginRepository.class);
 
-  public Pf4bootPluginRepository(Path pluginsRoot) {
-    super(pluginsRoot);
+  public Pf4bootPluginRepository(Path... pluginsRoots) {
+    this(Arrays.asList(pluginsRoots));
+  }
+
+  public Pf4bootPluginRepository(List<Path> pluginsRoots) {
+    super(pluginsRoots);
 
     AndFileFilter pluginsFilter = new AndFileFilter(new DirectoryFileFilter());
     pluginsFilter.addFileFilter(new NotFileFilter(createHiddenPluginFilter()));

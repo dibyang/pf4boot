@@ -4,6 +4,8 @@ import org.pf4j.BasePluginRepository;
 import org.pf4j.util.ZipFileFilter;
 
 import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * ZipPluginRepository
@@ -13,8 +15,12 @@ import java.nio.file.Path;
  */
 public class ZipPluginRepository extends BasePluginRepository {
 
-  public ZipPluginRepository(Path pluginsRoot) {
-    super(pluginsRoot, new ZipFileFilter());
+  public ZipPluginRepository(Path... pluginsRoots) {
+    this(Arrays.asList(pluginsRoots));
+  }
+
+  public ZipPluginRepository(List<Path> pluginsRoots) {
+    super(pluginsRoots, new ZipFileFilter());
   }
 
 }

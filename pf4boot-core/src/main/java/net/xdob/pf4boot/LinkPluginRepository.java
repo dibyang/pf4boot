@@ -9,10 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 /**
  * LinksPluginRepository
@@ -23,9 +20,12 @@ import java.util.List;
 public class LinkPluginRepository extends BasePluginRepository {
   static final Logger log = LoggerFactory.getLogger(LinkPluginRepository.class);
 
-  public LinkPluginRepository(Path pluginsRoot) {
-    super(pluginsRoot);
+  public LinkPluginRepository(Path... pluginsRoots) {
+    this(Arrays.asList(pluginsRoots));
+  }
 
+  public LinkPluginRepository(List<Path> pluginsRoots) {
+    super(pluginsRoots);
     AndFileFilter pluginsFilter = new AndFileFilter(new NameFileFilter("plugins.link"));
     pluginsFilter.addFileFilter(new NotFileFilter(new DirectoryFileFilter()));
     setFilter(pluginsFilter);
@@ -34,13 +34,13 @@ public class LinkPluginRepository extends BasePluginRepository {
 
   @Override
   public List<Path> getPluginPaths() {
-    File[] files = pluginsRoot.toFile().listFiles(filter);
+    List<Path> list = super.getPluginPaths();
 
-    if ((files == null) || files.length == 0) {
+    if ((list == null) || list.size() != 1) {
       return Collections.emptyList();
     }
 
-    List<File> links = readLinks(files[0]);
+    List<File> links = readLinks(list.get(0).toFile());
     if (comparator != null) {
       links.sort(comparator);
     }
@@ -74,11 +74,11 @@ public class LinkPluginRepository extends BasePluginRepository {
 
   @Override
   public boolean deletePluginPath(Path pluginPath) {
-    File[] files = pluginsRoot.toFile().listFiles(filter);
-    if ((files == null) || files.length == 0) {
+    List<Path> list = super.getPluginPaths();
+    if ((list == null) || list.size() != 1) {
       return false;
     }
-    removeFromLinks(files[0],pluginPath);
+    removeFromLinks(list.get(0).toFile(),pluginPath);
     return true;
   }
 

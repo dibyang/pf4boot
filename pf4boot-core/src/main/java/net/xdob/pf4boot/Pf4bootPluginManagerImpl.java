@@ -45,14 +45,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public static final String PLUGINS_DIR_CONFIG_PROPERTY_NAME = "pf4j.pluginsConfigDir";
 
 
-  public Pf4bootPluginManagerImpl(Pf4bootProperties properties,Pf4bootEventBus eventBus) {
-    this.properties = properties;
-    this.eventBus = eventBus;
-    this.doInitialize();
-  }
-
-  public Pf4bootPluginManagerImpl(Path pluginsRoot, Pf4bootProperties properties,Pf4bootEventBus eventBus) {
-    this.pluginsRoot = pluginsRoot;
+  public Pf4bootPluginManagerImpl(Pf4bootProperties properties,Pf4bootEventBus eventBus,Path... pluginsRoots) {
+    super(pluginsRoots);
     this.properties = properties;
     this.eventBus = eventBus;
     this.doInitialize();
@@ -94,11 +88,11 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   protected PluginRepository createPluginRepository() {
     pluginRepository = new CompoundPluginRepository()
-        .add(new LinkPluginRepository(pluginsRoot))
-        .add(new Pf4bootPluginRepository(pluginsRoot))
-        .add(new ZipPluginRepository(pluginsRoot))
-        .add(new DevelopmentPluginRepository(pluginsRoot), this::isDevelopment)
-        .add(new JarPluginRepository(pluginsRoot), this::isNotDevelopment);
+        .add(new LinkPluginRepository(pluginsRoots))
+        .add(new Pf4bootPluginRepository(pluginsRoots))
+        .add(new ZipPluginRepository(pluginsRoots))
+        .add(new DevelopmentPluginRepository(pluginsRoots), this::isDevelopment)
+        .add(new JarPluginRepository(pluginsRoots), this::isNotDevelopment);
     return pluginRepository;
   }
 

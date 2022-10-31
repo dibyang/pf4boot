@@ -87,7 +87,7 @@ public class Pf4bootAutoConfiguration {
       System.setProperty("pf4j.pluginsDir", appHome + File.separator + pluginsRoot);
     }
 
-    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(new File(pluginsRoot).toPath(),properties,eventBus);
+    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(properties,eventBus,new File(pluginsRoot).toPath());
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));
