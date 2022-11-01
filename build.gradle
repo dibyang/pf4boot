@@ -1,7 +1,7 @@
 import java.time.LocalDateTime
 
 static def isPluginProject(Project project) {
-    return project.hasProperty("plugin")
+    return project.hasProperty("plugin_id")
 }
 
 buildscript {
@@ -226,25 +226,18 @@ subprojects {
 
     if (isPluginProject(project)) {
 
-        Properties pluginProp = new Properties()
-        pluginProp.load(file('plugin.properties').newDataInputStream())
-        if(project.version != pluginProp.get("plugin.version")){
-            pluginProp.setProperty("plugin.version",project.version)
-            pluginProp.store(file('plugin.properties').newDataOutputStream(),null)
-        }
         jar {
             entryCompression ZipEntryCompression.STORED
-            //from 'plugin.properties'
             into('lib') {
                 from configurations.inline
             }
             manifest.attributes(
                 "Build-Time": LocalDateTime.now(),
-                "Plugin-Id": pluginProp.get("plugin.id"),
-                "Plugin-Class": pluginProp.get("plugin.class"),
-                "Plugin-Version": pluginProp.get("plugin.version"),
-                "Plugin-Provider": pluginProp.get("plugin.provider"),
-                "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
+                "Plugin-Id": project.plugin_id,
+                "Plugin-Class": project.plugin_class,
+                "Plugin-Version": project.version,
+                "Plugin-Provider": project.plugin_provider,
+                "Plugin-Dependencies": project.plugin_dependencies)
         }
 
 
