@@ -21,7 +21,7 @@ fi
 JAVA_OPTS="-Dfile.encoding=utf-8 -Dsun.jnu.encoding=utf-8"
 JAVA_OPTS="$JAVA_OPTS -cp :$approot/lib/* -Dapp.home=$approot"
 #JAVA_OPTS="$JAVA_OPTS -Dlogback.statusListenerClass=ch.qos.logback.core.status.OnErrorConsoleStatusListener"
-#JAVA_OPTS="$JAVA_OPTS -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=5006"
+#JAVA_OPTS="$JAVA_OPTS -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5006"
 
 
 eval java  $JAVA_OPTS  net.xdob.demo.Application \

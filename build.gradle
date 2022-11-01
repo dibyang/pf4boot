@@ -100,7 +100,9 @@ subprojects {
     configurations {
         inline
         compile.extendsFrom(inline)
-        plugin
+        plugin{
+            transitive = false
+        }
     }
     configurations.all {
         resolutionStrategy {
@@ -231,23 +233,8 @@ subprojects {
             pluginProp.store(file('plugin.properties').newDataOutputStream(),null)
         }
         jar {
-
-        }
-
-
-        task copyInlineTolib(type: Copy) {
-            group 'build'
-            from configurations.inline
-            into "$buildDir/inline"
-        }
-        build.dependsOn += copyInlineTolib
-        jar.dependsOn += copyInlineTolib
-
-        task buildJarPlugin(type: Jar) {
-            group 'build'
-            dependsOn build
-            destinationDir file("$buildDir/libs/")
             entryCompression ZipEntryCompression.STORED
+            //from 'plugin.properties'
             into('lib') {
                 from configurations.inline
             }
@@ -258,37 +245,24 @@ subprojects {
                 "Plugin-Version": pluginProp.get("plugin.version"),
                 "Plugin-Provider": pluginProp.get("plugin.provider"),
                 "Plugin-Dependencies": pluginProp.get("plugin.dependencies"))
-            with jar
-            doLast {
-                // Deploy built plugins...
-            }
         }
 
+
+        task copyInlineTolib(type: Copy) {
+            group 'build'
+            from configurations.inline
+            into "$buildDir/inline"
+        }
+        build.dependsOn += copyInlineTolib
+        jar.dependsOn += copyInlineTolib
         task addInlineToManifest() {
             String[] inline = new File("$buildDir/inline").list()
             if (inline!=null&&inline.length>0) {
                 jar.manifest.attributes('Class-Path': inline.collect { "lib/$it" }.join(' '))
             }
         }
-        buildJarPlugin.dependsOn += addInlineToManifest
+        jar.dependsOn += addInlineToManifest
 
-        task buildZipPlugin(type: Zip) {
-            group 'build'
-            dependsOn jar
-            destinationDir file("$buildDir/libs/")
-            baseName project.name
-            from 'plugin.properties'
-            into('lib') {
-                from "$buildDir/libs/$jar.archiveName"
-                from configurations.inline
-            }
-            doLast {
-                // Deploy built plugins...
-            }
-        }
-        artifacts {
-            archives buildZipPlugin
-        }
     }
 
 

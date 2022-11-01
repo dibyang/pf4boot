@@ -1,9 +1,9 @@
 #!/bin/bash
+name=@app_name@
 
 oldpath=$(pwd)
 basepath=$(cd `dirname $0`; pwd)
 
-name=@app_name@
 approot=`dirname $basepath`
 cd $approot
 

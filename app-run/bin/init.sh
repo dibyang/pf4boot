@@ -45,12 +45,12 @@ rh_stop() {
 }
 
 rh_restart() {
-    instance=`ps -ef | grep app.home=$approot | sed '/grep/d'`
+    instance=`ps -ef | grep app.home=$app_root | sed '/grep/d'`
     if [ -n "$instance" ]; then
         rh_stop
 	while true
         do
-            temp=`ps -ef | grep app.home=$approot | sed '/grep/d'`
+            temp=`ps -ef | grep app.home=$app_root | sed '/grep/d'`
             if [ -z "$temp" ];then
                 break
             fi  
@@ -63,7 +63,7 @@ rh_restart() {
 }
 
 rh_status() {
-    instance=`ps -ef | grep app.home=$approot | sed '/grep/d'`
+    instance=`ps -ef | grep app.home=$app_root | sed '/grep/d'`
     if [ -n "$instance" ]; then
         echo ""
         echo "${name} is running."
@@ -89,7 +89,7 @@ suse_stop() {
 }
 
 suse_restart() {
-    instance=`ps -ef | grep app.home=$approot | sed '/grep/d'`
+    instance=`ps -ef | grep app.home=$app_root | sed '/grep/d'`
     if [ -n "$instance" ]; then
         suse_stop
         while true
@@ -107,7 +107,7 @@ suse_restart() {
 }
 
 suse_status() {
-    instance=`ps -ef | grep app.home=$approot | sed '/grep/d'`
+    instance=`ps -ef | grep app.home=$app_root | sed '/grep/d'`
     if [ -n "$instance" ]; then
         echo ""
         echo "${name} is running."

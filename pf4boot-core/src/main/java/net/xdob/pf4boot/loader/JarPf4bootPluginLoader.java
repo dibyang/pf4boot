@@ -45,7 +45,9 @@ public class JarPf4bootPluginLoader implements PluginLoader {
         pluginClassLoader.addURL(archives.next().getUrl());
       }
     } catch (IOException e) {
-      log.warn(null,e);
+      throw new PluginRuntimeException(e);
+    } catch (IllegalStateException e){
+      throw new PluginRuntimeException(e);
     }
     return pluginClassLoader;
   }

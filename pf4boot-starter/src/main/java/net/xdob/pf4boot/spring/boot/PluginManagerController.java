@@ -47,14 +47,14 @@ public class PluginManagerController {
     }).collect(Collectors.toList());
 
     // yet not loaded plugins
-    List<Path> pluginPaths = pluginManager.getPluginRepository().getPluginPaths();
-    plugins.addAll(pluginPaths.stream().filter(path ->
-        loadedPlugins.stream().noneMatch(plugin -> plugin.getPluginPath().equals(path))
-    ).map(path -> {
-      PluginDescriptor descriptor = pluginManager
-          .getPluginDescriptorFinder().find(path);
-      return PluginInfo.build(descriptor, null, null, null, false);
-    }).filter(pluginInfo -> loadedPlugins.stream().noneMatch(plugin->plugin.getPluginId().equals(pluginInfo.pluginId))).collect(Collectors.toList()));
+//    List<Path> pluginPaths = pluginManager.getPluginRepository().getPluginPaths();
+//    plugins.addAll(pluginPaths.stream().filter(path ->
+//        loadedPlugins.stream().noneMatch(plugin -> plugin.getPluginPath().equals(path))
+//    ).map(path -> {
+//      PluginDescriptor descriptor = pluginManager
+//          .getPluginDescriptorFinder().find(path);
+//      return PluginInfo.build(descriptor, null, null, null, false);
+//    }).filter(pluginInfo -> loadedPlugins.stream().noneMatch(plugin->plugin.getPluginId().equals(pluginInfo.pluginId))).collect(Collectors.toList()));
 
     return plugins;
   }

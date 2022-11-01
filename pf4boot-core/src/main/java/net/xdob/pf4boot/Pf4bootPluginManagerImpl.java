@@ -56,8 +56,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   protected PluginDescriptorFinder createPluginDescriptorFinder() {
     return new CompoundPluginDescriptorFinder()
-        .add(new PropertiesPluginDescriptorFinder2())
-        .add(new ManifestPluginDescriptorFinder());
+        .add(new ManifestPluginDescriptorFinder())
+        .add(new PropertiesPluginDescriptorFinder());
   }
 
   @Override
@@ -88,11 +88,11 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   protected PluginRepository createPluginRepository() {
     pluginRepository = new CompoundPluginRepository()
-        .add(new LinkPluginRepository(pluginsRoots))
-        .add(new Pf4bootPluginRepository(pluginsRoots))
-        .add(new ZipPluginRepository(pluginsRoots))
-        .add(new DevelopmentPluginRepository(pluginsRoots), this::isDevelopment)
-        .add(new JarPluginRepository(pluginsRoots), this::isNotDevelopment);
+        .add(new LinkPluginRepository(getPluginsRoots()))
+        .add(new Pf4bootPluginRepository(getPluginsRoots()))
+        .add(new ZipPluginRepository(getPluginsRoots()))
+        .add(new DevelopmentPluginRepository(getPluginsRoots()), this::isDevelopment)
+        .add(new JarPluginRepository(getPluginsRoots()), this::isNotDevelopment);
     return pluginRepository;
   }
 
@@ -109,9 +109,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       }
     } else {
       return new CompoundPluginLoader()
+          .add(new JarPf4bootPluginLoader(this),this::isNotDevelopment)
           .add(new ZipPf4bootPluginLoader(this))
-          .add(new Pf4bootPluginLoader(this, properties),this::isDevelopment)
-          .add(new JarPf4bootPluginLoader(this),this::isDevelopment);
+          .add(new Pf4bootPluginLoader(this, properties),this::isDevelopment);
     }
   }
 
@@ -191,7 +191,12 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
     // load plugin
     log.debug("Loading plugin '{}'", pluginPath);
-    ClassLoader pluginClassLoader = getPluginLoader().loadPlugin(pluginPath, pluginDescriptor);
+    ClassLoader pluginClassLoader = null;
+    try {
+      pluginClassLoader = getPluginLoader().loadPlugin(pluginPath, pluginDescriptor);
+    } catch (Exception e) {
+      throw new PluginRuntimeException(e);
+    }
     log.debug("Loaded plugin '{}' with class loader '{}'", pluginPath, pluginClassLoader);
 
     // create the plugin wrapper
