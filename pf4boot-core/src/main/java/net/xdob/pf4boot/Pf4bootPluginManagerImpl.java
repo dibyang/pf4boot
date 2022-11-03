@@ -56,8 +56,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   protected PluginDescriptorFinder createPluginDescriptorFinder() {
     return new CompoundPluginDescriptorFinder()
-        .add(new ManifestPluginDescriptorFinder())
-        .add(new PropertiesPluginDescriptorFinder());
+        .add(new PropertiesPluginDescriptorFinder())
+        .add(new ManifestPluginDescriptorFinder2());
   }
 
   @Override

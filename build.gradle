@@ -1,8 +1,3 @@
-import java.time.LocalDateTime
-
-static def isPluginProject(Project project) {
-    return project.hasProperty("plugin_id")
-}
 
 buildscript {
     repositories {
@@ -12,6 +7,7 @@ buildscript {
     }
     dependencies {
         classpath 'net.researchgate:gradle-release:2.6.0'
+        classpath "net.xdob.pf4boot:pf4boot-plugin:0.3.0"
     }
     //skip Test tasks
     gradle.taskGraph.whenReady {
@@ -89,6 +85,7 @@ subprojects {
     apply plugin: 'java'
     apply plugin: 'maven'
     apply plugin: 'signing'
+    apply plugin: 'net.xdob.pf4boot-plugin'
 
     // 将构建的包签名
     signing {
@@ -97,13 +94,13 @@ subprojects {
 
     afterReleaseBuild.dependsOn uploadArchives
 
-    configurations {
-        inline
-        compile.extendsFrom(inline)
-        plugin{
-            transitive = false
-        }
-    }
+//    configurations {
+//        inline
+//        compile.extendsFrom(inline)
+//        plugin{
+//            transitive = false
+//        }
+//    }
     configurations.all {
         resolutionStrategy {
             // cache dynamic versions for 10 seconds
@@ -224,39 +221,6 @@ subprojects {
         archives javadocJar, sourcesJar
     }
 
-    if (isPluginProject(project)) {
-
-        jar {
-            entryCompression ZipEntryCompression.STORED
-            into('lib') {
-                from configurations.inline
-            }
-            manifest.attributes(
-                "Build-Time": LocalDateTime.now(),
-                "Plugin-Id": project.plugin_id,
-                "Plugin-Class": project.plugin_class,
-                "Plugin-Version": project.version,
-                "Plugin-Provider": project.plugin_provider,
-                "Plugin-Dependencies": project.plugin_dependencies)
-        }
-
-
-        task copyInlineTolib(type: Copy) {
-            group 'build'
-            from configurations.inline
-            into "$buildDir/inline"
-        }
-        build.dependsOn += copyInlineTolib
-        jar.dependsOn += copyInlineTolib
-        task addInlineToManifest() {
-            String[] inline = new File("$buildDir/inline").list()
-            if (inline!=null&&inline.length>0) {
-                jar.manifest.attributes('Class-Path': inline.collect { "lib/$it" }.join(' '))
-            }
-        }
-        jar.dependsOn += addInlineToManifest
-
-    }
 
 
 

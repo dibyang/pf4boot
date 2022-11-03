@@ -8,3 +8,11 @@ dependencies {
     compile project(":pf4boot-api")
     compile project(":plugin1")
 }
+
+pf4bootPlugin{
+    id='plugin2'
+    pluginClass='net.xdob.demo.plugin2.Plugin2Plugin'
+    provider='yangzj'
+    dependencies='plugin1'
+    description=''
+}
