@@ -1,5 +1,6 @@
 plugins {
     id "nebula.ospackage" version "8.4.1"
+    id 'java-library'
 }
 
 build {
@@ -17,7 +18,7 @@ uploadArchives {
 
 dependencies {
     compile project(":demo-app")
-    compile("com.h2database:h2:1.4.196")
+    compile("net.xdob.h2db:h2:2.0.0")
     plugin project(":plugin1")
     plugin project(":plugin2")
 }
@@ -69,6 +70,7 @@ ospackage {
 
     from(configurations.plugin){
         into "plugins"
+        include "*.zip"
     }
 
 }

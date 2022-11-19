@@ -1,12 +1,10 @@
 
-uploadArchives {
-    enabled = false
-}
 
 dependencies {
     inline("org.apache.commons:commons-text:1.9")
     compile project(":pf4boot-api")
     compile project(":plugin1")
+    plugin project(":plugin1")
 }
 
 pf4bootPlugin{

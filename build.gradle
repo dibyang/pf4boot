@@ -7,7 +7,7 @@ buildscript {
     }
     dependencies {
         classpath 'net.researchgate:gradle-release:2.6.0'
-        classpath "net.xdob.pf4boot:pf4boot-plugin:0.3.0"
+        classpath "net.xdob.pf4boot:pf4boot-plugin:0.4.0"
     }
     //skip Test tasks
     gradle.taskGraph.whenReady {
@@ -216,10 +216,12 @@ subprojects {
         options.charSet = 'UTF-8'
     }
 
+
     // 并将它们与项目 jar 本身一起连接到 artifacts 集合中：
     artifacts {
         archives javadocJar, sourcesJar
     }
+
 
 
 
