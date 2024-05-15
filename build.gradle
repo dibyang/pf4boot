@@ -83,6 +83,7 @@ subprojects {
     }
 
     apply plugin: 'java'
+    apply plugin: "java-library"
     apply plugin: 'maven'
     apply plugin: 'signing'
     apply plugin: 'net.xdob.pf4boot-plugin'
@@ -129,15 +130,14 @@ subprojects {
     }
 
     dependencies {
-        compile("org.springframework.boot:spring-boot-starter-web:${spring_boot_version}")
-        //compile("org.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
-        //compile("org.springframework.boot:spring-boot-devtools:${spring_boot_version}")
-        //compile("com.h2database:h2:1.4.196")
-        compile("com.google.guava:guava:31.0-jre")
-        compile("com.google.code.gson:gson:2.8.6")
-        compile("org.apache.commons:commons-lang3:3.9")
-        compile("org.slf4j:slf4j-api:${slf4j_version}")
-        testCompile("junit:junit:4.12")
+        implementation("org.springframework.boot:spring-boot-starter-web:${spring_boot_version}")
+        //implementation("org.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
+        //implementation("org.springframework.boot:spring-boot-devtools:${spring_boot_version}")
+        implementation("com.google.guava:guava:31.0-jre")
+        implementation("com.google.code.gson:gson:2.8.6")
+        implementation("org.apache.commons:commons-lang3:3.9")
+        implementation("org.slf4j:slf4j-api:${slf4j_version}")
+        testImplementation("junit:junit:4.12")
         annotationProcessor "org.pf4j:pf4j:${pf4j_version}"
         testAnnotationProcessor "org.pf4j:pf4j:${pf4j_version}"
     }

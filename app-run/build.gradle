@@ -17,8 +17,7 @@ uploadArchives {
 }
 
 dependencies {
-    compile project(":demo-app")
-    compile("net.xdob.h2db:h2:2.0.0")
+    api project(":demo-app")
     plugin project(":plugin1")
     plugin project(":plugin2")
 }

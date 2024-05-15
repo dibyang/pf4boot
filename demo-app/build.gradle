@@ -1,8 +1,8 @@
 
 
 dependencies {
-    compile project(":pf4boot-starter")
-    compile project(":demo-lib")
-    implementation("com.h2database:h2:1.4.196")
+    implementation project(":pf4boot-starter")
+    implementation project(":demo-lib")
+    implementation("com.h2database:h2:2.2.224")
     //compile("org.springframework.boot:spring-boot-devtools:${spring_boot_version}")
 }

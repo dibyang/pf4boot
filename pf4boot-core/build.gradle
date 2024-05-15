@@ -1,4 +1,4 @@
 
 dependencies {
-    compile project(":pf4boot-api")
+    implementation project(":pf4boot-api")
 }
