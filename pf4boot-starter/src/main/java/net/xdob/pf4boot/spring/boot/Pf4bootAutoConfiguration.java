@@ -23,6 +23,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.util.StringUtils;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Stack;
@@ -36,8 +37,6 @@ import java.util.function.Consumer;
 public class Pf4bootAutoConfiguration {
   static final Logger log = LoggerFactory.getLogger(Pf4bootAutoConfiguration.class);
 
-  @Autowired
-  private WebMvcRegistrations mvcRegistrations;
 
   @Bean
   @ConditionalOnMissingBean
@@ -62,8 +61,8 @@ public class Pf4bootAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean(PluginManagerController.class)
   @ConditionalOnProperty(name = "spring.pf4boot.controller.base-path")
-  public PluginManagerController pluginManagerController() {
-    return new PluginManagerController();
+  public PluginManagerController pluginManagerController(Pf4bootPluginManager pluginManager) {
+    return new PluginManagerController(pluginManager);
   }
 
   @Bean
@@ -80,12 +79,8 @@ public class Pf4bootAutoConfiguration {
 
     // Setup Plugin folder
     String pluginsRoot = StringUtils.hasText(properties.getPluginsRoot()) ? properties.getPluginsRoot() : "plugins";
+
     System.setProperty("pf4j.pluginsDir", pluginsRoot);
-    String appHome = System.getProperty("app.home");
-    if (RuntimeMode.DEPLOYMENT == properties.getRuntimeMode()
-        && StringUtils.hasText(appHome)) {
-      System.setProperty("pf4j.pluginsDir", appHome + File.separator + pluginsRoot);
-    }
 
     Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(properties,eventBus,new File(pluginsRoot).toPath());
 

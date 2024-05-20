@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * LinksPluginRepository
@@ -35,21 +36,21 @@ public class LinkPluginRepository extends BasePluginRepository {
   @Override
   public List<Path> getPluginPaths() {
     List<Path> list = super.getPluginPaths();
-
-    if ((list == null) || list.size() != 1) {
-      return Collections.emptyList();
+    Set<Path> paths = new HashSet<>();
+    if (list != null) {
+      for (Path path : list) {
+        List<File> links = readLinks(path.toFile());
+        if (comparator != null) {
+          links.sort(comparator);
+        }
+        for (File file : links) {
+          Path pluginPath = file.toPath();
+          paths.add(pluginPath);
+        }
+      }
     }
-
-    List<File> links = readLinks(list.get(0).toFile());
-    if (comparator != null) {
-      links.sort(comparator);
-    }
-    List<Path> paths = new ArrayList<>(links.size());
-    for (File file : links) {
-      Path pluginPath = file.toPath();
-      paths.add(pluginPath);
-    }
-    return paths;
+    return paths.stream()
+        .collect(Collectors.toList());
   }
 
   private List<File> readLinks(File linksFile) {

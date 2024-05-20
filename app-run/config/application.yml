@@ -1,5 +1,5 @@
 server:
-  port: 6688
+  port: 7788
   servlet:
     context-path:
     multipart:
@@ -32,7 +32,7 @@ spring:
     controller:
       base-path: /api/pf4boot
   datasource:
-    url: jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+    url: jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;NON_KEYWORDS=user
     platform: h2
     username: sa
     password: ysyhljt2020*
@@ -51,9 +51,3 @@ spring:
       settings:
         trace: true
         web-allow-others: true
-logging:
-  file:
-    name: ./logs/demo.log
-  level:
-    root: info
-    org.springframework.web: trace

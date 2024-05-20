@@ -1,23 +1,19 @@
-plugins {
-    id "nebula.ospackage" version "8.4.1"
-    id 'java-library'
-}
 
+apply plugin: 'com.netflix.nebula.ospackage'
 build {
     enabled = false
 }
 jar {
     enabled = false
 }
-install {
-    enabled = false
-}
-uploadArchives {
-    enabled = false
-}
+
+//install {
+//    enabled = false
+//}
+
 
 dependencies {
-    api project(":demo-app")
+    implementation project(":demo-app")
     plugin project(":plugin1")
     plugin project(":plugin2")
 }
@@ -52,12 +48,12 @@ ospackage {
         filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [app_name:packname])
     }
 
-    from("config-prod"){
+    from("config"){
         fileType CONFIG | NOREPLACE
         into "config"
     }
 
-    from(configurations.runtime){
+    from(configurations.runtimeClasspath){
         into "lib"
         exclude '*-sources.jar','*-javadoc.jar','spring-boot-devtools*.jar'
     }
@@ -74,7 +70,9 @@ ospackage {
 
 }
 
-buildRpm {
+
+
+buildRpm{
     group 'build'
     link("/etc/init.d/$packname", "/$packname/bin/init.sh")
     preInstall file("$buildDir/ready/preInstallCentos.sh")

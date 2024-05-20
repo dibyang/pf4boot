@@ -5,9 +5,9 @@ oldpath=$(pwd)
 basepath=$(cd `dirname $0`; pwd)
 
 approot=`dirname $basepath`
-cd $approot
+echo "app home=$approot"
 
-instance=`ps -ef | grep app.home=$approot | sed '/grep/d'` | awk '{print $2}'
+instance=`ps -ef | grep app.home=$approot | sed '/grep/d'| awk '{print $2}'`
 if [ -z "$instance" ]; then
       echo "$name is not running."
 	exit 0

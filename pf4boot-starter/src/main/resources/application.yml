@@ -12,8 +12,6 @@ spring:
     view:
       suffix: .html
     static-path-pattern: /**
-  resources:
-    static-locations: classpath:/webui/,classpath:/static/
   flyway:
     enabled: false
   pf4boot:
@@ -31,6 +29,9 @@ spring:
       allow-bean-definition-overriding: true
     controller:
       base-path: /api/pf4boot/
+  web:
+    resources:
+      static-locations: classpath:/webui/,classpath:/static/
 logging:
   file:
     name: ./logs/pf4boot.log

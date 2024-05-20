@@ -12,8 +12,6 @@ spring:
     view:
       suffix: .html
     static-path-pattern: /**
-  resources:
-    static-locations: classpath:/webui/,classpath:/static/
   flyway:
     enabled: false
   pf4boot:
@@ -30,8 +28,7 @@ spring:
     controller:
       base-path: /api/pf4boot/
   datasource:
-    url: jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
-    platform: h2
+    url: jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;NON_KEYWORDS=user
     username: sa
     password: ysyhljt2020*
     driverClassName: org.h2.Driver
@@ -49,8 +46,11 @@ spring:
       settings:
         trace: true
         web-allow-others: true
+  sql:
+    init:
+      platform: h2
+  web:
+    resources:
+      static-locations: classpath:/webui/,classpath:/static/
 logging:
-  file:
-    name: ./logs/demo.log
-  level:
-    root: INFO
+  config: ./config/logback-spring.xml

@@ -6,12 +6,10 @@ import org.pf4j.PluginDescriptor;
 import org.pf4j.PluginRuntimeException;
 import org.pf4j.PluginState;
 import org.pf4j.PluginWrapper;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -19,8 +17,12 @@ import java.util.stream.Collectors;
 @RestController
 public class PluginManagerController {
 
-  @Autowired
+
   private Pf4bootPluginManager pluginManager;
+
+  public PluginManagerController(Pf4bootPluginManager pluginManager) {
+    this.pluginManager = pluginManager;
+  }
 
   @GetMapping(value = "${spring.pf4boot.controller.base-path:/api/pf4boot/}/list")
   public List<PluginInfo> list() {

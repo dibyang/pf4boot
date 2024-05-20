@@ -2,12 +2,12 @@
 buildscript {
     repositories {
         mavenLocal()
-        maven { url 'https://maven.aliyun.com/repository/public/' }
         mavenCentral()
+        maven { url 'https://maven.aliyun.com/repository/public/' }
     }
     dependencies {
         classpath 'net.researchgate:gradle-release:2.6.0'
-        classpath "net.xdob.pf4boot:pf4boot-plugin:0.4.0"
+        classpath "net.xdob.pf4boot:pf4boot-plugin:0.6.1"
     }
     //skip Test tasks
     gradle.taskGraph.whenReady {
@@ -20,7 +20,7 @@ buildscript {
 }
 
 apply plugin: 'java'
-apply plugin: 'maven'
+apply plugin: 'maven-publish'
 apply plugin: 'signing'
 apply plugin: 'net.researchgate.release'
 
@@ -77,14 +77,17 @@ subprojects {
     buildscript {
         repositories {
             mavenLocal()
-            maven { url 'https://maven.aliyun.com/repository/public/' }
             mavenCentral()
+            maven { url 'https://maven.aliyun.com/repository/public/' }
+        }
+        dependencies {
+            classpath 'com.netflix.nebula:gradle-ospackage-plugin:11.0.0'
         }
     }
 
     apply plugin: 'java'
     apply plugin: "java-library"
-    apply plugin: 'maven'
+    apply plugin: 'maven-publish'
     apply plugin: 'signing'
     apply plugin: 'net.xdob.pf4boot-plugin'
 
@@ -93,7 +96,7 @@ subprojects {
         sign configurations.archives
     }
 
-    afterReleaseBuild.dependsOn uploadArchives
+//    afterReleaseBuild.dependsOn publishMavenJavaPublicationToMavenRepository
 
 //    configurations {
 //        inline
@@ -142,59 +145,79 @@ subprojects {
         testAnnotationProcessor "org.pf4j:pf4j:${pf4j_version}"
     }
 
-    uploadArchives {
-        repositories {
-            mavenDeployer {
-                beforeDeployment { MavenDeployment deployment -> signing.signPom(deployment) }
 
-                repository(url: "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/") {
-                    authentication(userName: findProperty("ossrhUsername")?:"", password: findProperty("ossrhPassword")?:"")
-                }
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                groupId = project.group
+                artifactId = project.name
+                version = project.version
+                //如果不定义，则会按照以上默认值执行
+                from components.java
 
-                snapshotRepository(url: "https://s01.oss.sonatype.org/content/repositories/snapshots/") {
-                    authentication(userName: findProperty("ossrhUsername")?:"", password: findProperty("ossrhPassword")?:"")
-                }
-
-                pom.project {
-                    name 'pf4boot'
-                    packaging 'jar'
-                    // optionally artifactId can be defined here
-                    description "基于pf4j 设计的Spring Boot插件框架"
-                    url 'https://github.com/dibyang/pf4boot'
-
-                    scm {
-                        connection 'scm:git:https://github.com/dibyang/pf4boot.git'
-                        developerConnection 'scm:git:https://github.com/dibyang/pf4boot.git'
-                        url 'https://github.com/dibyang/pf4boot.git'
-                    }
-
+                pom {
+                    name = 'pf4boot'
+                    description = "基于pf4j 设计的Spring Boot插件框架"
+                    url = 'https://github.com/dibyang/pf4boot'
                     licenses {
                         license {
-                            name 'GNU Lesser General Public License v3.0'
-                            url 'https://www.gnu.org/licenses/lgpl.html'
+                            name = 'The Apache License, Version 2.0'
+                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
                         }
                     }
-
                     developers {
                         developer {
-                            id 'yangzj'
-                            name 'Yang zhijian'
-                            email '3227817@qq.com'
+                            id = 'yangzj'
+                            name = 'Yang zhijian'
+                            email = '3227817@qq.com'
                         }
                     }
+                    scm {
+                        connection = 'scm:git:https://github.com/dibyang/pf4boot.git'
+                        developerConnection = 'scm:git:https://github.com/dibyang/pf4boot.git'
+                        url = 'https://github.com/dibyang/pf4boot.git'
+                    }
+                }
+
+                versionMapping {
+                    usage('java-api') {
+                        fromResolutionOf('runtimeClasspath')
+                    }
+                    usage('java-runtime') {
+                        fromResolutionResult()
+                    }
+                }
+            }
+        }
+        repositories {
+            maven {
+                // 发布仓库配置，这里基于version后缀是否为SNAPSHOT来区分发布到release库还是snapshots库
+                def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+                def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+                url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+
+                //认证用户和密码，在配置文件gradle.properties中配置
+                //oss-sonatype的登录用户名和密码
+                credentials {
+                    username findProperty("ossrhUsername")?:""
+                    password findProperty("ossrhPassword")?:""
                 }
             }
         }
     }
 
+    signing {
+        sign publishing.publications.mavenJava
+    }
+
     //对于典型的 Java 项目，您可以添加一个javadocJar以及一个 sourcesJar任务
     task javadocJar(type: Jar) {
-        classifier = 'javadoc'
+        archiveClassifier = 'javadoc'
         from javadoc
     }
 
     task sourcesJar(type: Jar) {
-        classifier = 'sources'
+        archiveClassifier = 'sources'
         from sourceSets.main.allSource
     }
 
@@ -215,7 +238,6 @@ subprojects {
         options.encoding = "UTF-8"  //编码一定要配置否则直接出错
         options.charSet = 'UTF-8'
     }
-
 
     // 并将它们与项目 jar 本身一起连接到 artifacts 集合中：
     artifacts {

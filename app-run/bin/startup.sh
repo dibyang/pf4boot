@@ -4,7 +4,7 @@ oldpath=$(pwd)
 basepath=$(cd `dirname $0`; pwd)
 
 approot=`dirname $basepath`
-cd $approot
+echo "app home=$approot"
 
 instance=`ps -ef | grep app.home=$approot | sed '/grep/d'`
 if [ -n "$instance" ]; then
@@ -24,8 +24,7 @@ JAVA_OPTS="$JAVA_OPTS -cp :$approot/lib/* -Dapp.home=$approot"
 #JAVA_OPTS="$JAVA_OPTS -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5006"
 
 
-eval java  $JAVA_OPTS  net.xdob.demo.Application \
- 1> /dev/null 2> /dev/null "&"
+eval java  $JAVA_OPTS  net.xdob.demo.DemoApp  2>&1 1 > /var/log/demo-app.log &
 
 instance=`ps -ef | grep app.home=$approot | sed '/grep/d'`
 if [ -n "$instance" ]; then

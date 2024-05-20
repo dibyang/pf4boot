@@ -1,6 +1,10 @@
 package net.xdob.pf4boot.spring.boot;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
+import net.xdob.pf4boot.internal.PluginResourceResolver;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.web.WebProperties;
+import org.springframework.cache.Cache;
 import org.springframework.web.servlet.mvc.method.annotation.PluginRequestMappingHandlerMapping;
 import org.pf4j.PluginManager;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +27,12 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 public class Pf4bootMvcPatchAutoConfiguration {
 
   @Autowired
+  @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
+  private WebProperties resourceProperties;// = new WebProperties();
+
+  @Autowired(required = false)
+  @Qualifier("sbpResourceCache")
+  private Cache sbpResourceCache;
 
 
   @Bean
@@ -47,8 +57,8 @@ public class Pf4bootMvcPatchAutoConfiguration {
   }
 
   @Bean
-  public PluginResourceHandlerRegistrationCustomizer resourceHandlerRegistrationCustomizer() {
-    return new PluginResourceHandlerRegistrationCustomizer();
+  public PluginResourceHandlerRegistrationCustomizer resourceHandlerRegistrationCustomizer(PluginResourceResolver pluginResourceResolver) {
+    return new PluginResourceHandlerRegistrationCustomizer(resourceProperties, sbpResourceCache, pluginResourceResolver);
   }
 
   @EventListener(Pf4bootPluginStateChangedEvent.class)
