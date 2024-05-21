@@ -91,20 +91,8 @@ subprojects {
     apply plugin: 'signing'
     apply plugin: 'net.xdob.pf4boot-plugin'
 
-    // 将构建的包签名
-    signing {
-        sign configurations.archives
-    }
 
-//    afterReleaseBuild.dependsOn publishMavenJavaPublicationToMavenRepository
 
-//    configurations {
-//        inline
-//        compile.extendsFrom(inline)
-//        plugin{
-//            transitive = false
-//        }
-//    }
     configurations.all {
         resolutionStrategy {
             // cache dynamic versions for 10 seconds
@@ -205,10 +193,12 @@ subprojects {
         }
     }
 
+    // 将构建的包签名
     signing {
-        sign publishing.publications.mavenJava
+        sign configurations.archives
     }
 
+    afterReleaseBuild.dependsOn publishMavenJavaPublicationToMavenRepository
     //对于典型的 Java 项目，您可以添加一个javadocJar以及一个 sourcesJar任务
     task javadocJar(type: Jar) {
         archiveClassifier = 'javadoc'
