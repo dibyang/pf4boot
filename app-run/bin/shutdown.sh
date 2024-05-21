@@ -13,6 +13,6 @@ if [ -z "$instance" ]; then
 	exit 0
 fi
 
-pkill -9  -f  app.home=$approot
+kill $instance
 echo "$name stopped"
 

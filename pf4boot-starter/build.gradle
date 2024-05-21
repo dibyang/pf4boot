@@ -6,7 +6,6 @@ dependencies {
         exclude group: 'org.slf4j'
     }
     compileOnly("org.flywaydb:flyway-core:${flyway_version}")
-//    compileOnly("ch.qos.logback:logback-core:${logbak_version}")
-//    compileOnly("ch.qos.logback:logback-classic:${logbak_version}")
+
     //annotationProcessor "org.springframework.boot:spring-boot-annotation-processor:${spring_boot_version}"
 }

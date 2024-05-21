@@ -7,7 +7,7 @@ buildscript {
     }
     dependencies {
         classpath 'net.researchgate:gradle-release:2.6.0'
-        classpath "net.xdob.pf4boot:pf4boot-plugin:0.6.1"
+        classpath "net.xdob.pf4boot:pf4boot-plugin:0.6.2"
     }
     //skip Test tasks
     gradle.taskGraph.whenReady {
@@ -139,7 +139,6 @@ subprojects {
         implementation("com.google.guava:guava:31.0-jre")
         implementation("com.google.code.gson:gson:2.8.6")
         implementation("org.apache.commons:commons-lang3:3.9")
-        implementation("org.slf4j:slf4j-api:${slf4j_version}")
         testImplementation("junit:junit:4.12")
         annotationProcessor "org.pf4j:pf4j:${pf4j_version}"
         testAnnotationProcessor "org.pf4j:pf4j:${pf4j_version}"

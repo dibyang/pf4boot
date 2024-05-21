@@ -1,0 +1,16 @@
+[Unit]
+Description=demo-app
+After=network.service
+
+[Service]
+Type=forking
+ExecStart=/@app_name@/bin/startup.sh --daemon
+ExecStop=/@app_name@/bin/shutdown.sh
+KillMode=process
+Restart=on-abort
+RestartSec=10
+KillMode=process
+PrivateTmp=false
+
+[Install]
+WantedBy=multi-user.target

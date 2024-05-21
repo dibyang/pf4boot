@@ -4,5 +4,4 @@ dependencies {
     inline("org.apache.commons:commons-text:1.9")
     implementation project(":pf4boot-api")
     implementation project(":plugin1")
-    plugin project(":plugin1")
 }

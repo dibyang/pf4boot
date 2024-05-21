@@ -13,6 +13,7 @@ jar {
 
 
 dependencies {
+    runtimeOnly("ch.qos.logback:logback-classic:${logbak_version}")
     implementation project(":demo-app")
     plugin project(":plugin1")
     plugin project(":plugin2")
@@ -48,6 +49,13 @@ ospackage {
         filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [app_name:packname])
     }
 
+    from("demo-app.service"){
+        into "/usr/lib/systemd/system/"
+        rename('demo-app.service',"${packname}.service")
+        fileMode = 0555
+        filter(org.apache.tools.ant.filters.ReplaceTokens, tokens: [app_name:packname])
+    }
+
     from("config"){
         fileType CONFIG | NOREPLACE
         into "config"
@@ -74,7 +82,6 @@ ospackage {
 
 buildRpm{
     group 'build'
-    link("/etc/init.d/$packname", "/$packname/bin/init.sh")
     preInstall file("$buildDir/ready/preInstallCentos.sh")
     postInstall file("$buildDir/ready/postInstallCentos.sh")
     preUninstall file("$buildDir/ready/preUninstallCentos.sh")
