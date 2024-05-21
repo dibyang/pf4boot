@@ -235,7 +235,7 @@ subprojects {
 
     // 将构建的包签名
     signing {
-        sign configurations.archives
+        sign publishing.publications.mavenJava
     }
 
     afterReleaseBuild.dependsOn publishMavenJavaPublicationToMavenRepository
