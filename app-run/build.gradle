@@ -7,10 +7,12 @@ jar {
     enabled = false
 }
 
-//install {
-//    enabled = false
-//}
-
+// 禁用所有以'publish'为前缀的任务
+tasks.all { task ->
+    if (task.name.startsWith('publish')) {
+        task.enabled = false
+    }
+}
 
 dependencies {
     runtimeOnly("ch.qos.logback:logback-classic:${logbak_version}")
