@@ -7,4 +7,5 @@ include 'plugin2'
 include 'demo-lib'
 include 'app-run'
 include 'pf4boot-api'
+include 'pf4boot-jpa'
 
