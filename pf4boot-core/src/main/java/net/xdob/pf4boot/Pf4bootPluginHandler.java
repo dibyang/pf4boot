@@ -100,6 +100,7 @@ public class Pf4bootPluginHandler extends Pf4bootPlugin implements PluginHandler
     registerShareServices();
     // register Extensions
     registerExtensions();
+    //register controllers
     getMainRequestMapping().registerControllers(this);
 
     applicationContext.publishEvent(new Pf4bootPluginStartedEvent(applicationContext));
@@ -168,7 +169,7 @@ public class Pf4bootPluginHandler extends Pf4bootPlugin implements PluginHandler
     unregisterShareServices();
     //unregister PluginListeners
     unregisterEventListeners();
-
+    //unregister controllers
     this.getPluginManager().post(new StoppedPluginEvent(this));
 
     ApplicationContextProvider.unregisterApplicationContext(applicationContext);

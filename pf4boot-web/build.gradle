@@ -1,0 +1,8 @@
+
+dependencies {
+    implementation project(":pf4boot-api")
+    api("org.springframework:spring-webmvc:$spring_version"){
+        exclude group: 'org.slf4j'
+    }
+}
+

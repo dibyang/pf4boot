@@ -1,11 +1,12 @@
 
 dependencies {
-    implementation project(":pf4boot-api")
-    implementation project(":pf4boot-core")
-    implementation("org.springframework.boot:spring-boot-starter-web:${spring_boot_version}"){
-        exclude group: 'org.slf4j'
-    }
-    compileOnly("org.flywaydb:flyway-core:${flyway_version}")
+    api project(":pf4boot-api")
+    api project(":pf4boot-core")
+    api project(":pf4boot-web")
+//    implementation("org.springframework.boot:spring-boot-starter-web:${spring_boot_version}"){
+//        exclude group: 'org.slf4j'
+//    }
+    //compileOnly("org.flywaydb:flyway-core:${flyway_version}")
 
     //annotationProcessor "org.springframework.boot:spring-boot-annotation-processor:${spring_boot_version}"
 }

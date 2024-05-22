@@ -103,7 +103,10 @@ public class PluginJPAStarter {
     }
 
     Plugin plugin = getPlugin(this.beanFactory);
+
     String pkg = ((PluginHandler)plugin).getPlugin().getClass().getPackage().getName();
+    //String pkg =plugin.getClass().getPackage().getName();
+
     packages.add(pkg);
     return StringUtils.toStringArray(packages);
   }
