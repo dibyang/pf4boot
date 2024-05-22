@@ -5,6 +5,7 @@ import net.xdob.pf4boot.internal.MainAppReadyListener;
 import net.xdob.pf4boot.internal.MainAppStartedListener;
 import net.xdob.pf4boot.internal.PluginResourceResolver;
 import net.xdob.pf4boot.*;
+import net.xdob.pf4boot.internal.WebPf4BootPluginSupport;
 import org.pf4j.PluginDescriptor;
 import org.pf4j.PluginManager;
 import org.pf4j.PluginStateListener;
@@ -24,9 +25,7 @@ import org.springframework.util.StringUtils;
 
 import java.io.File;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Stack;
+import java.util.*;
 import java.util.function.Consumer;
 
 @Configuration
@@ -72,8 +71,20 @@ public class Pf4bootAutoConfiguration {
   }
 
   @Bean
+  @ConditionalOnMissingBean(DefaultPf4bootPluginSupport.class)
+  public DefaultPf4bootPluginSupport defaultPf4bootPluginSupport(){
+    return new DefaultPf4bootPluginSupport();
+  }
+
+  @Bean
+  @ConditionalOnClass({WebPf4BootPluginSupport.class})
+  public WebPf4BootPluginSupport webPf4BootPluginSupport(){
+    return new WebPf4BootPluginSupport();
+  }
+
+  @Bean
   @ConditionalOnMissingBean
-  public Pf4bootPluginManager pluginManager(Pf4bootProperties properties, Pf4bootEventBus eventBus) {
+  public Pf4bootPluginManager pluginManager(Pf4bootProperties properties, Pf4bootEventBus eventBus, List<Pf4bootPluginSupport> pluginSupports) {
     // Setup RuntimeMode
     System.setProperty("pf4j.mode", properties.getRuntimeMode().toString());
 
@@ -82,7 +93,7 @@ public class Pf4bootAutoConfiguration {
 
     System.setProperty("pf4j.pluginsDir", pluginsRoot);
 
-    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(properties,eventBus,new File(pluginsRoot).toPath());
+    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(properties, eventBus, pluginSupports, new File(pluginsRoot).toPath());
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));

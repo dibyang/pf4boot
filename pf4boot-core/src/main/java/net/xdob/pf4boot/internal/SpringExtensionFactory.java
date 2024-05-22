@@ -2,6 +2,7 @@ package net.xdob.pf4boot.internal;
 
 import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManager;
+import net.xdob.pf4boot.TypeWrapper;
 import org.pf4j.ExtensionFactory;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
@@ -59,7 +60,8 @@ public class SpringExtensionFactory implements ExtensionFactory {
 
   private ConfigurableApplicationContext getApplicationContext(Class<?> extensionClass) {
     PluginWrapper pluginWrapper = pluginManager.whichPlugin(extensionClass);
-    Pf4bootPlugin plugin = (Pf4bootPlugin) pluginWrapper.getPlugin();
-    return plugin.getApplicationContext();
+    return TypeWrapper.wrapper(pluginWrapper.getPlugin(), Pf4bootPlugin.class)
+        .map(plugin->plugin.getApplicationContext())
+        .orElse(null);
   }
 }

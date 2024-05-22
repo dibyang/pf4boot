@@ -1,4 +1,4 @@
-package org.springframework.web.servlet.mvc.method.annotation;
+package org.springframework.web.servlet.mvc.method;
 
 import com.google.common.base.Strings;
 import net.xdob.pf4boot.Pf4bootPlugin;
@@ -8,6 +8,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.util.HashMap;
 import java.util.LinkedHashSet;

@@ -57,4 +57,17 @@ public interface Pf4bootPluginManager extends PluginManager {
   Pf4bootEventBus getPf4bootEventBus();
 
   void post(Object event);
+
+  /**
+   * 注册bean到主上文
+   * @param beanName
+   * @param bean
+   */
+  void registerBeanToMainContext(String beanName, Object bean);
+
+  /**
+   * 取消注册bean从主上文
+   * @param beanName
+   */
+  void unregisterBeanFromMainContext(String beanName);
 }

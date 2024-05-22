@@ -5,7 +5,7 @@ import net.xdob.pf4boot.internal.PluginResourceResolver;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.cache.Cache;
-import org.springframework.web.servlet.mvc.method.annotation.PluginRequestMappingHandlerMapping;
+import org.springframework.web.servlet.mvc.method.PluginRequestMappingHandlerMapping;
 import org.pf4j.PluginManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;

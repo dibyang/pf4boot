@@ -40,6 +40,11 @@ public class Pf4bootPlugin extends Plugin {
     this.applicationContext = applicationContext;
   }
 
+  public Pf4bootPluginManager getPluginManager(){
+    return TypeWrapper.wrapper(this.getWrapper().getPluginManager(), Pf4bootPluginManager.class)
+        .orElse(null);
+  }
+
   /**
    * Constructor to be used by plugin manager for plugin instantiation.
    * Your plugins have to provide constructor with this exact signature to

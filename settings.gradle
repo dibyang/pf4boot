@@ -8,5 +8,6 @@ include 'demo-lib'
 include 'app-run'
 include 'pf4boot-api'
 include 'pf4boot-jpa'
+include 'pf4boot-web-support'
 include 'pf4boot-web'
 

@@ -3,6 +3,6 @@
 dependencies {
     inline("org.apache.commons:commons-text:1.9")
     implementation project(":pf4boot-api")
-    implementation project(":pf4boot-web")
+    implementation project(':pf4boot-web-support')
     implementation project(":plugin1")
 }

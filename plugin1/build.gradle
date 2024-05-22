@@ -1,7 +1,7 @@
 
 dependencies {
   implementation project(":pf4boot-api")
-  implementation project(":pf4boot-web")
-  implementation project(":pf4boot-jpa")
+    implementation project(':pf4boot-web-support')
+    implementation project(":pf4boot-jpa")
   implementation project(":demo-lib")
 }

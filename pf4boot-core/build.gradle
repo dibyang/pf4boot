@@ -1,5 +1,5 @@
 
 dependencies {
     implementation project(":pf4boot-api")
-    implementation project(":pf4boot-web")
+
 }
