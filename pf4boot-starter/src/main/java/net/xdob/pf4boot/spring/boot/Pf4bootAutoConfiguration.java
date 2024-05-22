@@ -36,7 +36,6 @@ import java.util.function.Consumer;
 public class Pf4bootAutoConfiguration {
   static final Logger log = LoggerFactory.getLogger(Pf4bootAutoConfiguration.class);
 
-
   @Bean
   @ConditionalOnMissingBean
   public Pf4bootEventBus eventBus(){

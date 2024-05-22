@@ -26,7 +26,7 @@ spring:
     main:
       allow-bean-definition-overriding: true
     controller:
-      base-path: /api/pf4boot/
+      #base-path: /api/pf4boot/
   datasource:
     url: jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;NON_KEYWORDS=user
     username: sa
