@@ -1,13 +1,13 @@
 package net.xdob.pf4boot.internal;
 
+import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManager;
-import net.xdob.pf4boot.Pf4bootPluginHandler;
 import org.pf4j.ExtensionFactory;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
-import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * SpringExtensionFactory
@@ -27,7 +27,7 @@ public class SpringExtensionFactory implements ExtensionFactory {
 
   @Override
   public <T> T create(Class<T> extensionClass) {
-    GenericApplicationContext pluginApplicationContext = getApplicationContext(extensionClass);
+    ConfigurableApplicationContext pluginApplicationContext = getApplicationContext(extensionClass);
     Object extension = null;
     try {
       extension = pluginApplicationContext.getBean(extensionClass);
@@ -57,9 +57,9 @@ public class SpringExtensionFactory implements ExtensionFactory {
     }
   }
 
-  private GenericApplicationContext getApplicationContext(Class<?> extensionClass) {
+  private ConfigurableApplicationContext getApplicationContext(Class<?> extensionClass) {
     PluginWrapper pluginWrapper = pluginManager.whichPlugin(extensionClass);
-    Pf4bootPluginHandler plugin = (Pf4bootPluginHandler) pluginWrapper.getPlugin();
+    Pf4bootPlugin plugin = (Pf4bootPlugin) pluginWrapper.getPlugin();
     return plugin.getApplicationContext();
   }
 }

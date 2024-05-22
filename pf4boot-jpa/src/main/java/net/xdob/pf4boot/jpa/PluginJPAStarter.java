@@ -2,7 +2,6 @@ package net.xdob.pf4boot.jpa;
 
 import com.google.common.collect.Sets;
 import net.xdob.pf4boot.PluginApplication;
-import net.xdob.pf4boot.PluginHandler;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.pf4j.Plugin;
 import org.springframework.beans.factory.BeanFactory;
@@ -104,8 +103,8 @@ public class PluginJPAStarter {
 
     Plugin plugin = getPlugin(this.beanFactory);
 
-    String pkg = ((PluginHandler)plugin).getPlugin().getClass().getPackage().getName();
-    //String pkg =plugin.getClass().getPackage().getName();
+    //String pkg = ((PluginHandler)plugin).getPlugin().getClass().getPackage().getName();
+    String pkg =plugin.getClass().getPackage().getName();
 
     packages.add(pkg);
     return StringUtils.toStringArray(packages);

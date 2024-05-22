@@ -6,6 +6,8 @@ import org.pf4j.PluginManager;
 import org.pf4j.PluginRepository;
 import org.pf4j.PluginState;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.support.GenericApplicationContext;
 
 import java.util.Map;
 
@@ -32,9 +34,9 @@ public interface Pf4bootPluginManager extends PluginManager {
 
   Map<String, Object> getPresetProperties();
 
-  abstract ApplicationContext getMainApplicationContext();
+  ConfigurableApplicationContext getMainApplicationContext();
 
-  abstract boolean isMainApplicationStarted();
+  boolean isMainApplicationStarted();
 
   void restartPlugins();
 

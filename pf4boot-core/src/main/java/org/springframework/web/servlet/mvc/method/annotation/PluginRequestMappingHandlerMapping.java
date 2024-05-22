@@ -1,8 +1,12 @@
 package org.springframework.web.servlet.mvc.method.annotation;
 
-import net.xdob.pf4boot.Pf4bootPluginHandler;
+import com.google.common.base.Strings;
+import net.xdob.pf4boot.Pf4bootPlugin;
+import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
+import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
+import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
@@ -27,22 +31,23 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     super.detectHandlerMethods(controller);
   }
 
-  public void registerControllers(Pf4bootPluginHandler pf4BootPluginService) {
+  public void registerControllers(Pf4bootPlugin pf4BootPluginService) {
     getControllerBeans(pf4BootPluginService).forEach(bean -> registerController(pf4BootPluginService, bean));
   }
 
-  private void registerController(Pf4bootPluginHandler pf4BootPluginService, Object controller) {
+  private void registerController(Pf4bootPlugin pf4BootPluginService, Object controller) {
     String beanName = controller.getClass().getName();
     // unregister RequestMapping if already registered
     unregisterController(pf4BootPluginService, controller);
-    pf4BootPluginService.registerBeanToMainContext(beanName, controller);
+
+    registerBeanToMainContext(beanName, controller);
     detectHandlerMethods(controller);
   }
 
-  public void unregisterControllers(Pf4bootPluginHandler pf4BootPluginService) {
+  public void unregisterControllers(Pf4bootPlugin pf4BootPluginService) {
     getControllerBeans(pf4BootPluginService).forEach(bean -> unregisterController(pf4BootPluginService, bean));
   }
-  public Set<Object> getControllerBeans(Pf4bootPluginHandler pf4BootPluginService) {
+  public Set<Object> getControllerBeans(Pf4bootPlugin pf4BootPluginService) {
     LinkedHashSet<Object> beans = new LinkedHashSet<>();
     ApplicationContext applicationContext = pf4BootPluginService.getApplicationContext();
     //noinspection unchecked
@@ -56,10 +61,30 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     return beans;
   }
 
-  private void unregisterController(Pf4bootPluginHandler pf4BootPluginService, Object controller) {
+  private void unregisterController(Pf4bootPlugin pf4BootPluginService, Object controller) {
     new HashMap<>(getHandlerMethods()).forEach((mapping, handlerMethod) -> {
       if (controller == handlerMethod.getBean()) super.unregisterMapping(mapping);
     });
-    pf4BootPluginService.unregisterBeanFromMainContext(controller);
+    unregisterBeanFromMainContext(controller);
+  }
+
+  public void registerBeanToMainContext(String beanName, Object bean) {
+    Assert.notNull(bean, "bean must not be null");
+    beanName = Strings.isNullOrEmpty(beanName) ? bean.getClass().getName() : beanName;
+    AutowireCapableBeanFactory beanFactory = this.obtainApplicationContext().getAutowireCapableBeanFactory();
+    ((AbstractAutowireCapableBeanFactory)beanFactory).registerSingleton(beanName, bean);
+  }
+
+  public void unregisterBeanFromMainContext(String beanName) {
+    Assert.notNull(beanName, "bean must not be null");
+    AutowireCapableBeanFactory beanFactory = this.obtainApplicationContext().getAutowireCapableBeanFactory();
+    ((AbstractAutowireCapableBeanFactory)beanFactory).destroySingleton(beanName);
+  }
+
+  public void unregisterBeanFromMainContext(Object bean) {
+    Assert.notNull(bean, "bean must not be null");
+    String beanName = bean.getClass().getName();
+    AutowireCapableBeanFactory beanFactory = this.obtainApplicationContext().getAutowireCapableBeanFactory();
+    ((AbstractAutowireCapableBeanFactory)beanFactory).destroySingleton(beanName);
   }
 }

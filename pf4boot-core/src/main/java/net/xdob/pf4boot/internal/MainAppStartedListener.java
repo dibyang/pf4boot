@@ -1,11 +1,11 @@
 package net.xdob.pf4boot.internal;
 
 import net.xdob.pf4boot.Pf4bootPlugin;
-import net.xdob.pf4boot.Pf4bootPluginHandler;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.PluginApplication;
 import net.xdob.pf4boot.annotation.EventListener;
 import net.xdob.pf4boot.spring.boot.Pf4bootMainAppStartedEvent;
+import org.pf4j.Plugin;
 import org.pf4j.PluginState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -46,9 +46,12 @@ public class MainAppStartedListener implements ApplicationListener<ApplicationSt
         }
 
         pluginManager.getPlugins(PluginState.STARTED).forEach(pluginWrapper -> {
-          Pf4bootPluginHandler pf4BootPluginService = (Pf4bootPluginHandler) pluginWrapper.getPlugin();
-          ApplicationContext pluginAppCtx = pf4BootPluginService.getApplicationContext();
-          pluginAppCtx.publishEvent(new Pf4bootMainAppStartedEvent(applicationContext));
+          Plugin plugin1 = pluginWrapper.getPlugin();
+          if(plugin1 instanceof Pf4bootPlugin) {
+            Pf4bootPlugin pf4bootPlugin = (Pf4bootPlugin)plugin1;
+            ApplicationContext pluginAppCtx = pf4bootPlugin.getApplicationContext();
+            pluginAppCtx.publishEvent(new Pf4bootMainAppStartedEvent(applicationContext));
+          }
         });
         pluginManager.setMainApplicationStarted(true);
       }

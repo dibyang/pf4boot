@@ -1,5 +1,8 @@
 package net.xdob.pf4boot;
 
+import com.google.common.base.Strings;
+import net.xdob.pf4boot.annotation.EventListener;
+import net.xdob.pf4boot.annotation.Export;
 import net.xdob.pf4boot.internal.Pf4bootPluginFactory;
 import net.xdob.pf4boot.internal.Pf4bootPluginStateListener;
 import net.xdob.pf4boot.internal.SpringExtensionFactory;
@@ -7,14 +10,19 @@ import net.xdob.pf4boot.loader.JarPf4bootPluginLoader;
 import net.xdob.pf4boot.loader.Pf4bootPluginLoader;
 import net.xdob.pf4boot.loader.ZipPf4bootPluginLoader;
 import net.xdob.pf4boot.modal.PluginStartingError;
-import net.xdob.pf4boot.spring.boot.Pf4bootPluginStateChangedEvent;
-import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
+import net.xdob.pf4boot.spring.boot.*;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
+import org.springframework.boot.Banner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.util.Assert;
+import org.springframework.web.servlet.mvc.method.annotation.PluginRequestMappingHandlerMapping;
 
 import javax.annotation.PostConstruct;
 import java.lang.reflect.Constructor;
@@ -33,7 +41,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   static final Logger log = LoggerFactory.getLogger(Pf4bootPluginManagerImpl.class);
 
   private volatile boolean mainApplicationStarted;
-  private ApplicationContext mainApplicationContext;
+  private ConfigurableApplicationContext mainApplicationContext;
   public Map<String, Object> presetProperties = new HashMap<>();
   private boolean autoStartPlugin = true;
   private String[] profiles;
@@ -135,7 +143,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   @Override
   public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
-    this.mainApplicationContext = applicationContext;
+    this.mainApplicationContext = (ConfigurableApplicationContext)applicationContext;
 
   }
 
@@ -275,7 +283,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   }
 
   @Override
-  public ApplicationContext getMainApplicationContext() {
+  public ConfigurableApplicationContext getMainApplicationContext() {
     return mainApplicationContext;
   }
 
@@ -318,7 +326,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       PluginState pluginState = pluginWrapper.getPluginState();
       if ((PluginState.DISABLED != pluginState) && (PluginState.STARTED != pluginState)) {
         try {
-          pluginWrapper.getPlugin().start();
+          doStartPlugin(pluginWrapper);
           pluginWrapper.setPluginState(PluginState.STARTED);
           startedPlugins.add(pluginWrapper);
 
@@ -335,6 +343,94 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
         System.currentTimeMillis() - ts, startingErrors.size());
   }
 
+  private void doStartPlugin(PluginWrapper pluginWrapper) {
+    Plugin plugin = pluginWrapper.getPlugin();
+    long startTs = System.currentTimeMillis();
+    log.debug("Starting plugin {} ......", pluginWrapper.getPluginId());
+    if(plugin instanceof Pf4bootPlugin){
+      Pf4bootPlugin pf4bootPlugin = (Pf4bootPlugin)plugin;
+
+      Pf4bootApplication application = pf4bootPlugin.application;
+      application.setBannerMode(Banner.Mode.OFF);
+      ConfigurableApplicationContext applicationContext = application.run();
+      pf4bootPlugin.setApplicationContext(applicationContext);
+      ApplicationContextProvider.registerApplicationContext(applicationContext);
+      this.post(new PreStartPluginEvent(pf4bootPlugin));
+
+      //register EventListeners
+      registerEventListeners(pf4bootPlugin);
+      //register ShareServices
+      registerShareServices(pf4bootPlugin);
+      // register Extensions
+      registerExtensions(pf4bootPlugin);
+
+
+      //register controllers
+      getMainRequestMapping().registerControllers(pf4bootPlugin);
+
+      applicationContext.publishEvent(new Pf4bootPluginStartedEvent(applicationContext));
+      if (this.isMainApplicationStarted()) {
+        // if main application context is not ready, don't send restart event
+        applicationContext.publishEvent(new Pf4bootPluginRestartedEvent(applicationContext));
+      }
+      this.post(new StartingPluginEvent(pf4bootPlugin));
+      plugin.start();
+      this.post(new StartedPluginEvent(pf4bootPlugin));
+    }else {
+      plugin.start();
+    }
+    log.debug("Plugin {} is started in {}ms", pluginWrapper.getPluginId(), System.currentTimeMillis() - startTs);
+
+  }
+
+  private void registerEventListeners(Pf4bootPlugin pf4bootPlugin) {
+    Map<String, Object> beans = pf4bootPlugin.getApplicationContext().getBeansWithAnnotation(EventListener.class);
+    for (String beanName : beans.keySet()) {
+      Object bean = beans.get(beanName);
+      this.getPf4bootEventBus().register(bean);
+    }
+  }
+
+  private void registerExtensions(Pf4bootPlugin pf4bootPlugin) {
+    PluginWrapper wrapper = pf4bootPlugin.getWrapper();
+    Set<String> extensionClassNames = getExtensionClassNames(wrapper.getPluginId());
+    for (String extensionClassName : extensionClassNames) {
+      try {
+        log.debug("Register extension <{}> to main ApplicationContext", extensionClassName);
+        Class<?> extensionClass = wrapper.getPluginClassLoader().loadClass(extensionClassName);
+        SpringExtensionFactory extensionFactory = (SpringExtensionFactory) wrapper
+            .getPluginManager().getExtensionFactory();
+        Object bean = extensionFactory.create(extensionClass);
+        String beanName = extensionFactory.getExtensionBeanName(extensionClass);
+        registerBeanToMainContext(beanName, bean);
+      } catch (ClassNotFoundException e) {
+        throw new IllegalArgumentException(e.getMessage(), e);
+      }
+    }
+  }
+
+  private void registerShareServices(Pf4bootPlugin pf4bootPlugin) {
+    ApplicationContext applicationContext = pf4bootPlugin.getApplicationContext();
+    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(Export.class);
+    for (String beanName : beans.keySet()) {
+      Object bean = beans.get(beanName);
+      registerBeanToMainContext(beanName, bean);
+    }
+  }
+
+  public void registerBeanToMainContext(String beanName, Object bean) {
+    Assert.notNull(bean, "bean must not be null");
+    beanName = Strings.isNullOrEmpty(beanName) ? bean.getClass().getName() : beanName;
+    ApplicationContext context = this.getMainApplicationContext();
+    this.getMainApplicationContext().getBeanFactory().registerSingleton(beanName, bean);
+
+  }
+
+  private PluginRequestMappingHandlerMapping getMainRequestMapping() {
+    return (PluginRequestMappingHandlerMapping)
+        getMainApplicationContext().getBean("requestMappingHandlerMapping");
+  }
+
   private void doStopPlugins() {
     startingErrors.clear();
     // stop started plugins in reverse order
@@ -346,7 +442,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       if (PluginState.STARTED == pluginState) {
         try {
           log.info("Stop plugin '{}'", getPluginLabel(pluginWrapper.getDescriptor()));
-          pluginWrapper.getPlugin().stop();
+          doStopPlugin(pluginWrapper);
           pluginWrapper.setPluginState(PluginState.STOPPED);
           itr.remove();
 
@@ -358,6 +454,92 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
         }
       }
     }
+  }
+
+  private void doStopPlugin(PluginWrapper pluginWrapper) {
+    Plugin plugin = pluginWrapper.getPlugin();
+    if (pluginWrapper.getPluginState() != PluginState.STARTED) return;
+    log.debug("Stopping plugin {} ......", pluginWrapper.getPluginId());
+    if(plugin instanceof Pf4bootPlugin) {
+      Pf4bootPlugin pf4bootPlugin = (Pf4bootPlugin) plugin;
+
+      this.post(new PreStopPluginEvent(pf4bootPlugin));
+
+      pf4bootPlugin.stop();
+      this.post(new StoppingPluginEvent(pf4bootPlugin));
+
+      releaseResource(pf4bootPlugin);
+      ApplicationContext applicationContext = pf4bootPlugin.getApplicationContext();
+      applicationContext.publishEvent(new Pf4bootPluginStoppedEvent(applicationContext));
+
+      getMainRequestMapping().unregisterControllers(pf4bootPlugin);
+
+      // unregister Extensions
+      unregisterExtensions(pf4bootPlugin);
+      //unregister ShareServices
+      unregisterShareServices(pf4bootPlugin);
+      //unregister PluginListeners
+      unregisterEventListeners(pf4bootPlugin);
+
+      //unregister controllers
+      this.post(new StoppedPluginEvent(pf4bootPlugin));
+
+      ApplicationContextProvider.unregisterApplicationContext(applicationContext);
+      ((ConfigurableApplicationContext) applicationContext).close();
+
+
+
+    }else {
+      plugin.stop();
+    }
+    log.debug("Plugin {} is stopped", pluginWrapper.getPluginId());
+  }
+
+  /**
+   * Release plugin holding release on stop.
+   */
+  public void releaseResource(Pf4bootPlugin pf4bootPlugin) {
+  }
+
+  private void unregisterEventListeners(Pf4bootPlugin pf4bootPlugin) {
+    ApplicationContext applicationContext = pf4bootPlugin.getApplicationContext();
+    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(EventListener.class);
+    for (String beanName : beans.keySet()) {
+      Object bean = beans.get(beanName);
+      this.getPf4bootEventBus().unregister(bean);
+    }
+  }
+
+  private void unregisterExtensions(Pf4bootPlugin pf4bootPlugin) {
+    PluginWrapper wrapper = pf4bootPlugin.getWrapper();
+    Set<String> extensionClassNames = this
+        .getExtensionClassNames(wrapper.getPluginId());
+    for (String extensionClassName : extensionClassNames) {
+      try {
+        log.debug("Register extension <{}> to main ApplicationContext", extensionClassName);
+        Class<?> extensionClass = wrapper.getPluginClassLoader().loadClass(extensionClassName);
+        SpringExtensionFactory extensionFactory = (SpringExtensionFactory) wrapper
+            .getPluginManager().getExtensionFactory();
+        String beanName = extensionFactory.getExtensionBeanName(extensionClass);
+        unregisterBeanFromMainContext(beanName);
+      } catch (ClassNotFoundException e) {
+        throw new IllegalArgumentException(e.getMessage(), e);
+      }
+    }
+  }
+
+  private void unregisterShareServices(Pf4bootPlugin pf4bootPlugin) {
+    ApplicationContext applicationContext = pf4bootPlugin.getApplicationContext();
+    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(Export.class);
+    for (String beanName : beans.keySet()) {
+      unregisterBeanFromMainContext(beanName);
+    }
+  }
+
+  public void unregisterBeanFromMainContext(String beanName) {
+    Assert.notNull(beanName, "bean must not be null");
+    ((AbstractAutowireCapableBeanFactory) getMainApplicationContext().getBeanFactory())
+        .destroySingleton(beanName);
   }
 
   private PluginState doStartPlugin(String pluginId, boolean sendEvent) {
