@@ -1,7 +1,7 @@
 package org.springframework.boot.autoconfigure.web.servlet;
 
 import net.xdob.pf4boot.internal.PluginResourceResolver;
-import net.xdob.pf4boot.spring.boot.Pf4bootPluginStateChangedEvent;
+import net.xdob.pf4boot.spring.boot.AppCacheFreeEvent;
 import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.cache.Cache;
 import org.springframework.cache.concurrent.ConcurrentMapCache;
@@ -15,7 +15,7 @@ import org.springframework.web.servlet.resource.VersionResourceResolver;
 
 public class PluginResourceHandlerRegistrationCustomizer implements
     WebMvcAutoConfiguration.ResourceHandlerRegistrationCustomizer,
-    ApplicationListener<Pf4bootPluginStateChangedEvent> {
+    ApplicationListener<AppCacheFreeEvent> {
 
   private static final String DEFAULT_CACHE_NAME = "sbp-resource-chain-cache";
 
@@ -73,7 +73,7 @@ public class PluginResourceHandlerRegistrationCustomizer implements
   }
 
   @Override
-  public void onApplicationEvent(Pf4bootPluginStateChangedEvent event) {
+  public void onApplicationEvent(AppCacheFreeEvent event) {
     if (sbpResourceCache == null) return;
     sbpResourceCache.clear();
   }

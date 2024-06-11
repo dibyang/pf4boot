@@ -61,7 +61,7 @@ public class Pf4bootMvcPatchAutoConfiguration {
     return new PluginResourceHandlerRegistrationCustomizer(resourceProperties, sbpResourceCache, pluginResourceResolver);
   }
 
-  @EventListener(Pf4bootPluginStateChangedEvent.class)
+  @EventListener(AppCacheFreeEvent.class)
   public void onPluginStarted() {
 
   }

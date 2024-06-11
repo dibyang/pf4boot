@@ -1,22 +1,16 @@
 package net.xdob.pf4boot.spring.boot;
 
 
-import net.xdob.pf4boot.internal.MainAppReadyListener;
-import net.xdob.pf4boot.internal.MainAppStartedListener;
-import net.xdob.pf4boot.internal.PluginResourceResolver;
+import net.xdob.pf4boot.internal.*;
 import net.xdob.pf4boot.*;
-import net.xdob.pf4boot.internal.WebPf4BootPluginSupport;
 import org.pf4j.PluginDescriptor;
 import org.pf4j.PluginManager;
 import org.pf4j.PluginStateListener;
-import org.pf4j.RuntimeMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.autoconfigure.web.servlet.WebMvcRegistrations;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,7 +18,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.util.StringUtils;
 
 import java.io.File;
-import java.nio.file.Paths;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -32,7 +25,7 @@ import java.util.function.Consumer;
 @ConditionalOnClass({PluginManager.class, Pf4bootPluginManagerImpl.class})
 @ConditionalOnProperty(prefix = Pf4bootProperties.PREFIX, value = "enabled", havingValue = "true")
 @EnableConfigurationProperties({Pf4bootProperties.class, Pf4bootPluginProperties.class})
-@Import({DefaultPluginEventListener.class,MainAppStartedListener.class, MainAppReadyListener.class})
+@Import({DefaultPluginEventListener.class, MainAppStartedListener.class})
 public class Pf4bootAutoConfiguration {
   static final Logger log = LoggerFactory.getLogger(Pf4bootAutoConfiguration.class);
 
