@@ -385,9 +385,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public void registerBeanToMainContext(String beanName, Object bean) {
     Assert.notNull(bean, "bean must not be null");
     beanName = Strings.isNullOrEmpty(beanName) ? bean.getClass().getName() : beanName;
-    ApplicationContext context = this.getMainApplicationContext();
-    this.getMainApplicationContext().getBeanFactory().registerSingleton(beanName, bean);
-
+    ConfigurableApplicationContext context = this.getMainApplicationContext();
+    context.getBeanFactory().registerSingleton(beanName, bean);
+    AppBeanRegisterEvent appRegisterBeanEvent = new AppBeanRegisterEvent(context, beanName, bean);
+    context.publishEvent(appRegisterBeanEvent);
   }
 
   private void doStopPlugins() {
@@ -466,7 +467,11 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public void unregisterBeanFromMainContext(String beanName) {
     Assert.notNull(beanName, "bean must not be null");
-    ((AbstractAutowireCapableBeanFactory) getMainApplicationContext().getBeanFactory())
+    ConfigurableApplicationContext context = getMainApplicationContext();
+    Object bean = context.getBean(beanName);
+    AppBeanUnregisterEvent appUnRegisterBeanEvent = new AppBeanUnregisterEvent(context, beanName, bean);
+    context.publishEvent(appUnRegisterBeanEvent);
+    ((AbstractAutowireCapableBeanFactory) context.getBeanFactory())
         .destroySingleton(beanName);
   }
 
