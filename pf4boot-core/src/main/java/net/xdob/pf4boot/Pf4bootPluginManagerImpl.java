@@ -469,10 +469,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     Assert.notNull(beanName, "bean must not be null");
     ConfigurableApplicationContext context = getMainApplicationContext();
     Object bean = context.getBean(beanName);
-    AppBeanUnregisterEvent appUnRegisterBeanEvent = new AppBeanUnregisterEvent(context, beanName, bean);
-    context.publishEvent(appUnRegisterBeanEvent);
     ((AbstractAutowireCapableBeanFactory) context.getBeanFactory())
         .destroySingleton(beanName);
+    AppBeanUnregisterEvent appUnRegisterBeanEvent = new AppBeanUnregisterEvent(context, beanName, bean);
+    context.publishEvent(appUnRegisterBeanEvent);
   }
 
   private PluginState doStartPlugin(String pluginId, boolean sendEvent) {
