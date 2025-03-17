@@ -121,11 +121,11 @@ subprojects {
     }
 
     dependencies {
-        //implementation("org.springframework.boot:spring-boot-starter-web:${spring_boot_version}")
-        //implementation("org.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
-        //implementation("org.springframework.boot:spring-boot-devtools:${spring_boot_version}")
-        implementation("com.google.guava:guava:31.0-jre")
-        implementation("com.google.code.gson:gson:2.8.6")
+        //implementation("net.xdob.springframework.boot:spring-boot-starter-web:${spring_boot_version}")
+        //implementation("net.xdob.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
+        //implementation("net.xdob.springframework.boot:spring-boot-devtools:${spring_boot_version}")
+        implementation("com.google.guava:guava:$guava_version")
+        implementation("com.google.code.gson:gson:$gson_version")
         implementation("org.apache.commons:commons-lang3:3.9")
         compileOnly("org.slf4j:slf4j-api:${slf4j_version}")
         testImplementation("junit:junit:4.12")
@@ -170,7 +170,7 @@ subprojects {
 
     publishing {
         publications {
-            mavenJava(MavenPublication) {
+            maven(MavenPublication) {
                 groupId = project.group
                 artifactId = project.name
                 version = project.version
@@ -220,15 +220,15 @@ subprojects {
         repositories {
             maven {
                 // 发布仓库配置，这里基于version后缀是否为SNAPSHOT来区分发布到release库还是snapshots库
-                def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
-                def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
-                url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
-
-                //认证用户和密码，在配置文件gradle.properties中配置
-                //oss-sonatype的登录用户名和密码
-                credentials {
-                    username findProperty("ossrhUsername")?:""
-                    password findProperty("ossrhPassword")?:""
+                if(version.endsWith('SNAPSHOT')){
+                    it.url = project.property("snapshotsRepository")
+                }else{
+                    it.url = project.property("releasesRepository")
+                }
+                it.name = "deployment"
+                it.credentials {
+                    it.username = project.property("ossrhUsername")
+                    it.password = project.property("ossrhPassword")
                 }
             }
         }
@@ -236,10 +236,9 @@ subprojects {
 
     // 将构建的包签名
     signing {
-        sign publishing.publications.mavenJava
+        sign publishing.publications.maven
     }
 
-    afterReleaseBuild.dependsOn publishMavenJavaPublicationToMavenRepository
 
 
 }

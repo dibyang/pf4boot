@@ -4,10 +4,10 @@ dependencies {
         exclude group: 'org.slf4j'
     }
     api("org.slf4j:slf4j-api:${slf4j_version}")
-    api("org.springframework.boot:spring-boot:${spring_boot_version}"){
+    api("net.xdob.springframework.boot:spring-boot:${spring_boot_version}"){
         exclude group: 'org.slf4j'
     }
-    api("org.springframework.boot:spring-boot-autoconfigure:${spring_boot_version}"){
+    api("net.xdob.springframework.boot:spring-boot-autoconfigure:${spring_boot_version}"){
         exclude group: 'org.slf4j'
     }
 }
