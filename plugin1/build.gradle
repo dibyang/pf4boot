@@ -1,7 +1,20 @@
+apply plugin: 'net.xdob.pf4boot-plugin'
+
+pf4bootPlugin {
+  id = "plugin1"
+  pluginClass = "net.xdob.demo.plugin1.Plugin1Plugin"
+  //version = "1.0.0"
+  description = "plugin1"
+  dependencies = ""
+  provider = "yangzj"
+  requires = ""
+  license = "Apache-2.0"
+}
 
 dependencies {
-  implementation project(":pf4boot-api")
-  implementation project(':pf4boot-web-support')
-  implementation project(":pf4boot-jpa")
-  implementation project(":demo-lib")
+  compileOnlyApi project(":pf4boot-api")
+  compileOnlyApi project(':pf4boot-web-support')
+  compileOnlyApi project(":pf4boot-jpa")
+  compileOnlyApi project(":demo-lib")
+  bundle project(":pf4boot-jpa-starter")
 }

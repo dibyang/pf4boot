@@ -1,9 +1,14 @@
 
 dependencies {
-    api("net.xdob.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}"){
-        exclude group: 'org.slf4j'
+    api("org.eclipse.persistence:jakarta.persistence:2.2.3")
+    api("net.xdob.springframework:spring-orm:$spring_version")
+    api("net.xdob.springframework.boot:spring-boot-starter-aop:${spring_boot_version}")
+    api("net.xdob.springframework.boot:spring-boot-starter-jdbc:${spring_boot_version}")
+    api("org.springframework.data:spring-data-jpa:$jpa_version"){
+        exclude group: 'org.springframework'
     }
-    //api "net.xdob.springframework:spring-orm:$spring_version"
+    //api("org.springframework.data:spring-data-commons:$jpa_version")
+    api("org.hibernate:hibernate-core:5.6.15.Final")
     implementation('javax.annotation:javax.annotation-api:1.3.2')
     implementation project(":pf4boot-api")
 }

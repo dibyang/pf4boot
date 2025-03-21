@@ -54,7 +54,8 @@ public class Pf4bootPlugin extends Plugin {
    */
   public Pf4bootPlugin(PluginWrapper wrapper) {
     super(wrapper);
-    PluginStarter pluginStarter = getClass().getAnnotation(PluginStarter.class);
+    Class<? extends Pf4bootPlugin> clazz = getClass();
+    PluginStarter pluginStarter = clazz.getAnnotation(PluginStarter.class);
     Preconditions.checkState(pluginStarter!=null,"PluginStarter annotation is missing.");
     Class<?>[] starterClasses = pluginStarter.value();
     application = new Pf4bootApplication(this, starterClasses);

@@ -3,6 +3,7 @@ package net.xdob.pf4boot.spring.boot;
 import net.xdob.pf4boot.*;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.pf4j.PluginManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
@@ -60,13 +61,15 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     super(new DefaultResourceLoader(plugin.getWrapper().getPluginClassLoader()), primarySources);
     this.plugin = plugin;
     this.pluginClassLoader = plugin.getWrapper().getPluginClassLoader();
-    this.mainApplicationContext = ((Pf4bootPluginManager)plugin.getWrapper().getPluginManager()).getMainApplicationContext();
+    Pf4bootPluginManager pluginManager = TypeWrapper.wrapper(plugin.getWrapper().getPluginManager(), Pf4bootPluginManager.class)
+        .orElse(null);
+    this.mainApplicationContext = pluginManager.getMainApplicationContext();
 
-    Map<String, Object> presetProperties = ((Pf4bootPluginManager)
-        plugin.getWrapper().getPluginManager()).getPresetProperties();
-    if (presetProperties != null) this.presetProperties.putAll(presetProperties);
+    Map<String, Object> presetProperties = pluginManager.getPresetProperties();
+    if (presetProperties != null) {
+      this.presetProperties.putAll(presetProperties);
+    }
     this.presetProperties.put(EnableAutoConfiguration.ENABLED_OVERRIDE_PROPERTY,false);
-
   }
 
   /**
@@ -82,9 +85,11 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
   protected void configurePropertySources(ConfigurableEnvironment environment,
                                           String[] args) {
     super.configurePropertySources(environment, args);
-    String[] profiles = ((Pf4bootPluginManager)
-        plugin.getWrapper().getPluginManager()).getProfiles();
-    if (profiles != null && profiles.length > 0) environment.setActiveProfiles(profiles);
+    TypeWrapper.wrapper(plugin.getWrapper().getPluginManager(), Pf4bootPluginManager.class)
+        .ifPresent(pluginManager->{
+          String[] profiles = pluginManager.getProfiles();
+          if (profiles != null && profiles.length > 0) environment.setActiveProfiles(profiles);
+        });
     environment.getPropertySources().addLast(new ExcludeConfigurations());
   }
 

@@ -1,0 +1,10 @@
+dependencies {
+    implementation("net.xdob.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}"){
+        exclude group: 'org.slf4j'
+        //exclude group: 'net.xdob.springframework'
+        //exclude group: 'net.xdob.springframework.boot'
+    }
+    //api "net.xdob.springframework:spring-orm:$spring_version"
+    //implementation("net.xdob.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
+    compileOnly project(":pf4boot-api")
+}
