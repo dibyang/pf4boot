@@ -20,6 +20,8 @@ public class Pf4bootProperties {
    */
   Map<String, Object> pluginProperties = new HashMap<>();
   private boolean enabled = false;
+
+  private boolean pluginAdminEnabled = true;
   /**
    * Auto start plugin when main app is ready
    */
@@ -74,6 +76,14 @@ public class Pf4bootProperties {
 
   public void setEnabled(boolean enabled) {
     this.enabled = enabled;
+  }
+
+  public boolean isPluginAdminEnabled() {
+    return pluginAdminEnabled;
+  }
+
+  public void setPluginAdminEnabled(boolean pluginAdminEnabled) {
+    this.pluginAdminEnabled = pluginAdminEnabled;
   }
 
   public boolean isAutoStartPlugin() {

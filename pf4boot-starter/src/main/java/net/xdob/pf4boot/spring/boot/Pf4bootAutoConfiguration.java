@@ -28,6 +28,8 @@ import java.util.function.Consumer;
 @Import({DefaultPluginEventListener.class, MainAppStartedListener.class})
 public class Pf4bootAutoConfiguration {
   static final Logger log = LoggerFactory.getLogger(Pf4bootAutoConfiguration.class);
+  public static final String PF4J_MODE = "pf4j.mode";
+  public static final String PF4J_PLUGINS_DIR = "pf4j.pluginsDir";
 
   @Bean
   @ConditionalOnMissingBean
@@ -51,7 +53,7 @@ public class Pf4bootAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(PluginManagerController.class)
-  @ConditionalOnProperty(name = "spring.pf4boot.controller.base-path")
+  @ConditionalOnProperty(prefix = Pf4bootProperties.PREFIX, value = "pluginAdminEnabled", havingValue = "true", matchIfMissing = true)
   public PluginManagerController pluginManagerController(Pf4bootPluginManager pluginManager) {
     return new PluginManagerController(pluginManager);
   }
@@ -78,12 +80,12 @@ public class Pf4bootAutoConfiguration {
   @ConditionalOnMissingBean
   public Pf4bootPluginManager pluginManager(Pf4bootProperties properties, Pf4bootEventBus eventBus, List<Pf4bootPluginSupport> pluginSupports) {
     // Setup RuntimeMode
-    System.setProperty("pf4j.mode", properties.getRuntimeMode().toString());
+    System.setProperty(PF4J_MODE, properties.getRuntimeMode().toString());
 
     // Setup Plugin folder
     String pluginsRoot = StringUtils.hasText(properties.getPluginsRoot()) ? properties.getPluginsRoot() : "plugins";
 
-    System.setProperty("pf4j.pluginsDir", pluginsRoot);
+    System.setProperty(PF4J_PLUGINS_DIR, pluginsRoot);
 
     Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(properties, eventBus, pluginSupports, new File(pluginsRoot).toPath());
 

@@ -8,6 +8,7 @@ import org.pf4j.PluginState;
 import org.pf4j.PluginWrapper;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -15,16 +16,17 @@ import java.util.stream.Collectors;
 
 
 @RestController
+@RequestMapping("${spring.pf4boot.controller.base-path:/api/pf4boot/}/plugin/")
 public class PluginManagerController {
 
 
-  private Pf4bootPluginManager pluginManager;
+  private final Pf4bootPluginManager pluginManager;
 
   public PluginManagerController(Pf4bootPluginManager pluginManager) {
     this.pluginManager = pluginManager;
   }
 
-  @GetMapping(value = "${spring.pf4boot.controller.base-path:/api/pf4boot/}/list")
+  @GetMapping(value = "/list")
   public List<PluginInfo> list() {
     List<PluginWrapper> loadedPlugins = pluginManager.getPlugins();
 
@@ -48,36 +50,26 @@ public class PluginManagerController {
           latestDescriptor == null);
     }).collect(Collectors.toList());
 
-    // yet not loaded plugins
-//    List<Path> pluginPaths = pluginManager.getPluginRepository().getPluginPaths();
-//    plugins.addAll(pluginPaths.stream().filter(path ->
-//        loadedPlugins.stream().noneMatch(plugin -> plugin.getPluginPath().equals(path))
-//    ).map(path -> {
-//      PluginDescriptor descriptor = pluginManager
-//          .getPluginDescriptorFinder().find(path);
-//      return PluginInfo.build(descriptor, null, null, null, false);
-//    }).filter(pluginInfo -> loadedPlugins.stream().noneMatch(plugin->plugin.getPluginId().equals(pluginInfo.pluginId))).collect(Collectors.toList()));
-
     return plugins;
   }
 
-  @GetMapping(value = "${spring.pf4boot.controller.base-path:/api/pf4boot/}/start/{pluginId}")
+  @GetMapping(value = "/start/{pluginId}")
   public PluginState start(@PathVariable String pluginId) {
     return pluginManager.startPlugin(pluginId);
   }
 
-  @GetMapping(value = "${spring.pf4boot.controller.base-path:/api/pf4boot/}/stop/{pluginId}")
+  @GetMapping(value = "/stop/{pluginId}")
   public PluginState stop(@PathVariable String pluginId) {
     return pluginManager.stopPlugin(pluginId);
   }
 
-  @GetMapping(value = "${spring.pf4boot.controller.base-path:/api/pf4boot/}/reload/{pluginId}")
+  @GetMapping(value = "/reload/{pluginId}")
   public PluginState reload(@PathVariable String pluginId) {
     PluginState pluginState = pluginManager.reloadPlugins(pluginId);
     return pluginState;
   }
 
-  @GetMapping(value = "${spring.pf4boot.controller.base-path:/api/pf4boot/}/reload-all")
+  @GetMapping(value = "/reload-all")
   public int reloadAll() {
     pluginManager.reloadPlugins(false);
     return 0;

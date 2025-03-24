@@ -1,7 +1,5 @@
-
 dependencies {
-    implementation project(":pf4boot-api")
-    implementation project(":pf4boot-core")
-    api project(":pf4boot-web")
+    api("net.xdob.springframework:spring-webmvc:$spring_version"){
+        exclude group: 'org.slf4j'
+    }
 }
-

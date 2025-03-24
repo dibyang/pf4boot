@@ -1,5 +1,0 @@
-dependencies {
-    api("net.xdob.springframework:spring-webmvc:$spring_version"){
-        exclude group: 'org.slf4j'
-    }
-}

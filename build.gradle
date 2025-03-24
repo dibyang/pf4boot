@@ -7,7 +7,7 @@ buildscript {
     }
     dependencies {
         classpath 'net.researchgate:gradle-release:2.6.0'
-        classpath "net.xdob.pf4boot:pf4boot-plugin:1.0.0"
+        classpath "net.xdob.pf4boot:pf4boot-plugin:1.1.0-SNAPSHOT"
     }
     //skip Test tasks
     gradle.taskGraph.whenReady {
@@ -89,6 +89,7 @@ subprojects {
     apply plugin: "java-library"
     apply plugin: 'maven-publish'
     apply plugin: 'signing'
+    apply plugin: 'net.xdob.pf4boot'
 
 
 
@@ -124,14 +125,15 @@ subprojects {
         //implementation("net.xdob.springframework.boot:spring-boot-starter-web:${spring_boot_version}")
         //implementation("net.xdob.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
         //implementation("net.xdob.springframework.boot:spring-boot-devtools:${spring_boot_version}")
-        compileOnly("com.google.guava:guava:$guava_version")
-        compileOnly("com.google.code.gson:gson:$gson_version")
-        compileOnly("org.apache.commons:commons-lang3:3.9")
-        compileOnly("org.slf4j:slf4j-api:${slf4j_version}")
+        platformApi("com.google.guava:guava:$guava_version")
+        platformApi("com.google.code.gson:gson:$gson_version")
+        platformApi("org.apache.commons:commons-lang3:$lang3_version")
+        platformApi("org.slf4j:slf4j-api:${slf4j_version}")
         testImplementation("junit:junit:4.12")
         annotationProcessor "org.pf4j:pf4j:${pf4j_version}"
         testAnnotationProcessor "org.pf4j:pf4j:${pf4j_version}"
     }
+
 
 
     //对于典型的 Java 项目，您可以添加一个javadocJar以及一个 sourceJar任务

@@ -2,18 +2,22 @@ package org.springframework.web.servlet.mvc.method;
 
 import com.google.common.base.Strings;
 import net.xdob.pf4boot.Pf4bootPlugin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
-import java.util.HashMap;
-import java.util.LinkedHashSet;
-import java.util.Map;
-import java.util.Set;
+import java.lang.reflect.Method;
+import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -23,6 +27,19 @@ import java.util.stream.Collectors;
  * @version 1.0
  */
 public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMapping {
+
+  @Override
+  protected void registerHandlerMethod(Object handler, Method method, RequestMappingInfo mapping) {
+    super.registerHandlerMethod(handler, method, mapping);
+    HandlerMethod handlerMethod = this.getHandlerMethods().get(mapping);
+    this.logger.info("register mapping=" + mapping + ", handlerMethod=" + handlerMethod);
+  }
+
+  @Override
+  public void unregisterMapping(RequestMappingInfo mapping) {
+    super.unregisterMapping(mapping);
+    this.logger.info("unregister mapping=" + mapping);
+  }
 
   /**
    * {@inheritDoc}
@@ -34,9 +51,11 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
 
   public void registerControllers(Pf4bootPlugin pf4BootPluginService) {
     getControllerBeans(pf4BootPluginService).forEach(bean -> registerController(pf4BootPluginService, bean));
+    this.handlerMethodsInitialized(getHandlerMethods());
   }
 
   private void registerController(Pf4bootPlugin pf4BootPluginService, Object controller) {
+    this.logger.info("register controller=" + controller);
     String beanName = controller.getClass().getName();
     // unregister RequestMapping if already registered
     unregisterController(pf4BootPluginService, controller);
@@ -46,7 +65,10 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   }
 
   public void unregisterControllers(Pf4bootPlugin pf4BootPluginService) {
-    getControllerBeans(pf4BootPluginService).forEach(bean -> unregisterController(pf4BootPluginService, bean));
+    getControllerBeans(pf4BootPluginService).forEach(controller -> {
+      this.logger.info("unregister controller=" + controller);
+      unregisterController(pf4BootPluginService, controller);
+    });
   }
   public Set<Object> getControllerBeans(Pf4bootPlugin pf4BootPluginService) {
     LinkedHashSet<Object> beans = new LinkedHashSet<>();
@@ -62,9 +84,12 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     return beans;
   }
 
-  private void unregisterController(Pf4bootPlugin pf4BootPluginService, Object controller) {
-    new HashMap<>(getHandlerMethods()).forEach((mapping, handlerMethod) -> {
-      if (controller == handlerMethod.getBean()) super.unregisterMapping(mapping);
+  private void unregisterController(Pf4bootPlugin pf4BootPluginService, final Object controller) {
+
+    getHandlerMethods().forEach((mapping, handlerMethod) -> {
+      if (controller == handlerMethod.getBean()) {
+        this.unregisterMapping(mapping);
+      }
     });
     unregisterBeanFromMainContext(controller);
   }

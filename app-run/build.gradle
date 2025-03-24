@@ -18,6 +18,8 @@ tasks.all { task ->
 
 dependencies {
     runtimeOnly("ch.qos.logback:logback-classic:${logbak_version}")
+    implementation project(":pf4boot-api")
+    implementation project(":pf4boot-core")
     implementation project(":demo-app")
     plugin project(":plugin1")
     plugin project(":plugin2")
@@ -69,13 +71,16 @@ ospackage {
         into "lib"
         exclude '*-sources.jar','*-javadoc.jar','spring-boot-devtools*.jar'
     }
+    from(configurations.platformClasspath){
+        into "lib"
+    }
 
     from("plugins"){
         into "plugins"
         include "disabled.txt"
     }
 
-    from(configurations.plugin){
+    from(configurations.pluginClasspath){
         into "plugins"
         include "*.zip"
     }
@@ -89,6 +94,13 @@ buildRpm{
     preInstall file("$buildDir/ready/preInstallCentos.sh")
     postInstall file("$buildDir/ready/postInstallCentos.sh")
     preUninstall file("$buildDir/ready/preUninstallCentos.sh")
+    //bad SHA256 digests, won't install on RHEL8
+    doFirst {
+        File rpmFile = archiveFile.get().getAsFile()
+        if (rpmFile.exists()) {
+            rpmFile.delete()
+        }
+    }
 }
 
 

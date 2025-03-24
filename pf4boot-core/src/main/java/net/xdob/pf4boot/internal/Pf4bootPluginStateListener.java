@@ -12,7 +12,7 @@ import org.pf4j.PluginStateListener;
  */
 
 public class Pf4bootPluginStateListener implements PluginStateListener {
-  private Pf4bootEventBus eventBus;
+  private final Pf4bootEventBus eventBus;
 
   public Pf4bootPluginStateListener(Pf4bootEventBus eventBus) {
     this.eventBus = eventBus;

@@ -1,10 +1,10 @@
 
 
 dependencies {
-    implementation project(":pf4boot-starter")
-    implementation project(":demo-lib")
-    implementation("com.h2database:h2:2.2.224")
-    implementation("net.xdob.springframework.boot:spring-boot-starter-web:${spring_boot_version}"){
+    api project(":pf4boot-starter")
+    api project(":demo-lib")
+    api("com.h2database:h2:2.2.224")
+    api("net.xdob.springframework.boot:spring-boot-starter-web:${spring_boot_version}"){
         exclude group: 'org.slf4j'
     }
     //compile("net.xdob.springframework.boot:spring-boot-devtools:${spring_boot_version}")

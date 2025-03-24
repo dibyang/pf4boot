@@ -20,7 +20,7 @@ public class SpringExtensionFactory implements ExtensionFactory {
 
   private static final Logger log = LoggerFactory.getLogger(SpringExtensionFactory.class);
 
-  private Pf4bootPluginManager pluginManager;
+  private final Pf4bootPluginManager pluginManager;
 
   public SpringExtensionFactory(Pf4bootPluginManager pluginManager) {
     this.pluginManager = pluginManager;
@@ -61,7 +61,7 @@ public class SpringExtensionFactory implements ExtensionFactory {
   private ConfigurableApplicationContext getApplicationContext(Class<?> extensionClass) {
     PluginWrapper pluginWrapper = pluginManager.whichPlugin(extensionClass);
     return TypeWrapper.wrapper(pluginWrapper.getPlugin(), Pf4bootPlugin.class)
-        .map(plugin->plugin.getApplicationContext())
+        .map(Pf4bootPlugin::getApplicationContext)
         .orElse(null);
   }
 }

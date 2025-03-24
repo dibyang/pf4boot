@@ -21,6 +21,7 @@ spring:
     #dev=development
     runtime-mode: dev
     enabled: true
+    pluginAdminEnabled: true
     classes-directories:
       - "build/classes/java/main"
       - "build/resources/main"

@@ -3,7 +3,7 @@ dependencies {
     api("org.pf4j:pf4j:${pf4j_version}"){
         exclude group: 'org.slf4j'
     }
-    api("org.slf4j:slf4j-api:${slf4j_version}")
+    //api("org.slf4j:slf4j-api:${slf4j_version}")
     api("net.xdob.springframework.boot:spring-boot:${spring_boot_version}"){
         exclude group: 'org.slf4j'
     }

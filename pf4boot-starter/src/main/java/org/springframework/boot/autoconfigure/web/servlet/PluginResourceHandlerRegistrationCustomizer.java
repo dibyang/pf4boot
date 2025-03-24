@@ -21,14 +21,14 @@ public class PluginResourceHandlerRegistrationCustomizer implements
 
   //@Autowired
   //@SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
-  private WebProperties resourceProperties;// = new WebProperties();
+  private final WebProperties resourceProperties;// = new WebProperties();
 
   //@Autowired(required = false)
   //@Qualifier("sbpResourceCache")
   private Cache sbpResourceCache;
 
   //@Autowired
-  private PluginResourceResolver pluginResourceResolver;
+  private final PluginResourceResolver pluginResourceResolver;
 
   public PluginResourceHandlerRegistrationCustomizer(WebProperties resourceProperties, Cache sbpResourceCache, PluginResourceResolver pluginResourceResolver) {
     this.resourceProperties = resourceProperties;
@@ -53,8 +53,9 @@ public class PluginResourceHandlerRegistrationCustomizer implements
     if (strategy.getFixed().isEnabled() || strategy.getContent().isEnabled()) {
       chain.addResolver(getVersionResourceResolver(strategy));
     }
+
     if (properties.isCache()) {
-      chain.addTransformer(new AppCacheManifestTransformer());
+      //chain.addTransformer(new AppCacheManifestTransformer());
     }
   }
 
