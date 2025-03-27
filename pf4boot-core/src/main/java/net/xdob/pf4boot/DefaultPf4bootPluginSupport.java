@@ -2,10 +2,12 @@ package net.xdob.pf4boot;
 
 import net.xdob.pf4boot.annotation.EventListener;
 import net.xdob.pf4boot.annotation.Export;
+import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.internal.SpringExtensionFactory;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 
 import java.util.Map;
@@ -64,6 +66,17 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     ApplicationContext applicationContext = pf4bootPlugin.getApplicationContext();
     Map<String, Object> beans = applicationContext.getBeansWithAnnotation(Export.class);
+    PluginStarter pluginStarter = pf4bootPlugin.getClass().getAnnotation(PluginStarter.class);
+    if(pluginStarter!=null){
+      for (String beanName : pluginStarter.export()) {
+        try {
+          Object bean = applicationContext.getBean(beanName);
+          beans.put(beanName, bean);
+        } catch (BeansException e) {
+          log.warn("export bean {} is failed", beanName, e);
+        }
+      }
+    }
     for (String beanName : beans.keySet()) {
       Object bean = beans.get(beanName);
       pluginManager.registerBeanToMainContext(beanName, bean);
@@ -107,6 +120,16 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     Map<String, Object> beans = applicationContext.getBeansWithAnnotation(Export.class);
     for (String beanName : beans.keySet()) {
       pluginManager.unregisterBeanFromMainContext(beanName);
+    }
+    PluginStarter pluginStarter = pf4bootPlugin.getClass().getAnnotation(PluginStarter.class);
+    if(pluginStarter!=null){
+      for (String beanName : pluginStarter.export()) {
+        try {
+          pluginManager.unregisterBeanFromMainContext(beanName);
+        } catch (BeansException e) {
+          log.warn("unregister export bean {} is failed", beanName, e);
+        }
+      }
     }
   }
 

@@ -37,12 +37,12 @@ public class PluginInfo implements PluginDescriptor {
 
   public boolean removed;
 
-  public PluginStartingError startingError;
+  public PluginError startingError;
 
   public static PluginInfo build(PluginDescriptor descriptor,
                                  PluginState pluginState,
                                  String newVersion,
-                                 PluginStartingError startingError,
+                                 PluginError startingError,
                                  boolean removed) {
     PluginInfo pluginInfo = new PluginInfo();
     pluginInfo.pluginId = descriptor.getPluginId();
@@ -158,11 +158,11 @@ public class PluginInfo implements PluginDescriptor {
     this.removed = removed;
   }
 
-  public PluginStartingError getStartingError() {
+  public PluginError getStartingError() {
     return startingError;
   }
 
-  public void setStartingError(PluginStartingError startingError) {
+  public void setStartingError(PluginError startingError) {
     this.startingError = startingError;
   }
 }

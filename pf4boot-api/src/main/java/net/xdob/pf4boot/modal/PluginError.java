@@ -4,7 +4,7 @@ package net.xdob.pf4boot.modal;
 import java.io.Serializable;
 
 
-public class PluginStartingError implements Serializable {
+public class PluginError implements Serializable {
 
   private static final long serialVersionUID = -153864270345999338L;
 
@@ -14,12 +14,12 @@ public class PluginStartingError implements Serializable {
 
   private String errorDetail;
 
-  public static PluginStartingError of(String pluginId, String errorMessage, String errorDetail) {
-    PluginStartingError pluginStartingError = new PluginStartingError();
-    pluginStartingError.pluginId = pluginId;
-    pluginStartingError.errorMessage = errorMessage;
-    pluginStartingError.errorDetail = errorDetail;
-    return pluginStartingError;
+  public static PluginError of(String pluginId, String errorMessage, String errorDetail) {
+    PluginError pluginError = new PluginError();
+    pluginError.pluginId = pluginId;
+    pluginError.errorMessage = errorMessage;
+    pluginError.errorDetail = errorDetail;
+    return pluginError;
   }
 
   public String getPluginId() {

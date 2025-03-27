@@ -13,4 +13,5 @@ import java.lang.annotation.*;
 @Documented
 public @interface PluginStarter {
   Class<?>[] value();
+  String[] export() default {};
 }

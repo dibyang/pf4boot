@@ -22,7 +22,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class Pf4bootApplication extends SpringApplication implements PluginApplication {
-
+  private final static Logger log = LoggerFactory.getLogger(Pf4bootApplication.class);
 
 
   public static final String[] DEFAULT_EXCLUDE_APPLICATION_LISTENERS = {
@@ -30,7 +30,6 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
       "org.springframework.cloud.bootstrap.LoggingSystemShutdownListener",
       "org.springframework.cloud.context.restart.RestartListener",
   };
-  private final static Logger log = LoggerFactory.getLogger(Pf4bootApplication.class);
   private final Pf4bootPlugin plugin;
 
   private final ApplicationContext mainApplicationContext;
@@ -69,7 +68,9 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
       this.presetProperties.putAll(presetProperties);
     }
     this.presetProperties.put(EnableAutoConfiguration.ENABLED_OVERRIDE_PROPERTY,false);
+
   }
+
 
   /**
    * Properties that need to be set when this app is started as a plugin.
@@ -92,10 +93,10 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     environment.getPropertySources().addLast(new ExcludeConfigurations());
   }
 
+
   @Override
   protected void bindToSpringApplication(ConfigurableEnvironment environment) {
     super.bindToSpringApplication(environment);
-
     pluginFirstClasses = new ArrayList<>();
     String pluginFirstClassesProp;
     int i = 0;

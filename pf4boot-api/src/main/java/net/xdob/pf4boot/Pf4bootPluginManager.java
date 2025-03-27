@@ -1,13 +1,11 @@
 package net.xdob.pf4boot;
 
-import net.xdob.pf4boot.modal.PluginStartingError;
+import net.xdob.pf4boot.modal.PluginError;
 import org.pf4j.PluginDescriptorFinder;
 import org.pf4j.PluginManager;
 import org.pf4j.PluginRepository;
 import org.pf4j.PluginState;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.support.GenericApplicationContext;
 
 import java.util.Map;
 
@@ -52,7 +50,7 @@ public interface Pf4bootPluginManager extends PluginManager {
 
   PluginDescriptorFinder getPluginDescriptorFinder();
 
-  PluginStartingError getPluginStartingError(String pluginId);
+  PluginError getPluginErrors(String pluginId);
 
   Pf4bootEventBus getPf4bootEventBus();
 

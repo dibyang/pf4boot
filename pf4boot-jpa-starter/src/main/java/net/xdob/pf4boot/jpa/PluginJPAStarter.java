@@ -4,15 +4,21 @@ import com.google.common.collect.Sets;
 import net.xdob.pf4boot.PluginApplication;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.pf4j.Plugin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.domain.EntityScanPackages;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties;
+import org.springframework.boot.autoconfigure.orm.jpa.HibernatePropertiesCustomizer;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateSettings;
 import org.springframework.boot.autoconfigure.orm.jpa.JpaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -22,15 +28,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionManager;
 import org.springframework.util.ObjectUtils;
 import org.springframework.util.StringUtils;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import javax.sql.DataSource;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Supplier;
 
 /**
@@ -40,49 +45,57 @@ import java.util.function.Supplier;
  * @version 1.0
  */
 @ConditionalOnClass({ LocalContainerEntityManagerFactoryBean.class, EntityManager.class, SessionImplementor.class })
-@EnableConfigurationProperties({JpaProperties.class,HibernateProperties.class})
+@EnableConfigurationProperties({JpaProperties.class, HibernateProperties.class})
 @AutoConfigureAfter({ DataSourceAutoConfiguration.class })
-public class PluginJPAStarter {
-  private final HibernateDefaultDdlAutoProvider defaultDdlAutoProvider;
+public class PluginJPAStarter implements BeanFactoryAware {
+  static final Logger LOG = LoggerFactory.getLogger(PluginJPAStarter.class);
 
-  @Autowired
-  private EntityManagerFactoryBuilder entityManagerFactoryBuilder;
 
-  @Autowired
-  private DataSource dataSource;
 
-  @Autowired
-  private JpaProperties properties;
+  private final DataSource dataSource;
 
-  @Autowired
-  private HibernateProperties hibernateProperties;
 
-  @Autowired
+  private final JpaProperties properties;
+
+
+  private final HibernateProperties hibernateProperties;
+
+
   private BeanFactory beanFactory;
+
+  private final List<HibernatePropertiesCustomizer> hibernatePropertiesCustomizers;
+
 
   public DataSource getDataSource() {
     return dataSource;
   }
 
-  public PluginJPAStarter(ObjectProvider<SchemaManagementProvider> providers) {
-    this.defaultDdlAutoProvider = new HibernateDefaultDdlAutoProvider(providers);
+  public PluginJPAStarter(DataSource dataSource, JpaProperties properties, HibernateProperties hibernateProperties, List<HibernatePropertiesCustomizer> hibernatePropertiesCustomizers) {
+    this.dataSource = dataSource;
+    this.properties = properties;
+    this.hibernateProperties = hibernateProperties;
+    this.hibernatePropertiesCustomizers = hibernatePropertiesCustomizers;
   }
 
   protected Map<String, Object> getVendorProperties() {
-    Supplier<String> defaultDdlMode = () -> this.defaultDdlAutoProvider.getDefaultDdlAuto(getDataSource());
-    return new LinkedHashMap<>(this.hibernateProperties
-        .determineHibernateProperties(properties.getProperties(), new HibernateSettings()
-            .ddlAuto(defaultDdlMode)));
+    Supplier<String> defaultDdlMode = () -> "update";
+    return new LinkedHashMap<>(this.hibernateProperties.determineHibernateProperties(
+        properties.getProperties(), new HibernateSettings().ddlAuto(defaultDdlMode)
+            .hibernatePropertiesCustomizers(this.hibernatePropertiesCustomizers)));
   }
 
   @Bean
+  //@ConditionalOnMissingBean(EntityManagerFactory.class)
   public LocalContainerEntityManagerFactoryBean entityManagerFactory(EntityManagerFactoryBuilder factoryBuilder) {
+    Map<String, Object> vendorProperties = getVendorProperties();
+    LOG.info("vendorProperties={}",vendorProperties);
     return factoryBuilder.dataSource(this.dataSource).mappingResources(getMappingResources())
-        .properties(getVendorProperties())
+        .properties(vendorProperties)
         .packages(getPackagesToScan()).build();
   }
 
   @Bean
+  @ConditionalOnMissingBean(TransactionManager.class)
   public PlatformTransactionManager transactionManager() {
     return new JpaTransactionManager();
   }
@@ -117,5 +130,11 @@ public class PluginJPAStarter {
 
   public static Plugin getPlugin(BeanFactory beanFactory){
     return beanFactory.getBean(PluginApplication.BEAN_PLUGIN, Plugin.class);
+  }
+
+  @Autowired
+  @Override
+  public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+    this.beanFactory = beanFactory;
   }
 }
