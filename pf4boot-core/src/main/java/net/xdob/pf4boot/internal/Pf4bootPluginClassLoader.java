@@ -32,7 +32,15 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
   public Pf4bootPluginClassLoader(PluginManager pluginManager, PluginDescriptor pluginDescriptor) {
     // load class from parent first to avoid same class loaded by different classLoader,
     // so Spring could autowired bean by type correctly.
-    super(pluginManager, pluginDescriptor, ((Pf4bootPluginManager)pluginManager).getMainApplicationContext().getClassLoader(), ClassLoadingStrategy.APD);
+    this(pluginManager, pluginDescriptor, ((Pf4bootPluginManager)pluginManager).getApplicationContext().getClassLoader());
+  }
+
+  public Pf4bootPluginClassLoader(PluginManager pluginManager, PluginDescriptor pluginDescriptor, ClassLoader parent) {
+    this(pluginManager, pluginDescriptor, parent, ClassLoadingStrategy.PDA);
+  }
+
+  public Pf4bootPluginClassLoader(PluginManager pluginManager, PluginDescriptor pluginDescriptor, ClassLoader parent, ClassLoadingStrategy classLoadingStrategy) {
+    super(pluginManager, pluginDescriptor, parent, classLoadingStrategy);
   }
 
   @Override

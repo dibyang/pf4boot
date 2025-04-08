@@ -1,14 +1,13 @@
 package net.xdob.pf4boot.annotation;
 
 
-import net.xdob.pf4boot.modal.SharingScope;
 import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.lang.annotation.*;
 
 /**
  *
- * 导出 components or services 到应用上下文
+ * 标识需要动态导入依赖
  *
  * @author yangzj
  * @version 1.0
@@ -17,6 +16,5 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Qualifier
 @Documented
-public @interface Export {
-  SharingScope scope() default SharingScope.PLATFORM;
+public @interface DynamicImport {
 }

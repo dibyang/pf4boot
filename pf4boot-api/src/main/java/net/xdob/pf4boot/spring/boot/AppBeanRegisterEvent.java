@@ -1,5 +1,6 @@
 package net.xdob.pf4boot.spring.boot;
 
+import net.xdob.pf4boot.modal.SharingScope;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEvent;
 
@@ -12,10 +13,16 @@ public class AppBeanRegisterEvent extends ApplicationEvent {
 
   private final String beanName;
   private final Object bean;
-  public AppBeanRegisterEvent(ApplicationContext applicationContext, String beanName, Object bean) {
+  private final SharingScope scope;
+  public AppBeanRegisterEvent(SharingScope scope,ApplicationContext applicationContext, String beanName, Object bean) {
     super(applicationContext);
+    this.scope = scope;
     this.beanName = beanName;
     this.bean = bean;
+  }
+
+  public SharingScope getScope() {
+    return scope;
   }
 
   public String getBeanName() {

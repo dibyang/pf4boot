@@ -2,6 +2,7 @@ package net.xdob.pf4boot.annotation;
 
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.TypeExcludeFilter;
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 import org.springframework.context.annotation.Bean;
@@ -23,17 +24,38 @@ import java.lang.annotation.*;
 @Documented
 @Inherited
 @SpringBootConfiguration
-@ComponentScan(excludeFilters = { @ComponentScan.Filter(type = FilterType.CUSTOM, classes = TypeExcludeFilter.class),
-    @ComponentScan.Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class) })
 @ConfigurationPropertiesScan
+@EnableAutoConfiguration
+@ComponentScan(
+    excludeFilters = {@ComponentScan.Filter(
+        type = FilterType.CUSTOM,
+        classes = {TypeExcludeFilter.class}
+    ), @ComponentScan.Filter(
+        type = FilterType.CUSTOM,
+        classes = {AutoConfigurationExcludeFilter.class}
+    )}
+)
 public @interface SpringBootPlugin {
 
-  @AliasFor(annotation = ComponentScan.class, attribute = "basePackages")
-  String[] scanBasePackages() default {};
+  @AliasFor(annotation = EnableAutoConfiguration.class)
+  Class<?>[] exclude() default {};
+
+  @AliasFor(annotation = EnableAutoConfiguration.class)
+  String[] excludeName() default {};
 
 
-  @AliasFor(annotation = ComponentScan.class, attribute = "basePackageClasses")
-  Class<?>[] scanBasePackageClasses() default {};
+  @AliasFor(annotation = ComponentScan.class)
+  String[] basePackages() default {};
+
+
+  @AliasFor(annotation = ComponentScan.class)
+  Class<?>[] basePackageClasses() default {};
+
+  @AliasFor(annotation = ComponentScan.class)
+  ComponentScan.Filter[] includeFilters() default {};
+
+  @AliasFor(annotation = ComponentScan.class)
+  ComponentScan.Filter[] excludeFilters() default {};
 
   /**
    * Specify whether {@link Bean @Bean} methods should get proxied in order to enforce

@@ -1,11 +1,8 @@
 package net.xdob.pf4boot.internal;
 
-import net.xdob.pf4boot.ApplicationContextProvider;
 import org.pf4j.PluginManager;
 import org.pf4j.PluginState;
 import org.pf4j.PluginWrapper;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.web.servlet.resource.PathResourceResolver;
@@ -14,27 +11,25 @@ import java.io.IOException;
 import java.util.Arrays;
 
 /**
- * PluginResourceResolver
+ * PluginPathResourceResolver
  *
  * @author yangzj
  * @version 1.0
  */
-public class PluginResourceResolver extends PathResourceResolver {
+public class PluginPathResourceResolver extends PathResourceResolver {
 
-  @Autowired
-  @Lazy
-  private PluginManager pluginManager;
+
+  private final PluginManager pluginManager;
+
+  public PluginPathResourceResolver(PluginManager pluginManager) {
+    this.pluginManager = pluginManager;
+  }
 
   @Override
   protected Resource getResource(String resourcePath, Resource location) throws IOException {
     if (!(location instanceof ClassPathResource)) return null;
     ClassPathResource classPathLocation = (ClassPathResource) location;
 
-    // pluginManager might not be autowired correctly because resolve bean
-    // is instantiated before PluginManager.
-    if (pluginManager == null) {
-      pluginManager = ApplicationContextProvider.getBean(PluginManager.class);
-    }
 
     for (PluginWrapper plugin : pluginManager.getPlugins(PluginState.STARTED)) {
       Resource pluginLocation = new ClassPathResource(classPathLocation.getPath(), plugin.getPluginClassLoader());

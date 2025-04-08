@@ -1,4 +1,4 @@
-package net.xdob.pf4boot.jpa;
+package net.xdob.pf4boot.jpa.starter;
 
 import java.util.stream.StreamSupport;
 

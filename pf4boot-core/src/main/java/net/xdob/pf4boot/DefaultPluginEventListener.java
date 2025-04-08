@@ -2,6 +2,7 @@ package net.xdob.pf4boot;
 
 import com.google.common.eventbus.Subscribe;
 import net.xdob.pf4boot.annotation.EventListenerComponent;
+import net.xdob.pf4boot.annotation.Export;
 import net.xdob.pf4boot.spring.boot.PreStartPluginEvent;
 import net.xdob.pf4boot.spring.boot.StartedPluginEvent;
 import org.slf4j.Logger;
@@ -13,7 +14,6 @@ import org.slf4j.LoggerFactory;
  * @author yangzj
  * @version 1.0
  */
-@EventListenerComponent
 public class DefaultPluginEventListener  {
   static final Logger log = LoggerFactory.getLogger(DefaultPluginEventListener.class);
 

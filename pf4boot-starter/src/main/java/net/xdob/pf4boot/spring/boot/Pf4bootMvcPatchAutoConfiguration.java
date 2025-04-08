@@ -1,7 +1,7 @@
 package net.xdob.pf4boot.spring.boot;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
-import net.xdob.pf4boot.internal.PluginResourceResolver;
+import net.xdob.pf4boot.internal.PluginPathResourceResolver;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.cache.Cache;
@@ -57,8 +57,8 @@ public class Pf4bootMvcPatchAutoConfiguration {
   }
 
   @Bean
-  public PluginResourceHandlerRegistrationCustomizer resourceHandlerRegistrationCustomizer(PluginResourceResolver pluginResourceResolver) {
-    return new PluginResourceHandlerRegistrationCustomizer(resourceProperties, sbpResourceCache, pluginResourceResolver);
+  public PluginResourceHandlerRegistrationCustomizer resourceHandlerRegistrationCustomizer(PluginPathResourceResolver pluginPathResourceResolver) {
+    return new PluginResourceHandlerRegistrationCustomizer(resourceProperties, sbpResourceCache, pluginPathResourceResolver);
   }
 
   @EventListener(AppCacheFreeEvent.class)

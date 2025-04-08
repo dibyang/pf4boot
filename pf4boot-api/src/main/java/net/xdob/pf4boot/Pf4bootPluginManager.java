@@ -16,11 +16,12 @@ import java.util.Map;
  * @version 1.0
  */
 public interface Pf4bootPluginManager extends PluginManager {
+  String BEAN_PLUGIN = "pf4j.plugin";
   void setAutoStartPlugin(boolean autoStartPlugin);
 
   boolean isAutoStartPlugin();
 
-  void setMainApplicationStarted(boolean mainApplicationStarted);
+  void setApplicationStarted(boolean mainApplicationStarted);
 
   void setProfiles(String[] profiles);
 
@@ -32,9 +33,9 @@ public interface Pf4bootPluginManager extends PluginManager {
 
   Map<String, Object> getPresetProperties();
 
-  ConfigurableApplicationContext getMainApplicationContext();
-
-  boolean isMainApplicationStarted();
+  ConfigurableApplicationContext getApplicationContext();
+  ConfigurableApplicationContext getPlatformContext();
+  boolean isApplicationStarted();
 
   void restartPlugins();
 
@@ -57,15 +58,28 @@ public interface Pf4bootPluginManager extends PluginManager {
   void post(Object event);
 
   /**
-   * 注册bean到主上文
+   * 注册bean到平台上文
    * @param beanName
    * @param bean
    */
-  void registerBeanToMainContext(String beanName, Object bean);
+  void registerBeanToPlatformContext(String beanName, Object bean);
 
   /**
-   * 取消注册bean从主上文
+   * 取消注册bean从平台上文
    * @param beanName
    */
-  void unregisterBeanFromMainContext(String beanName);
+  void unregisterBeanFromPlatformContext(String beanName);
+
+  /**
+   * 注册bean到主应用上文
+   * @param beanName
+   * @param bean
+   */
+  void registerBeanToApplicationContext(String beanName, Object bean);
+
+  /**
+   * 取消注册bean从主应用上文
+   * @param beanName
+   */
+  void unregisterBeanFromApplicationContext(String beanName);
 }

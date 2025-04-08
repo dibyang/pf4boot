@@ -21,6 +21,11 @@ import org.springframework.core.io.DefaultResourceLoader;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * 已废弃
+ * @deprecated
+ */
+@Deprecated
 public class Pf4bootApplication extends SpringApplication implements PluginApplication {
   private final static Logger log = LoggerFactory.getLogger(Pf4bootApplication.class);
 
@@ -61,7 +66,7 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
     this.pluginClassLoader = plugin.getWrapper().getPluginClassLoader();
     Pf4bootPluginManager pluginManager = TypeWrapper.wrapper(plugin.getWrapper().getPluginManager(), Pf4bootPluginManager.class)
         .orElse(null);
-    this.mainApplicationContext = pluginManager.getMainApplicationContext();
+    this.mainApplicationContext = pluginManager.getApplicationContext();
 
     Map<String, Object> presetProperties = pluginManager.getPresetProperties();
     if (presetProperties != null) {

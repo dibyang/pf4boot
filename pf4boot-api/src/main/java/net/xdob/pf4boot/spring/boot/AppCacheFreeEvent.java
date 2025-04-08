@@ -10,7 +10,7 @@ public class AppCacheFreeEvent extends ApplicationEvent {
 
   private static final long serialVersionUID = 1653148906452766719L;
 
-  public AppCacheFreeEvent(ApplicationContext mainApplicationContext) {
-    super(mainApplicationContext);
+  public AppCacheFreeEvent(ApplicationContext context) {
+    super(context);
   }
 }

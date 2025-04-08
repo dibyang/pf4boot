@@ -11,22 +11,38 @@ public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
 
   public static final String REQUEST_MAPPING_HANDLER_MAPPING = "requestMappingHandlerMapping";
 
+
+  @Override
+  public void initiatedPlugin(Pf4bootPlugin pf4bootPlugin) {
+
+  }
+
   @Override
   public void startPlugin(Pf4bootPlugin pf4bootPlugin) {
+
+  }
+
+  @Override
+  public void startedPlugin(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
-   //register controllers
+    //register controllers
     getMainRequestMapping(pluginManager).registerControllers(pf4bootPlugin);
   }
 
   @Override
-  public void stoppedPlugin(Pf4bootPlugin pf4bootPlugin) {
+  public void stopPlugin(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     //unregister controllers
     getMainRequestMapping(pluginManager).unregisterControllers(pf4bootPlugin);
   }
 
+  @Override
+  public void stoppedPlugin(Pf4bootPlugin pf4bootPlugin) {
+
+  }
+
   private PluginRequestMappingHandlerMapping getMainRequestMapping(Pf4bootPluginManager pluginManager) {
     return (PluginRequestMappingHandlerMapping)
-        pluginManager.getMainApplicationContext().getBean(REQUEST_MAPPING_HANDLER_MAPPING);
+        pluginManager.getApplicationContext().getBean(REQUEST_MAPPING_HANDLER_MAPPING);
   }
 }

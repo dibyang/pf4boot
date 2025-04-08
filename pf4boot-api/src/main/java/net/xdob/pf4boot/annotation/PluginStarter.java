@@ -1,5 +1,7 @@
 package net.xdob.pf4boot.annotation;
 
+import org.springframework.core.annotation.AliasFor;
+
 import java.lang.annotation.*;
 
 /**
@@ -8,10 +10,21 @@ import java.lang.annotation.*;
  * @author yangzj
  * @version 1.0
  */
+
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
+@ExportBeans
 public @interface PluginStarter {
+  /**
+   * 插件内的启动器类，一个插件至少需要一个启动器类
+   */
   Class<?>[] value();
-  String[] export() default {};
-}
+
+  @AliasFor(annotation = ExportBeans.class)
+  Class[] beans() default {};
+
+  @AliasFor(annotation = ExportBeans.class)
+  String[] beanNames() default {};
+
+ }

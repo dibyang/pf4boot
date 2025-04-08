@@ -61,7 +61,7 @@ public class SpringExtensionFactory implements ExtensionFactory {
   private ConfigurableApplicationContext getApplicationContext(Class<?> extensionClass) {
     PluginWrapper pluginWrapper = pluginManager.whichPlugin(extensionClass);
     return TypeWrapper.wrapper(pluginWrapper.getPlugin(), Pf4bootPlugin.class)
-        .map(Pf4bootPlugin::getApplicationContext)
+        .map(Pf4bootPlugin::getPluginContext)
         .orElse(null);
   }
 }

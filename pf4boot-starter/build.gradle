@@ -2,6 +2,7 @@
 dependencies {
     api project(":pf4boot-api")
     api project(":pf4boot-core")
+    api project(":pf4boot-jpa")
     api project(':pf4boot-web-starter')
 //    implementation("net.xdob.springframework.boot:spring-boot-starter-web:${spring_boot_version}"){
 //        exclude group: 'org.slf4j'

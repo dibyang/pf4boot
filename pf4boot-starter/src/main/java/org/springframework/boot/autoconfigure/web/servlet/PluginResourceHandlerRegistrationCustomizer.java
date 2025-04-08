@@ -1,6 +1,6 @@
 package org.springframework.boot.autoconfigure.web.servlet;
 
-import net.xdob.pf4boot.internal.PluginResourceResolver;
+import net.xdob.pf4boot.internal.PluginPathResourceResolver;
 import net.xdob.pf4boot.spring.boot.AppCacheFreeEvent;
 import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.cache.Cache;
@@ -8,7 +8,6 @@ import org.springframework.cache.concurrent.ConcurrentMapCache;
 import org.springframework.context.ApplicationListener;
 import org.springframework.web.servlet.config.annotation.ResourceChainRegistration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistration;
-import org.springframework.web.servlet.resource.AppCacheManifestTransformer;
 import org.springframework.web.servlet.resource.EncodedResourceResolver;
 import org.springframework.web.servlet.resource.ResourceResolver;
 import org.springframework.web.servlet.resource.VersionResourceResolver;
@@ -28,12 +27,12 @@ public class PluginResourceHandlerRegistrationCustomizer implements
   private Cache sbpResourceCache;
 
   //@Autowired
-  private final PluginResourceResolver pluginResourceResolver;
+  private final PluginPathResourceResolver pluginPathResourceResolver;
 
-  public PluginResourceHandlerRegistrationCustomizer(WebProperties resourceProperties, Cache sbpResourceCache, PluginResourceResolver pluginResourceResolver) {
+  public PluginResourceHandlerRegistrationCustomizer(WebProperties resourceProperties, Cache sbpResourceCache, PluginPathResourceResolver pluginPathResourceResolver) {
     this.resourceProperties = resourceProperties;
     this.sbpResourceCache = sbpResourceCache;
-    this.pluginResourceResolver = pluginResourceResolver;
+    this.pluginPathResourceResolver = pluginPathResourceResolver;
   }
 
   @Override
@@ -44,7 +43,7 @@ public class PluginResourceHandlerRegistrationCustomizer implements
     WebProperties.Resources.Chain properties = this.resourceProperties.getResources().getChain();
     ResourceChainRegistration chain = registration.resourceChain(properties.isCache(), sbpResourceCache);
 
-    chain.addResolver(pluginResourceResolver);
+    chain.addResolver(pluginPathResourceResolver);
 
     WebProperties.Resources.Chain.Strategy strategy = properties.getStrategy();
     if (properties.isCompressed()) {

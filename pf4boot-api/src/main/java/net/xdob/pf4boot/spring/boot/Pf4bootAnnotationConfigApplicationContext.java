@@ -21,6 +21,10 @@ public class Pf4bootAnnotationConfigApplicationContext extends AnnotationConfigA
 
   }
 
+  public Pf4bootPlugin getPlugin() {
+    return plugin;
+  }
+
   @Override
   public void setParent(ApplicationContext parent) {
     super.setParent(parent);

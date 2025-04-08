@@ -1,5 +1,6 @@
 
 dependencies {
     implementation project(":pf4boot-api")
-
+    implementation("javax.persistence:javax.persistence-api:2.2")
+    api("org.hibernate:hibernate-core:$hibernate_version")
 }
