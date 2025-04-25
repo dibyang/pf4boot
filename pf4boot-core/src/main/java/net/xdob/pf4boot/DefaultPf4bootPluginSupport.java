@@ -18,6 +18,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import java.lang.annotation.Annotation;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
   static final Logger logger = LoggerFactory.getLogger(DefaultPf4bootPluginSupport.class);
@@ -29,13 +30,25 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     return Pf4bootPluginSupport.HEIGHT_PRIORITY;
   }
 
-  private <A extends Annotation> List<A> getAnnotations(Pf4bootPlugin pf4bootPlugin, Class<A> annotationClazz) {
+  @Override
+  public void initiatePluginManager(Pf4bootPluginManager pluginManager) {
+    ConfigurableApplicationContext applicationContext = pluginManager.getApplicationContext();
+    registerEventListeners(pluginManager, applicationContext);
+    registerShareServices(pluginManager, null, applicationContext);
+    registerDynamicImportBeans(null, applicationContext);
+  }
+
+  @Override
+  public void initiatedPluginManager(Pf4bootPluginManager pluginManager) {
+
+  }
+
+  private <A extends Annotation> List<A> getAnnotations(Class<?> primarySource, Class<A> annotationClazz) {
     List<A> annotations = new ArrayList<>();
-    Class<?> clazz = pf4bootPlugin.getClass();
-    Optional.ofNullable(clazz.getAnnotation(annotationClazz))
+    Optional.ofNullable(primarySource.getAnnotation(annotationClazz))
         .ifPresent(annotations::add);
 
-    PluginStarter pluginStarter = clazz.getAnnotation(PluginStarter.class);
+    PluginStarter pluginStarter = primarySource.getAnnotation(PluginStarter.class);
     if(pluginStarter!=null){
       Class<?>[] starterClasses = pluginStarter.value();
       for (Class<?> starterClass : starterClasses) {
@@ -72,7 +85,12 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
 
   private void registerEventListeners(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
-    Map<String, Object> beans = pf4bootPlugin.getPluginContext().getBeansWithAnnotation(EventListener.class);
+    ConfigurableApplicationContext context = pf4bootPlugin.getPluginContext();
+    registerEventListeners(pluginManager, context);
+  }
+
+  private static void registerEventListeners(Pf4bootPluginManager pluginManager, ConfigurableApplicationContext context ) {
+    Map<String, Object> beans = context.getBeansWithAnnotation(EventListener.class);
     for (String beanName : beans.keySet()) {
       Object bean = beans.get(beanName);
       pluginManager.getPf4bootEventBus().register(bean);
@@ -101,7 +119,13 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
 
   private void registerShareServices(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
-    SharingBeans sharingBeans = getExportBeans(pf4bootPlugin);
+    Class<?> primarySource = pf4bootPlugin.getClass();
+    ConfigurableApplicationContext context = pf4bootPlugin.getPluginContext();
+    registerShareServices(pluginManager, primarySource, context);
+  }
+
+  private void registerShareServices(Pf4bootPluginManager pluginManager, Class<?> primarySource, ConfigurableApplicationContext context) {
+    SharingBeans sharingBeans = getExportBeans(primarySource, context);
     sharingBeans.getPlatformBeans().forEach((beanName, bean) -> {
       pluginManager.registerBeanToPlatformContext(beanName, bean);
       logger.info("register export bean {} platform success", beanName);
@@ -114,14 +138,13 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     });
   }
 
-  private SharingBeans getExportBeans(Pf4bootPlugin pf4bootPlugin) {
-    ApplicationContext pluginContext = pf4bootPlugin.getPluginContext();
+  private SharingBeans getExportBeans(Class<?> primarySource, ApplicationContext context) {
     SharingBeans sharingBeans = new SharingBeans();
 
-    Map<String, Object> beans = pluginContext.getBeansWithAnnotation(Export.class);
-
+    Map<String, Object> beans = context.getBeansWithAnnotation(Export.class);
+    logger.info("get export beans : {}", beans);
     beans.forEach((key, value) -> {
-      Export export = pluginContext.findAnnotationOnBean(key, Export.class);
+      Export export = context.findAnnotationOnBean(key, Export.class);
       if (export != null) {
         if (SharingScope.APPLICATION.equals(export.scope())) {
           sharingBeans.getAppBeans().put(key, value);
@@ -132,32 +155,47 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
         sharingBeans.getPlatformBeans().put(key, value);
       }
     });
-    this.getAnnotations(pf4bootPlugin, ExportBeans.class)
-        .forEach(exportBeans -> {
-          Map<String, Object> map =(SharingScope.APPLICATION.equals(exportBeans.scope()))
-              ?sharingBeans.getAppBeans():sharingBeans.getPlatformBeans();
 
-          for (String beanName : exportBeans.beanNames()) {
-            try {
-              Object bean = pluginContext.getBean(beanName);
-              map.put(beanName, bean);
-            } catch (BeansException e) {
-              logger.warn("get export bean {} is failed", beanName, e);
-            }
-          }
-          for (Class<?> beanClass : exportBeans.beans()) {
-            String[] beanNames = pluginContext.getBeanNamesForType(beanClass);
-            for (String beanName : beanNames) {
-              try {
-                Object bean = pluginContext.getBean(beanName);
-                map.put(beanName, bean);
-              } catch (BeansException e) {
-                logger.warn("export bean {} is failed", beanName, e);
-              }
-            }
-          }
+    context.getBeansWithAnnotation(ExportBeans.class)
+      .forEach((key, value) -> {
+      Optional.ofNullable(context.findAnnotationOnBean(key, ExportBeans.class))
+        .ifPresent(exportBeans -> {
+          getSharingBeans(sharingBeans, context, exportBeans);
         });
+    });
+    if (primarySource != null) {
+
+      this.getAnnotations(primarySource, ExportBeans.class)
+        .forEach(exportBeans -> {
+          getSharingBeans(sharingBeans, context, exportBeans);
+        });
+    }
     return sharingBeans;
+  }
+
+  private  void getSharingBeans(SharingBeans sharingBeans, ApplicationContext context, ExportBeans exportBeans) {
+    Map<String, Object> map = (SharingScope.APPLICATION.equals(exportBeans.scope()))
+      ? sharingBeans.getAppBeans() : sharingBeans.getPlatformBeans();
+
+    for (String beanName : exportBeans.beanNames()) {
+      try {
+        Object bean = context.getBean(beanName);
+        map.put(beanName, bean);
+      } catch (BeansException e) {
+        logger.warn("get export bean {} is failed", beanName, e);
+      }
+    }
+    for (Class<?> beanClass : exportBeans.beans()) {
+      String[] beanNames = context.getBeanNamesForType(beanClass);
+      for (String beanName : beanNames) {
+        try {
+          Object bean = context.getBean(beanName);
+          map.put(beanName, bean);
+        } catch (BeansException e) {
+          logger.warn("export bean {} is failed", beanName, e);
+        }
+      }
+    }
   }
 
   private void dynamicImport(Class<?> beanClass, Object value){
@@ -179,7 +217,13 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
   }
 
   private void registerDynamicImportBeans(Pf4bootPlugin pf4bootPlugin) {
-    Map<String, Object> beans = getDynamicImportBeans(pf4bootPlugin);
+    Class<?> primarySource = pf4bootPlugin.getClass();
+    ConfigurableApplicationContext context = pf4bootPlugin.getPluginContext();
+    registerDynamicImportBeans(primarySource, context);
+  }
+
+  private void registerDynamicImportBeans(Class<?> primarySource, ConfigurableApplicationContext context) {
+    Map<String, Object> beans = getDynamicImportBeans(primarySource, context);
     for (String beanName : beans.keySet()) {
       Object bean = beans.get(beanName);
       Injections injections = new Injections();
@@ -197,23 +241,37 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     }
   }
 
-  private Map<String, Object> getDynamicImportBeans(Pf4bootPlugin pf4bootPlugin) {
-    ConfigurableApplicationContext pluginContext = pf4bootPlugin.getPluginContext();
-    Map<String, Object> beans = pluginContext.getBeansWithAnnotation(DynamicImport.class);
-    this.getAnnotations(pf4bootPlugin, DynamicImportBeans.class)
-        .forEach(dynamic -> {
-          for (Class<?> beanClass : dynamic.beans()) {
-            String[] beanNames = pluginContext.getBeanNamesForType(beanClass);
-            for (String beanName : beanNames) {
-              Object bean = pluginContext.getBean(beanName);
-              beans.put(beanName, bean);
-            }
-          }
-          for (String beanName : dynamic.beanNames()) {
-            Object bean = pluginContext.getBean(beanName);
-            beans.put(beanName, bean);
-          }
+  private Map<String, Object> getDynamicImportBeans(Class<?> primarySource, ConfigurableApplicationContext context) {
+    Map<String, Object> beans = context.getBeansWithAnnotation(DynamicImport.class);
+    context.getBeansWithAnnotation(DynamicImportBeans.class)
+      .forEach((key,bean)->{
+      Optional.ofNullable(context.findAnnotationOnBean(key, DynamicImportBeans.class))
+        .ifPresent(dynamic -> {
+          beans.putAll(getDynamicImportBeans(context, dynamic));
         });
+    });
+    if (primarySource != null) {
+      this.getAnnotations(primarySource, DynamicImportBeans.class)
+        .forEach(dynamic -> {
+          beans.putAll(getDynamicImportBeans(context, dynamic));
+        });
+    }
+    return beans;
+  }
+
+  private Map<String, Object> getDynamicImportBeans(ConfigurableApplicationContext context, DynamicImportBeans dynamic) {
+    Map<String, Object> beans = new HashMap<>();
+    for (Class<?> beanClass : dynamic.beans()) {
+      String[] beanNames = context.getBeanNamesForType(beanClass);
+      for (String beanName : beanNames) {
+        Object bean = context.getBean(beanName);
+        beans.put(beanName, bean);
+      }
+    }
+    for (String beanName : dynamic.beanNames()) {
+      Object bean = context.getBean(beanName);
+      beans.put(beanName, bean);
+    }
     return beans;
   }
 
@@ -254,7 +312,7 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
   }
 
   private void unregisterDynamicImportBeans(Pf4bootPlugin pf4bootPlugin) {
-    Map<String, Object> beans = getDynamicImportBeans(pf4bootPlugin);
+    Map<String, Object> beans = getDynamicImportBeans(pf4bootPlugin.getClass(), pf4bootPlugin.getPluginContext());
     for (String beanName : beans.keySet()) {
       dynamicImportBeans.remove(beanName);
       logger.debug("unregister DynamicImport Bean: {}", beanName);
@@ -263,7 +321,7 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
 
   private void unregisterShareServices(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
-    SharingBeans sharingBeans = getExportBeans(pf4bootPlugin);
+    SharingBeans sharingBeans = getExportBeans(pf4bootPlugin.getClass(), pf4bootPlugin.getPluginContext());
     sharingBeans.getAppBeans().forEach((beanName, bean) -> {
       try {
         pluginManager.unregisterBeanFromApplicationContext(beanName);

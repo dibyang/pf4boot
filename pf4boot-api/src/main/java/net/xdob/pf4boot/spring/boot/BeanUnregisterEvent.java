@@ -5,16 +5,16 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEvent;
 
 /**
- * bean注册到主APP上事件
+ * bean取消注册到主APP上事件
  */
-public class AppBeanRegisterEvent extends ApplicationEvent {
+public class BeanUnregisterEvent extends ApplicationEvent {
 
   private static final long serialVersionUID = 1653148906452766719L;
 
   private final String beanName;
   private final Object bean;
   private final SharingScope scope;
-  public AppBeanRegisterEvent(SharingScope scope,ApplicationContext applicationContext, String beanName, Object bean) {
+  public BeanUnregisterEvent(SharingScope scope, ApplicationContext applicationContext, String beanName, Object bean) {
     super(applicationContext);
     this.scope = scope;
     this.beanName = beanName;

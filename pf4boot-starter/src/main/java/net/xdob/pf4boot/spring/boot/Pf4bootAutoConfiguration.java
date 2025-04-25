@@ -9,6 +9,7 @@ import org.pf4j.PluginManager;
 import org.pf4j.PluginStateListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -16,6 +17,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.util.StringUtils;
 
 import java.io.File;
@@ -91,8 +93,9 @@ public class Pf4bootAutoConfiguration {
   }
 
   @Bean
+  @Lazy
   @ConditionalOnMissingBean
-  public Pf4bootPluginManager pluginManager(ApplicationContext applicationContext,  Pf4bootProperties properties, Pf4bootEventBus eventBus, List<Pf4bootPluginSupport> pluginSupports) {
+  public Pf4bootPluginManager pluginManager(ApplicationContext applicationContext,  Pf4bootProperties properties, Pf4bootEventBus eventBus, ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider) {
     // Setup RuntimeMode
     System.setProperty(PF4J_MODE, properties.getRuntimeMode().toString());
 
@@ -101,7 +104,7 @@ public class Pf4bootAutoConfiguration {
 
     System.setProperty(PF4J_PLUGINS_DIR, pluginsRoot);
 
-    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(applicationContext, properties, eventBus, pluginSupports, new File(pluginsRoot).toPath());
+    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(applicationContext, properties, eventBus, pluginSupportProvider, new File(pluginsRoot).toPath());
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));

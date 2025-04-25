@@ -18,6 +18,20 @@ public interface Pf4bootPluginSupport {
   }
 
   /**
+   * 开始始化插件管理器
+   */
+  default void initiatePluginManager(Pf4bootPluginManager pluginManager){
+
+  }
+
+  /**
+   * 完成始化插件管理器
+   */
+  default void initiatedPluginManager(Pf4bootPluginManager pluginManager){
+
+  }
+
+  /**
    * 插件初始化前
    */
   default void initiatePlugin(Pf4bootPlugin pf4bootPlugin){

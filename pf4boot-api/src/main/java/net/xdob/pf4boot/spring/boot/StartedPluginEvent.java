@@ -1,6 +1,6 @@
 package net.xdob.pf4boot.spring.boot;
 
-import net.xdob.pf4boot.Pf4bootPlugin;
+import org.pf4j.Plugin;
 
 /**
  * StartedPluginEvent
@@ -9,7 +9,7 @@ import net.xdob.pf4boot.Pf4bootPlugin;
  * @version 1.0
  */
 public class StartedPluginEvent extends PluginEvent {
-  public StartedPluginEvent(Pf4bootPlugin plugin) {
+  public StartedPluginEvent(Plugin plugin) {
     super(plugin);
   }
 }
