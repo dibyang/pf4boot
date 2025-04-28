@@ -32,8 +32,19 @@ public interface Pf4bootPluginManager extends PluginManager {
   void presetProperties(String name, Object value);
 
   Map<String, Object> getPresetProperties();
+  /**
+   * 根级上下文，全局可见
+   */
+  ConfigurableApplicationContext getRootContext();
 
+  /**
+   * 应用上下文
+   */
   ConfigurableApplicationContext getApplicationContext();
+
+  /**
+   * 平台级上下文，插件间共享
+   */
   ConfigurableApplicationContext getPlatformContext();
   boolean isApplicationStarted();
 
@@ -56,30 +67,43 @@ public interface Pf4bootPluginManager extends PluginManager {
   Pf4bootEventBus getPf4bootEventBus();
 
   void post(Object event);
+  /**
+   * 注册bean到根级上下文，全局可见
+   * @param beanName bean名称
+   * @param bean bean实例
+   */
+  void registerBeanToRootContext(String beanName, Object bean);
+
+  /**
+   * 取消注册bean从根级上下文，全局可见
+   * @param beanName bean名称
+   */
+  void unregisterBeanFromRootContext(String beanName);
+
 
   /**
    * 注册bean到平台上文
-   * @param beanName
-   * @param bean
+   * @param beanName bean名称
+   * @param bean bean实例
    */
   void registerBeanToPlatformContext(String beanName, Object bean);
 
   /**
    * 取消注册bean从平台上文
-   * @param beanName
+   * @param beanName bean名称
    */
   void unregisterBeanFromPlatformContext(String beanName);
 
   /**
    * 注册bean到主应用上文
-   * @param beanName
-   * @param bean
+   * @param beanName bean名称
+   * @param bean bean实例
    */
   void registerBeanToApplicationContext(String beanName, Object bean);
 
   /**
    * 取消注册bean从主应用上文
-   * @param beanName
+   * @param beanName bean名称
    */
   void unregisterBeanFromApplicationContext(String beanName);
 }

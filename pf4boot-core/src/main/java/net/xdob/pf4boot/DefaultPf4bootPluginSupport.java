@@ -126,9 +126,14 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
 
   private void registerShareServices(Pf4bootPluginManager pluginManager, Class<?> primarySource, ConfigurableApplicationContext context) {
     SharingBeans sharingBeans = getExportBeans(primarySource, context);
+    sharingBeans.getRootBeans().forEach((beanName, bean) -> {
+      pluginManager.registerBeanToRootContext(beanName, bean);
+      logger.info("register export bean {} to root success", beanName);
+      dynamicImport(bean.getClass(), bean);
+    });
     sharingBeans.getPlatformBeans().forEach((beanName, bean) -> {
       pluginManager.registerBeanToPlatformContext(beanName, bean);
-      logger.info("register export bean {} platform success", beanName);
+      logger.info("register export bean {} to platform success", beanName);
       dynamicImport(bean.getClass(), bean);
     });
     sharingBeans.getAppBeans().forEach((beanName, bean) -> {
@@ -146,7 +151,9 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     beans.forEach((key, value) -> {
       Export export = context.findAnnotationOnBean(key, Export.class);
       if (export != null) {
-        if (SharingScope.APPLICATION.equals(export.scope())) {
+        if (SharingScope.ROOT.equals(export.scope())) {
+          sharingBeans.getRootBeans().put(key, value);
+        } else if (SharingScope.APPLICATION.equals(export.scope())) {
           sharingBeans.getAppBeans().put(key, value);
         } else {
           sharingBeans.getPlatformBeans().put(key, value);
@@ -164,7 +171,6 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
         });
     });
     if (primarySource != null) {
-
       this.getAnnotations(primarySource, ExportBeans.class)
         .forEach(exportBeans -> {
           getSharingBeans(sharingBeans, context, exportBeans);
@@ -174,8 +180,13 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
   }
 
   private  void getSharingBeans(SharingBeans sharingBeans, ApplicationContext context, ExportBeans exportBeans) {
-    Map<String, Object> map = (SharingScope.APPLICATION.equals(exportBeans.scope()))
-      ? sharingBeans.getAppBeans() : sharingBeans.getPlatformBeans();
+    Map<String, Object> map = sharingBeans.getPlatformBeans();
+    if(SharingScope.ROOT.equals(exportBeans.scope())){
+      map = sharingBeans.getRootBeans();
+    }
+    if(SharingScope.APPLICATION.equals(exportBeans.scope())){
+      map = sharingBeans.getAppBeans();
+    }
 
     for (String beanName : exportBeans.beanNames()) {
       try {
@@ -340,7 +351,15 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
         logger.warn("unregister export bean {} from platform failed", beanName, e);
       }
     });
-
+    sharingBeans.getRootBeans().forEach((beanName, bean) -> {
+      try {
+        pluginManager.unregisterBeanFromRootContext(beanName);
+        logger.info("unregister export bean {} from root.", beanName);
+        dynamicImport(bean.getClass(), null);
+      } catch (BeansException e) {
+        logger.warn("unregister export bean {} from root failed", beanName, e);
+      }
+    });
 
   }
 
