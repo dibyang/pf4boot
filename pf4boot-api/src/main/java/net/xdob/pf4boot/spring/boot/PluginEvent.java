@@ -1,5 +1,6 @@
 package net.xdob.pf4boot.spring.boot;
 
+import net.xdob.pf4boot.Pf4bootPlugin;
 import org.pf4j.Plugin;
 import org.springframework.context.ApplicationEvent;
 
@@ -11,12 +12,12 @@ import org.springframework.context.ApplicationEvent;
  */
 public class PluginEvent extends ApplicationEvent {
 
-  public PluginEvent(Plugin plugin) {
+  public PluginEvent(Pf4bootPlugin plugin) {
     super(plugin);
   }
 
-  public Plugin getPlugin(){
-    return (Plugin)this.getSource();
+  public Pf4bootPlugin getPlugin(){
+    return (Pf4bootPlugin)this.getSource();
   }
 
 }

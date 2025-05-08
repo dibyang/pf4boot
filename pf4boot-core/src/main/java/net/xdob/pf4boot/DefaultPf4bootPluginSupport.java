@@ -1,7 +1,6 @@
 package net.xdob.pf4boot;
 
 import net.xdob.pf4boot.annotation.*;
-import net.xdob.pf4boot.annotation.EventListener;
 import net.xdob.pf4boot.internal.SpringExtensionFactory;
 import net.xdob.pf4boot.modal.AutowiredElement;
 import net.xdob.pf4boot.modal.DynamicBean;
@@ -18,7 +17,6 @@ import org.springframework.context.ConfigurableApplicationContext;
 import java.lang.annotation.Annotation;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Consumer;
 
 public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
   static final Logger logger = LoggerFactory.getLogger(DefaultPf4bootPluginSupport.class);
@@ -33,7 +31,6 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
   @Override
   public void initiatePluginManager(Pf4bootPluginManager pluginManager) {
     ConfigurableApplicationContext applicationContext = pluginManager.getApplicationContext();
-    registerEventListeners(pluginManager, applicationContext);
     registerShareServices(pluginManager, null, applicationContext);
     registerDynamicImportBeans(null, applicationContext);
   }
@@ -71,8 +68,6 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
 
   @Override
   public void startedPlugin(Pf4bootPlugin pf4bootPlugin) {
-    //register EventListeners
-    registerEventListeners(pf4bootPlugin);
     //register ShareServices
     registerShareServices(pf4bootPlugin);
     // register Extensions
@@ -81,22 +76,6 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     registerDynamicImportBeans(pf4bootPlugin);
   }
 
-
-
-  private void registerEventListeners(Pf4bootPlugin pf4bootPlugin) {
-    Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
-    ConfigurableApplicationContext context = pf4bootPlugin.getPluginContext();
-    registerEventListeners(pluginManager, context);
-  }
-
-  private static void registerEventListeners(Pf4bootPluginManager pluginManager, ConfigurableApplicationContext context ) {
-    Map<String, Object> beans = context.getBeansWithAnnotation(EventListener.class);
-    for (String beanName : beans.keySet()) {
-      Object bean = beans.get(beanName);
-      pluginManager.getPf4bootEventBus().register(bean);
-      logger.debug("register Event Listener: {}={}", beanName , bean);
-    }
-  }
 
   private void registerExtensions(Pf4bootPlugin pf4bootPlugin) {
     PluginWrapper wrapper = pf4bootPlugin.getWrapper();
@@ -292,8 +271,6 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     unregisterExtensions(pf4bootPlugin);
     //unregister ShareServices
     unregisterShareServices(pf4bootPlugin);
-    //unregister PluginListeners
-    unregisterEventListeners(pf4bootPlugin);
     //unregister DynamicImportBeans
     unregisterDynamicImportBeans(pf4bootPlugin);
   }
@@ -363,15 +340,5 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
 
   }
 
-
-  private void unregisterEventListeners(Pf4bootPlugin pf4bootPlugin) {
-    Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
-    ApplicationContext applicationContext = pf4bootPlugin.getPluginContext();
-    Map<String, Object> beans = applicationContext.getBeansWithAnnotation(EventListener.class);
-    for (String beanName : beans.keySet()) {
-      Object bean = beans.get(beanName);
-      pluginManager.getPf4bootEventBus().unregister(bean);
-    }
-  }
 
 }

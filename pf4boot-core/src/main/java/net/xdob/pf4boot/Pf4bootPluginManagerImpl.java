@@ -16,7 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.io.DefaultResourceLoader;
@@ -65,7 +65,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   private PluginRepository pluginRepository;
   private final Map<String, PluginError> pluginErrors = new HashMap<>();
   private final Pf4bootProperties properties;
-  private final Pf4bootEventBus eventBus;
+  //private final Pf4bootEventBus eventBus;
 
   public static final String PLUGINS_DIR_CONFIG_PROPERTY_NAME = "pf4j.pluginsConfigDir";
 
@@ -73,21 +73,25 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   private ScheduledExecutorService scheduledExecutor;
 
 
-  public Pf4bootPluginManagerImpl(ApplicationContext applicationContext, Pf4bootProperties properties, Pf4bootEventBus eventBus,ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider, Path... pluginsRoots) {
+  public Pf4bootPluginManagerImpl(ApplicationContext applicationContext, Pf4bootProperties properties,
+                                  ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider, Path... pluginsRoots) {
     super(pluginsRoots);
     this.applicationContext = (ConfigurableApplicationContext)applicationContext;
 
     this.properties = properties;
-    this.eventBus = eventBus;
     this.pluginSupportProvider = pluginSupportProvider;
     this.rootContext = new AnnotationConfigApplicationContext();
     this.rootContext.refresh();
-    ApplicationContext topContext = getTopContext(applicationContext);
-    ((ConfigurableApplicationContext)topContext).setParent(this.rootContext);
+    ConfigurableApplicationContext topContext = (ConfigurableApplicationContext)getTopContext(applicationContext);
+    topContext.setParent(this.rootContext);
+    //仅共享Bean定义，不继承事件监听链1
+    topContext.getBeanFactory().setParentBeanFactory(this.rootContext.getBeanFactory());
+
     this.platformContext = new AnnotationConfigApplicationContext();
     this.platformContext.refresh();
     this.platformContext.setParent(this.rootContext);
-
+    //仅共享Bean定义，不继承事件监听链1
+    this.platformContext.getBeanFactory().setParentBeanFactory(this.rootContext.getBeanFactory());
     this.doInitialize();
 
   }
@@ -116,8 +120,16 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     return platformContext;
   }
 
-  void publishEvent(ApplicationEvent event){
+
+  public void publishEvent(Object event){
+    rootContext.publishEvent(event);
     applicationContext.publishEvent(event);
+    platformContext.publishEvent(event);
+    for (PluginWrapper startedPlugin : getStartedPlugins()) {
+      if(startedPlugin.getPluginState().isStarted()){
+        ((Pf4bootPlugin)startedPlugin.getPlugin()).getPluginContext().publishEvent(event);
+      }
+    }
   }
 
 
@@ -199,7 +211,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   protected void doInitialize() {
     super.initialize();
-    addPluginStateListener(new Pf4bootPluginStateListener(eventBus));
+    addPluginStateListener(new Pf4bootPluginStateListener(platformContext));
 
     List<Pf4bootPluginSupport> pluginSupports = getPluginSupports(true);
     pluginSupports.forEach(pluginSupport -> {
@@ -375,15 +387,15 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     return pluginErrors.get(pluginId);
   }
 
-  @Override
-  public Pf4bootEventBus getPf4bootEventBus() {
-    return eventBus;
-  }
-
-  @Override
-  public void post(Object event) {
-    eventBus.post(event);
-  }
+//  @Override
+//  public Pf4bootEventBus getPf4bootEventBus() {
+//    return eventBus;
+//  }
+//
+//  @Override
+//  public void post(Object event) {
+//    eventBus.post(event);
+//  }
 
 
 
@@ -406,7 +418,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
           pluginErrors.put(pluginWrapper.getPluginId(), PluginError.of(
               pluginWrapper.getPluginId(), e.getMessage(), e.toString()));
         }
-        if(!pluginState.isStarted()){
+        if(!pluginWrapper.getPluginState().isStarted()){
           failedCount+=1;
         }
       }
@@ -486,7 +498,6 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     context.getBeanFactory().registerSingleton(beanName, bean);
     BeanRegisterEvent registerBeanEvent = new BeanRegisterEvent(scope, context, beanName, bean);
     context.publishEvent(registerBeanEvent);
-    post(registerBeanEvent);
   }
 
   private void unregisterBeanFromContext(SharingScope scope, String beanName) {
@@ -503,7 +514,6 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
         .destroySingleton(beanName);
     BeanUnregisterEvent unRegisterBeanEvent = new BeanUnregisterEvent(scope, context, beanName, bean);
     context.publishEvent(unRegisterBeanEvent);
-    post(unRegisterBeanEvent);
   }
 
 
@@ -562,35 +572,26 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     }
     LOG.info("Start plugin '{}'", getPluginLabel(pluginDescriptor));
 
-    Plugin plugin = pluginWrapper.getPlugin();
+    Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
     ClassLoader oldClassLoader = replaceClassLoader(plugin.getWrapper().getPluginClassLoader());
     try {
-      if(plugin instanceof Pf4bootPlugin){
-        Pf4bootPlugin pf4bootPlugin = (Pf4bootPlugin)plugin;
-
-        //初始化插件前置处理
-        preHandlePlugin(p -> p.initiatePlugin(pf4bootPlugin));
-        this.platformContext.getBeanFactory().autowireBean(pf4bootPlugin);
-        pf4bootPlugin.initiate();
-        ConfigurableApplicationContext pluginContext = pf4bootPlugin.createPluginContext(this.platformContext);
-        pluginContext.refresh();
-        ApplicationContextProvider.registerApplicationContext(pluginContext);
-        //初始化插件后置处理
-        lastHandlePlugin(p -> p.initiatedPlugin(pf4bootPlugin));
-        this.post(new PreStartPluginEvent(plugin));
-        //插件启动前置处理
-        preHandlePlugin(p -> p.startPlugin(pf4bootPlugin));
-        this.post(new StartingPluginEvent(plugin));
-        plugin.start();
-        //插件启动后置处理
-        lastHandlePlugin(p -> p.startedPlugin(pf4bootPlugin));
-        this.post(new StartedPluginEvent(plugin));
-      }else {
-        this.post(new PreStartPluginEvent(plugin));
-        plugin.start();
-        this.post(new StartingPluginEvent(plugin));
-        this.post(new StartedPluginEvent(plugin));
-      }
+      //初始化插件前置处理
+      preHandlePlugin(p -> p.initiatePlugin(plugin));
+      this.platformContext.getBeanFactory().autowireBean(plugin);
+      plugin.initiate();
+      ConfigurableApplicationContext pluginContext = plugin.createPluginContext(this.platformContext);
+      pluginContext.refresh();
+      ApplicationContextProvider.registerApplicationContext(pluginContext);
+      //初始化插件后置处理
+      lastHandlePlugin(p -> p.initiatedPlugin(plugin));
+      publishEvent(new PreStartPluginEvent(plugin));
+      //插件启动前置处理
+      preHandlePlugin(p -> p.startPlugin(plugin));
+      publishEvent(new StartingPluginEvent(plugin));
+      plugin.start();
+      //插件启动后置处理
+      lastHandlePlugin(p -> p.startedPlugin(plugin));
+      publishEvent(new StartedPluginEvent(plugin));
     }finally {
       replaceClassLoader(oldClassLoader);
     }
@@ -654,31 +655,23 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     LOG.info("Stop plugin '{}'", getPluginLabel(pluginId));
     PluginWrapper pluginWrapper = getPlugin(pluginId);
 
-    Plugin plugin = pluginWrapper.getPlugin();
-    if(plugin instanceof Pf4bootPlugin) {
-      Pf4bootPlugin pf4bootPlugin = (Pf4bootPlugin) plugin;
-      this.post(new PreStopPluginEvent(plugin));
-      //插件停止前置处理
-      preHandlePlugin(p->p.stopPlugin(pf4bootPlugin));
-      plugin.stop();
-      this.post(new StoppingPluginEvent(plugin));
-      releaseResource(pf4bootPlugin);
-      ConfigurableApplicationContext applicationContext = pf4bootPlugin.getPluginContext();
-      //publishEvent(new Pf4bootPluginStoppedEvent(applicationContext));
-      //插件停止后置处理
-      lastHandlePlugin(p->p.stoppedPlugin(pf4bootPlugin));
-      this.post(new StoppedPluginEvent(plugin));
-      firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STOPPED));
-      ApplicationContextProvider.unregisterApplicationContext(applicationContext);
-      applicationContext.close();
-      pf4bootPlugin.closed();
-    }else {
-      this.post(new PreStopPluginEvent(plugin));
+    Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
+    ConfigurableApplicationContext pluginContext = plugin.getPluginContext();
+    publishEvent(new PreStopPluginEvent(plugin));
+    //插件停止前置处理
+    preHandlePlugin(p->p.stopPlugin(plugin));
+    plugin.stop();
+    publishEvent(new StoppingPluginEvent(plugin));
+    releaseResource(plugin);
 
-      plugin.stop();
-      this.post(new StoppingPluginEvent(plugin));
-      this.post(new StoppedPluginEvent(plugin));
-    }
+    //publishEvent(new Pf4bootPluginStoppedEvent(applicationContext));
+    //插件停止后置处理
+    lastHandlePlugin(p->p.stoppedPlugin(plugin));
+    publishEvent(new StoppedPluginEvent(plugin));
+    firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STOPPED));
+    ApplicationContextProvider.unregisterApplicationContext(pluginContext);
+    pluginContext.close();
+    plugin.closed();
 
     pluginWrapper.setPluginState(PluginState.STOPPED);
     getStartedPlugins().remove(pluginWrapper);

@@ -1,8 +1,8 @@
 package net.xdob.pf4boot.internal;
 
-import net.xdob.pf4boot.Pf4bootEventBus;
 import org.pf4j.PluginStateEvent;
 import org.pf4j.PluginStateListener;
+import org.springframework.context.ConfigurableApplicationContext;
 
 /**
  * Pf4bootPluginStateListener
@@ -12,14 +12,14 @@ import org.pf4j.PluginStateListener;
  */
 
 public class Pf4bootPluginStateListener implements PluginStateListener {
-  private final Pf4bootEventBus eventBus;
+  private final ConfigurableApplicationContext platformContext;
 
-  public Pf4bootPluginStateListener(Pf4bootEventBus eventBus) {
-    this.eventBus = eventBus;
+  public Pf4bootPluginStateListener(ConfigurableApplicationContext platformContext) {
+    this.platformContext = platformContext;
   }
 
   @Override
   public void pluginStateChanged(PluginStateEvent event) {
-    eventBus.post(event);
+    platformContext.publishEvent(event);
   }
 }

@@ -5,6 +5,7 @@ import org.pf4j.PluginDescriptorFinder;
 import org.pf4j.PluginManager;
 import org.pf4j.PluginRepository;
 import org.pf4j.PluginState;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ConfigurableApplicationContext;
 
 import java.util.Map;
@@ -64,9 +65,7 @@ public interface Pf4bootPluginManager extends PluginManager {
 
   PluginError getPluginErrors(String pluginId);
 
-  Pf4bootEventBus getPf4bootEventBus();
-
-  void post(Object event);
+  void publishEvent(Object event);
   /**
    * 注册bean到根级上下文，全局可见
    * @param beanName bean名称

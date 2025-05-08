@@ -110,11 +110,16 @@ public class Pf4bootPlugin extends Plugin {
 
     pluginContext.setClassLoader(pluginClassLoader);
     pluginContext.setParent(platformContext);
+    //仅共享Bean定义，不继承事件监听链1
+    pluginContext.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
     pluginContext.register(primarySources);
     pluginContext.getBeanFactory().registerSingleton(BEAN_PLUGIN, this);
     pluginContext.getBeanFactory().autowireBean(this);
     return pluginContext;
   }
 
+  public void publishEvent(Object event){
+    getPluginManager().publishEvent(event);
+  }
 
 }

@@ -1,7 +1,6 @@
 package net.xdob.pf4boot.spring.boot;
 
 
-import net.xdob.pf4boot.annotation.EventListener;
 import net.xdob.pf4boot.internal.*;
 import net.xdob.pf4boot.*;
 import org.pf4j.PluginDescriptor;
@@ -34,7 +33,6 @@ public class Pf4bootAutoConfiguration {
   public static final String PF4J_PLUGINS_DIR = "pf4j.pluginsDir";
 
   @Bean
-  @EventListener
   @ConditionalOnMissingBean(DefaultPluginEventListener.class)
   public DefaultPluginEventListener defaultPluginEventListener(){
     return new DefaultPluginEventListener();
@@ -44,12 +42,6 @@ public class Pf4bootAutoConfiguration {
   @ConditionalOnMissingBean(MainAppStartedListener.class)
   public MainAppStartedListener mainAppStartedListener(){
     return new MainAppStartedListener();
-  }
-
-  @Bean
-  @ConditionalOnMissingBean(Pf4bootEventBus.class)
-  public Pf4bootEventBus eventBus(){
-    return new Pf4bootEventBusImpl();
   }
 
 
@@ -95,7 +87,7 @@ public class Pf4bootAutoConfiguration {
   @Bean
   @Lazy
   @ConditionalOnMissingBean
-  public Pf4bootPluginManager pluginManager(ApplicationContext applicationContext,  Pf4bootProperties properties, Pf4bootEventBus eventBus, ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider) {
+  public Pf4bootPluginManager pluginManager(ApplicationContext applicationContext,  Pf4bootProperties properties, ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider) {
     // Setup RuntimeMode
     System.setProperty(PF4J_MODE, properties.getRuntimeMode().toString());
 
@@ -104,7 +96,7 @@ public class Pf4bootAutoConfiguration {
 
     System.setProperty(PF4J_PLUGINS_DIR, pluginsRoot);
 
-    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(applicationContext, properties, eventBus, pluginSupportProvider, new File(pluginsRoot).toPath());
+    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(applicationContext, properties, pluginSupportProvider, new File(pluginsRoot).toPath());
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));
