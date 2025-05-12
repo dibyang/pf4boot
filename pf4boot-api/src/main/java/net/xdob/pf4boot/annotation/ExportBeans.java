@@ -1,8 +1,11 @@
 package net.xdob.pf4boot.annotation;
 
 import net.xdob.pf4boot.modal.SharingScope;
+import org.springframework.cglib.proxy.InvocationHandler;
+import org.springframework.core.annotation.AliasFor;
 
 import java.lang.annotation.*;
+import java.lang.reflect.Method;
 
 /**
  * Export
@@ -16,14 +19,32 @@ import java.lang.annotation.*;
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface ExportBeans {
-  SharingScope scope() default SharingScope.PLATFORM;
-  /**
-   * 需要导出的共享bean
-   */
-  Class[] beans() default {};
-  /**
-   * 需要导出的共享bean名称
-   */
-  String[] beanNames() default {};
+  @AliasFor("name4Beans")
+  Name4Bean[] value() default {};
+  Class4Bean[] class4Beans() default {};
+  @AliasFor("value")
+  Name4Bean[] name4Beans() default {};
 
+  @Retention(RetentionPolicy.RUNTIME)
+  @interface Class4Bean{
+    SharingScope scope() default SharingScope.PLATFORM;
+    @AliasFor("types")
+    Class[] value() default {};
+    /**
+     * 需要导出的共享bean
+     */
+    @AliasFor("value")
+    Class[] types() default {};
+  }
+  @Retention(RetentionPolicy.RUNTIME)
+  @interface Name4Bean{
+    SharingScope scope() default SharingScope.PLATFORM;
+    @AliasFor("names")
+    String[] value() default {};
+    /**
+     * 需要导出的共享bean名称
+     */
+    @AliasFor("value")
+    String[] names() default {};
+  }
 }

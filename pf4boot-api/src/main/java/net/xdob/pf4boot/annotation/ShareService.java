@@ -1,5 +1,7 @@
 package net.xdob.pf4boot.annotation;
 
+import net.xdob.pf4boot.modal.SharingScope;
+import org.springframework.cglib.proxy.InvocationHandler;
 import org.springframework.core.annotation.AliasFor;
 import org.springframework.stereotype.Service;
 
@@ -20,4 +22,8 @@ public @interface ShareService {
 
   @AliasFor(annotation = Service.class)
   String value() default "";
+
+  @AliasFor(annotation = Export.class)
+  SharingScope scope() default SharingScope.PLATFORM;
+
 }

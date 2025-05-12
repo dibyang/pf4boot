@@ -16,7 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.io.DefaultResourceLoader;
@@ -91,7 +90,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     this.platformContext.refresh();
     this.platformContext.setParent(this.rootContext);
     //仅共享Bean定义，不继承事件监听链1
-    this.platformContext.getBeanFactory().setParentBeanFactory(this.rootContext.getBeanFactory());
+    //this.platformContext.getBeanFactory().setParentBeanFactory(this.rootContext.getBeanFactory());
     this.doInitialize();
 
   }
@@ -496,8 +495,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       context= this.rootContext;
     }
     context.getBeanFactory().registerSingleton(beanName, bean);
+    LOG.info("[PF4BOOT] register bean {} to {}", beanName, scope);
     BeanRegisterEvent registerBeanEvent = new BeanRegisterEvent(scope, context, beanName, bean);
-    context.publishEvent(registerBeanEvent);
+    publishEvent(registerBeanEvent);
   }
 
   private void unregisterBeanFromContext(SharingScope scope, String beanName) {
@@ -513,7 +513,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     ((AbstractAutowireCapableBeanFactory) context.getBeanFactory())
         .destroySingleton(beanName);
     BeanUnregisterEvent unRegisterBeanEvent = new BeanUnregisterEvent(scope, context, beanName, bean);
-    context.publishEvent(unRegisterBeanEvent);
+    publishEvent(unRegisterBeanEvent);
   }
 
 

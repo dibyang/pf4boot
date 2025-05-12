@@ -1,22 +1,35 @@
 package net.xdob.pf4boot.modal;
 
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 public class SharingBeans {
-  private final Map<String, Object> rootBeans = new HashMap<>();
-  private final Map<String, Object> appBeans = new HashMap<>();
-  private final Map<String, Object> platformBeans = new HashMap<>();
+  private final Map<String,SharingBean> beans = new ConcurrentHashMap<>();
 
-  public Map<String, Object> getRootBeans() {
-    return rootBeans;
+  public SharingBean add(String beanName, Object bean, SharingScope scope) {
+    SharingBean sharingBean = SharingBean.of(beanName, bean, scope);
+    beans.put(beanName, sharingBean);
+    return sharingBean;
   }
 
-  public Map<String, Object> getAppBeans() {
-    return appBeans;
+
+  public List<SharingBean> getRootBeans() {
+    return beans.values().stream()
+      .filter(bean -> bean.getScope() == SharingScope.ROOT)
+      .collect(Collectors.toList());
   }
 
-  public Map<String, Object> getPlatformBeans() {
-    return platformBeans;
+  public List<SharingBean> getAppBeans() {
+    return beans.values().stream()
+      .filter(bean -> bean.getScope() == SharingScope.APPLICATION)
+      .collect(Collectors.toList());
+  }
+
+  public List<SharingBean> getPlatformBeans() {
+    return beans.values().stream()
+      .filter(bean -> bean.getScope() == SharingScope.PLATFORM)
+      .collect(Collectors.toList());
   }
 }

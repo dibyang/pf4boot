@@ -68,8 +68,6 @@ public interface Pf4bootPluginManager extends PluginManager {
   void publishEvent(Object event);
   /**
    * 注册bean到根级上下文，全局可见
-   * @param beanName bean名称
-   * @param bean bean实例
    */
   void registerBeanToRootContext(String beanName, Object bean);
 

@@ -22,9 +22,8 @@ public @interface PluginStarter {
   Class<?>[] value();
 
   @AliasFor(annotation = ExportBeans.class)
-  Class[] beans() default {};
-
+  ExportBeans.Class4Bean[] class4Beans() default {};
   @AliasFor(annotation = ExportBeans.class)
-  String[] beanNames() default {};
+  ExportBeans.Name4Bean[] name4Beans() default {};
 
  }
