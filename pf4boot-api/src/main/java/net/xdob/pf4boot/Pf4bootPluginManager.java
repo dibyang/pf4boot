@@ -46,7 +46,7 @@ public interface Pf4bootPluginManager extends PluginManager {
   /**
    * 平台级上下文，插件间共享
    */
-  ConfigurableApplicationContext getPlatformContext();
+  ConfigurableApplicationContext getPlatformContext(String group);
   boolean isApplicationStarted();
 
   void restartPlugins();
@@ -83,13 +83,13 @@ public interface Pf4bootPluginManager extends PluginManager {
    * @param beanName bean名称
    * @param bean bean实例
    */
-  void registerBeanToPlatformContext(String beanName, Object bean);
+  void registerBeanToPlatformContext(String group, String beanName, Object bean);
 
   /**
    * 取消注册bean从平台上文
    * @param beanName bean名称
    */
-  void unregisterBeanFromPlatformContext(String beanName);
+  void unregisterBeanFromPlatformContext(String group, String beanName);
 
   /**
    * 注册bean到主应用上文

@@ -4,6 +4,8 @@ import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.spring.boot.Pf4bootAnnotationConfigApplicationContext;
 import org.pf4j.Plugin;
 import org.pf4j.PluginWrapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.support.BeanDefinitionBuilder;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
@@ -12,10 +14,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.ConfigurationClassPostProcessor;
 import org.springframework.util.ClassUtils;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static net.xdob.pf4boot.Pf4bootPluginManager.BEAN_PLUGIN;
 
@@ -26,6 +25,7 @@ import static net.xdob.pf4boot.Pf4bootPluginManager.BEAN_PLUGIN;
  * @version 1.0
  */
 public class Pf4bootPlugin extends Plugin {
+  static final Logger LOG = LoggerFactory.getLogger(Pf4bootPlugin.class);
 
   protected AnnotationConfigApplicationContext pluginContext;
 
@@ -93,8 +93,7 @@ public class Pf4bootPlugin extends Plugin {
 
   public ConfigurableApplicationContext createPluginContext(ConfigurableApplicationContext platformContext) {
 
-    PluginStarter pluginStarter = getClass().getAnnotation(PluginStarter.class);
-    Class<?>[] primarySources = pluginStarter.value();
+    Class<?>[] primarySources = getPluginStarter().map(PluginStarter::value).orElse(new Class[]{});
 
     if (pluginClassLoader instanceof PluginClassLoader4boot) {
       if (pluginFirstClasses != null) {
@@ -115,7 +114,16 @@ public class Pf4bootPlugin extends Plugin {
     pluginContext.register(primarySources);
     pluginContext.getBeanFactory().registerSingleton(BEAN_PLUGIN, this);
     pluginContext.getBeanFactory().autowireBean(this);
+    LOG.info("[PF4BOOT] create plugin context for {} context parent = {}", getPluginId(), platformContext.getId());
     return pluginContext;
+  }
+
+  public Optional<PluginStarter> getPluginStarter() {
+		return Optional.ofNullable(getClass().getAnnotation(PluginStarter.class));
+  }
+
+  public String getGroup() {
+		return getPluginStarter().map(PluginStarter::group).orElse(PluginStarter.DEFAULT);
   }
 
   public void publishEvent(Object event){

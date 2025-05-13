@@ -3,10 +3,8 @@ package net.xdob.pf4boot.annotation;
 
 import net.xdob.pf4boot.modal.SharingScope;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.cglib.proxy.InvocationHandler;
 
 import java.lang.annotation.*;
-import java.lang.reflect.Method;
 
 /**
  *
@@ -21,4 +19,5 @@ import java.lang.reflect.Method;
 @Documented
 public @interface Export {
   SharingScope scope() default SharingScope.PLATFORM;
+  String group() default PluginStarter.DEFAULT;
 }

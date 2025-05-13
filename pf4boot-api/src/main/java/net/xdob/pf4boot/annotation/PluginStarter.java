@@ -16,10 +16,15 @@ import java.lang.annotation.*;
 @Documented
 @ExportBeans
 public @interface PluginStarter {
+  String EMPTY = "";
+  String DEFAULT = "default";
+
   /**
    * 插件内的启动器类，一个插件至少需要一个启动器类
    */
   Class<?>[] value();
+
+  String group() default DEFAULT;
 
   @AliasFor(annotation = ExportBeans.class)
   ExportBeans.Class4Bean[] class4Beans() default {};

@@ -78,15 +78,16 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     PluginWrapper wrapper = pf4bootPlugin.getWrapper();
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     Set<String> extensionClassNames = pluginManager.getExtensionClassNames(wrapper.getPluginId());
+    String group = pf4bootPlugin.getGroup();
     for (String extensionClassName : extensionClassNames) {
       try {
-        logger.debug("register extension <{}> to main ApplicationContext", extensionClassName);
+        logger.debug("register extension <{}> to platform [{}]", extensionClassName, group);
         Class<?> extensionClass = wrapper.getPluginClassLoader().loadClass(extensionClassName);
         SpringExtensionFactory extensionFactory = (SpringExtensionFactory) wrapper
             .getPluginManager().getExtensionFactory();
         Object bean = extensionFactory.create(extensionClass);
         String beanName = extensionFactory.getExtensionBeanName(extensionClass);
-        pluginManager.registerBeanToPlatformContext(beanName, bean);
+        pluginManager.registerBeanToPlatformContext(group, beanName, bean);
       } catch (ClassNotFoundException e) {
         throw new IllegalArgumentException(e.getMessage(), e);
       }
@@ -108,8 +109,8 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
       dynamicImport(bean.getClass(), bean.getBean());
     });
     sharingBeans.getPlatformBeans().forEach(bean -> {
-      pluginManager.registerBeanToPlatformContext(bean.getBeanName(), bean.getBean());
-      logger.info("register export bean {} to platform success", bean.getBeanName());
+      pluginManager.registerBeanToPlatformContext(bean.getGroup(), bean.getBeanName(), bean.getBean());
+      logger.info("register export bean {} to platform [{}] success", bean.getBeanName(), bean.getGroup());
       dynamicImport(bean.getClass(), bean.getBean());
     });
     sharingBeans.getAppBeans().forEach(bean -> {
@@ -125,7 +126,11 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     Map<String, Object> beans = context.getBeansWithAnnotation(Export.class);
     beans.forEach((key, value) -> {
       Export export = context.findAnnotationOnBean(key, Export.class);
-      sharingBeans.add(key, value,  (export != null)?export.scope():SharingScope.PLATFORM);
+      if(export != null) {
+        sharingBeans.add(key, value, export.scope(), export.group());
+      }else{
+        sharingBeans.add(key, value, SharingScope.PLATFORM, PluginStarter.EMPTY);
+      }
     });
 
     context.getBeansWithAnnotation(ExportBeans.class)
@@ -150,7 +155,7 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
       for (String beanName : name4Bean.names()) {
         try {
           Object bean = context.getBean(beanName);
-          sharingBeans.add(beanName, bean, name4Bean.scope());
+          sharingBeans.add(beanName, bean, name4Bean.scope(), name4Bean.group());
         } catch (BeansException e) {
           logger.warn("get export bean {} is failed", beanName, e);
         }
@@ -162,7 +167,7 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
         for (String beanName : beanNames) {
           try {
             Object bean = context.getBean(beanName);
-            sharingBeans.add(beanName, bean, class4Bean.scope());
+            sharingBeans.add(beanName, bean, class4Bean.scope(), class4Bean.group());
           } catch (BeansException e) {
             logger.warn("export bean {} is failed", beanName, e);
           }
@@ -259,20 +264,20 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     unregisterDynamicImportBeans(pf4bootPlugin);
   }
 
-
   private void unregisterExtensions(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     PluginWrapper wrapper = pf4bootPlugin.getWrapper();
     Set<String> extensionClassNames = pluginManager
         .getExtensionClassNames(wrapper.getPluginId());
+    String group = pf4bootPlugin.getGroup();
     for (String extensionClassName : extensionClassNames) {
       try {
-        logger.debug("unregister extension <{}> to main ApplicationContext", extensionClassName);
+        logger.debug("unregister extension <{}> to platform [{}]", extensionClassName, group);
         Class<?> extensionClass = wrapper.getPluginClassLoader().loadClass(extensionClassName);
         SpringExtensionFactory extensionFactory = (SpringExtensionFactory) wrapper
             .getPluginManager().getExtensionFactory();
         String beanName = extensionFactory.getExtensionBeanName(extensionClass);
-        pluginManager.unregisterBeanFromPlatformContext(beanName);
+        pluginManager.unregisterBeanFromPlatformContext(group, beanName);
       } catch (ClassNotFoundException e) {
         throw new IllegalArgumentException(e.getMessage(), e);
       }
@@ -305,8 +310,8 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     });
     sharingBeans.getPlatformBeans().forEach(bean -> {
       try {
-        pluginManager.unregisterBeanFromPlatformContext(bean.getBeanName());
-        logger.info("unregister export bean {} from platform.", bean.getBeanName());
+        pluginManager.unregisterBeanFromPlatformContext(bean.getGroup(), bean.getBeanName());
+        logger.info("unregister export bean {} from platform [{}].", bean.getBeanName(), bean.getGroup());
         dynamicImport(bean.getBean().getClass(), null);
       } catch (BeansException e) {
         logger.warn("unregister export bean {} from platform failed", bean.getBeanName(), e);

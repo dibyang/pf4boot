@@ -1,11 +1,9 @@
 package net.xdob.pf4boot.annotation;
 
 import net.xdob.pf4boot.modal.SharingScope;
-import org.springframework.cglib.proxy.InvocationHandler;
 import org.springframework.core.annotation.AliasFor;
 
 import java.lang.annotation.*;
-import java.lang.reflect.Method;
 
 /**
  * Export
@@ -28,6 +26,7 @@ public @interface ExportBeans {
   @Retention(RetentionPolicy.RUNTIME)
   @interface Class4Bean{
     SharingScope scope() default SharingScope.PLATFORM;
+    String group() default PluginStarter.DEFAULT;
     @AliasFor("types")
     Class[] value() default {};
     /**
@@ -39,6 +38,7 @@ public @interface ExportBeans {
   @Retention(RetentionPolicy.RUNTIME)
   @interface Name4Bean{
     SharingScope scope() default SharingScope.PLATFORM;
+    String group() default PluginStarter.DEFAULT;
     @AliasFor("names")
     String[] value() default {};
     /**
@@ -46,5 +46,6 @@ public @interface ExportBeans {
      */
     @AliasFor("value")
     String[] names() default {};
+
   }
 }

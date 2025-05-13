@@ -1,5 +1,7 @@
 package net.xdob.pf4boot.modal;
 
+import net.xdob.pf4boot.annotation.PluginStarter;
+
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -8,8 +10,8 @@ import java.util.stream.Collectors;
 public class SharingBeans {
   private final Map<String,SharingBean> beans = new ConcurrentHashMap<>();
 
-  public SharingBean add(String beanName, Object bean, SharingScope scope) {
-    SharingBean sharingBean = SharingBean.of(beanName, bean, scope);
+  public SharingBean add(String beanName, Object bean, SharingScope scope, String group) {
+    SharingBean sharingBean = SharingBean.of(beanName, bean, scope, group);
     beans.put(beanName, sharingBean);
     return sharingBean;
   }

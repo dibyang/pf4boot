@@ -1,6 +1,7 @@
 package net.xdob.pf4boot;
 
 import com.google.common.base.Strings;
+import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.internal.Pf4bootPluginFactory;
 import net.xdob.pf4boot.internal.Pf4bootPluginStateListener;
 import net.xdob.pf4boot.internal.SpringExtensionFactory;
@@ -30,6 +31,7 @@ import java.lang.reflect.Constructor;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -54,10 +56,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
    * 应用级上下文
    */
   private final ConfigurableApplicationContext applicationContext;
-  /**
-   * 平台级上下文，插件间共享
-   */
-  private ConfigurableApplicationContext platformContext = null;
+
+  private final ConcurrentHashMap<String, ConfigurableApplicationContext> platformContexts = new ConcurrentHashMap<>();
+  private final ConfigurableApplicationContext platformContext;
+
   public Map<String, Object> presetProperties = new HashMap<>();
   private boolean autoStartPlugin = true;
   private String[] profiles;
@@ -85,12 +87,12 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     topContext.setParent(this.rootContext);
     //仅共享Bean定义，不继承事件监听链1
     topContext.getBeanFactory().setParentBeanFactory(this.rootContext.getBeanFactory());
-
-    this.platformContext = new AnnotationConfigApplicationContext();
-    this.platformContext.refresh();
-    this.platformContext.setParent(this.rootContext);
+    platformContext = new AnnotationConfigApplicationContext();
+    platformContext.setId("platform");
+    platformContext.setParent(this.rootContext);
+    platformContext.refresh();
     //仅共享Bean定义，不继承事件监听链1
-    //this.platformContext.getBeanFactory().setParentBeanFactory(this.rootContext.getBeanFactory());
+    platformContext.getBeanFactory().setParentBeanFactory(this.rootContext.getBeanFactory());
     this.doInitialize();
 
   }
@@ -115,8 +117,22 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   /**
    * 平台级上下文，插件间共享
    */
-  public ConfigurableApplicationContext getPlatformContext() {
-    return platformContext;
+  public ConfigurableApplicationContext getPlatformContext(String group) {
+    if(group==null||group.isEmpty()){
+      return platformContext;
+    }
+
+		return platformContexts.computeIfAbsent(Strings.nullToEmpty(group),
+			k -> {
+				ConfigurableApplicationContext context = new AnnotationConfigApplicationContext();
+				context.setId("platform_"+k);
+				context.setParent(platformContext);
+				context.refresh();
+				//仅共享Bean定义，不继承事件监听链1
+				context.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
+				LOG.info("create PlatformContext {} for {}", context.getId(), group);
+				return context;
+			});
   }
 
 
@@ -124,6 +140,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     rootContext.publishEvent(event);
     applicationContext.publishEvent(event);
     platformContext.publishEvent(event);
+    //platformContexts.values().forEach(platformContext -> platformContext.publishEvent(event));
+
     for (PluginWrapper startedPlugin : getStartedPlugins()) {
       if(startedPlugin.getPluginState().isStarted()){
         ((Pf4bootPlugin)startedPlugin.getPlugin()).getPluginContext().publishEvent(event);
@@ -455,60 +473,60 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   }
 
   @Override
-  public void registerBeanToPlatformContext(String beanName, Object bean) {
-    registerBeanToContext(SharingScope.PLATFORM, beanName, bean);
+  public void registerBeanToPlatformContext(String group, String beanName, Object bean) {
+    registerBeanToContext(group, SharingScope.PLATFORM, beanName, bean);
   }
 
   @Override
-  public void unregisterBeanFromPlatformContext(String beanName) {
-    unregisterBeanFromContext(SharingScope.PLATFORM, beanName);
+  public void unregisterBeanFromPlatformContext(String group, String beanName) {
+    unregisterBeanFromContext(group, SharingScope.PLATFORM, beanName);
   }
 
   @Override
   public void registerBeanToApplicationContext(String beanName, Object bean) {
-    registerBeanToContext(SharingScope.APPLICATION, beanName, bean);
+    registerBeanToContext("", SharingScope.APPLICATION, beanName, bean);
   }
 
   @Override
   public void registerBeanToRootContext(String beanName, Object bean) {
-    registerBeanToContext(SharingScope.ROOT, beanName, bean);
+    registerBeanToContext("", SharingScope.ROOT, beanName, bean);
   }
 
   @Override
   public void unregisterBeanFromApplicationContext(String beanName) {
-    unregisterBeanFromContext(SharingScope.APPLICATION, beanName);
+    unregisterBeanFromContext("", SharingScope.APPLICATION, beanName);
   }
 
   @Override
   public void unregisterBeanFromRootContext(String beanName) {
-    unregisterBeanFromContext(SharingScope.ROOT, beanName);
+    unregisterBeanFromContext("", SharingScope.ROOT, beanName);
   }
 
-  private void registerBeanToContext(SharingScope scope, String beanName, Object bean) {
+  private void registerBeanToContext(String group, SharingScope scope, String beanName, Object bean) {
     Assert.notNull(bean, "bean must not be null");
     beanName = Strings.isNullOrEmpty(beanName) ? bean.getClass().getName() : beanName;
-    ConfigurableApplicationContext context = this.platformContext;
-    if(SharingScope.APPLICATION.equals(scope)) {
-      context= this.applicationContext;
-    }
-    if(SharingScope.ROOT.equals(scope)) {
-      context= this.rootContext;
-    }
+    ConfigurableApplicationContext context = getContext(group, scope);
     context.getBeanFactory().registerSingleton(beanName, bean);
-    LOG.info("[PF4BOOT] register bean {} to {}", beanName, scope);
+    LOG.info("[PF4BOOT] register bean {} [{}] to {} context [{}]", bean, beanName, scope, context.getId());
     BeanRegisterEvent registerBeanEvent = new BeanRegisterEvent(scope, context, beanName, bean);
     publishEvent(registerBeanEvent);
   }
 
-  private void unregisterBeanFromContext(SharingScope scope, String beanName) {
-    Assert.notNull(beanName, "bean must not be null");
-    ConfigurableApplicationContext context = this.platformContext;
+  private ConfigurableApplicationContext getContext(String group, SharingScope scope) {
+    ConfigurableApplicationContext context = null;
     if(SharingScope.APPLICATION.equals(scope)) {
       context= this.applicationContext;
-    }
-    if(SharingScope.ROOT.equals(scope)) {
+    }else if(SharingScope.ROOT.equals(scope)) {
       context= this.rootContext;
+    }else{
+      context = this.getPlatformContext(group);
     }
+    return context;
+  }
+
+  private void unregisterBeanFromContext(String group, SharingScope scope, String beanName) {
+    Assert.notNull(beanName, "bean must not be null");
+    ConfigurableApplicationContext context = getContext(group, scope);
     Object bean = context.getBean(beanName);
     ((AbstractAutowireCapableBeanFactory) context.getBeanFactory())
         .destroySingleton(beanName);
@@ -577,17 +595,24 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     try {
       //初始化插件前置处理
       preHandlePlugin(p -> p.initiatePlugin(plugin));
-      this.platformContext.getBeanFactory().autowireBean(plugin);
+      String group = plugin.getGroup();
+      ConfigurableApplicationContext platformContext = this.getPlatformContext(group);
+      platformContext.getBeanFactory().autowireBean(plugin);
       plugin.initiate();
-      ConfigurableApplicationContext pluginContext = plugin.createPluginContext(this.platformContext);
-      pluginContext.refresh();
-      ApplicationContextProvider.registerApplicationContext(pluginContext);
+
       //初始化插件后置处理
       lastHandlePlugin(p -> p.initiatedPlugin(plugin));
+      ConfigurableApplicationContext pluginContext = plugin.createPluginContext(platformContext);
+
       publishEvent(new PreStartPluginEvent(plugin));
+
+      pluginContext.refresh();
+      ApplicationContextProvider.registerApplicationContext(pluginContext);
+
       //插件启动前置处理
       preHandlePlugin(p -> p.startPlugin(plugin));
       publishEvent(new StartingPluginEvent(plugin));
+
       plugin.start();
       //插件启动后置处理
       lastHandlePlugin(p -> p.startedPlugin(plugin));
