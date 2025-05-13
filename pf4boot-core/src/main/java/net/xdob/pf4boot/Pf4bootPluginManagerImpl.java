@@ -140,7 +140,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     rootContext.publishEvent(event);
     applicationContext.publishEvent(event);
     platformContext.publishEvent(event);
-    //platformContexts.values().forEach(platformContext -> platformContext.publishEvent(event));
+    platformContexts.values().forEach(platformContext -> platformContext.publishEvent(event));
 
     for (PluginWrapper startedPlugin : getStartedPlugins()) {
       if(startedPlugin.getPluginState().isStarted()){
@@ -470,6 +470,14 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
    * Release plugin holding release on stop.
    */
   public void releaseResource(Pf4bootPlugin pf4bootPlugin) {
+    for (Consumer<Pf4bootPlugin> releaseHook : pf4bootPlugin.getReleaseHooks()) {
+      try{
+        releaseHook.accept(pf4bootPlugin);
+      } catch (Exception e) {
+        LOG.warn("releaseHook {} failed", releaseHook, e);
+      }
+    }
+
   }
 
   @Override
@@ -685,23 +693,22 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     publishEvent(new PreStopPluginEvent(plugin));
     //插件停止前置处理
     preHandlePlugin(p->p.stopPlugin(plugin));
-    plugin.stop();
     publishEvent(new StoppingPluginEvent(plugin));
-    releaseResource(plugin);
+    plugin.stop();
 
-    //publishEvent(new Pf4bootPluginStoppedEvent(applicationContext));
     //插件停止后置处理
     lastHandlePlugin(p->p.stoppedPlugin(plugin));
     publishEvent(new StoppedPluginEvent(plugin));
     firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STOPPED));
+    pluginWrapper.setPluginState(PluginState.STOPPED);
+    getStartedPlugins().remove(pluginWrapper);
+
+    releaseResource(plugin);
     ApplicationContextProvider.unregisterApplicationContext(pluginContext);
     pluginContext.close();
     plugin.closed();
 
-    pluginWrapper.setPluginState(PluginState.STOPPED);
-    getStartedPlugins().remove(pluginWrapper);
 
-    firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STOPPED));
 
     return PluginState.STOPPED;
   }

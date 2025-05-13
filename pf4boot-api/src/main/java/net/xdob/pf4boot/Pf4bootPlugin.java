@@ -15,6 +15,7 @@ import org.springframework.context.annotation.ConfigurationClassPostProcessor;
 import org.springframework.util.ClassUtils;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 import static net.xdob.pf4boot.Pf4bootPluginManager.BEAN_PLUGIN;
 
@@ -26,6 +27,7 @@ import static net.xdob.pf4boot.Pf4bootPluginManager.BEAN_PLUGIN;
  */
 public class Pf4bootPlugin extends Plugin {
   static final Logger LOG = LoggerFactory.getLogger(Pf4bootPlugin.class);
+  private final List<Consumer<Pf4bootPlugin>> releaseHooks = new ArrayList<>();
 
   protected AnnotationConfigApplicationContext pluginContext;
 
@@ -49,6 +51,14 @@ public class Pf4bootPlugin extends Plugin {
 
   public ConfigurableApplicationContext getPluginContext() {
     return pluginContext;
+  }
+
+  public List<Consumer<Pf4bootPlugin>> getReleaseHooks() {
+    return releaseHooks;
+  }
+
+  public void addReleaseHook(Consumer<Pf4bootPlugin> hook){
+    releaseHooks.add(hook);
   }
 
 //  public void setApplicationContext(ConfigurableApplicationContext applicationContext) {
