@@ -31,8 +31,8 @@ import java.lang.reflect.Constructor;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -66,9 +66,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   private PluginRepository pluginRepository;
   private final Map<String, PluginError> pluginErrors = new HashMap<>();
   private final Pf4bootProperties properties;
-  //private final Pf4bootEventBus eventBus;
 
   public static final String PLUGINS_DIR_CONFIG_PROPERTY_NAME = "pf4j.pluginsConfigDir";
+
 
   private final ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider;
   private ScheduledExecutorService scheduledExecutor;
@@ -142,7 +142,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     platformContext.publishEvent(event);
     platformContexts.values().forEach(platformContext -> platformContext.publishEvent(event));
 
-    for (PluginWrapper startedPlugin : getStartedPlugins()) {
+    for (PluginWrapper startedPlugin : getPlugins(PluginState.STARTED)) {
       if(startedPlugin.getPluginState().isStarted()){
         ((Pf4bootPlugin)startedPlugin.getPlugin()).getPluginContext().publishEvent(event);
       }
@@ -228,6 +228,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   protected void doInitialize() {
     super.initialize();
+    if(scheduledExecutor==null) {
+      scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+    }
     addPluginStateListener(new Pf4bootPluginStateListener(platformContext));
 
     List<Pf4bootPluginSupport> pluginSupports = getPluginSupports(true);
@@ -238,6 +241,27 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   }
 
+  /**
+   * This method load, start plugins and inject extensions in Spring
+   */
+  @PostConstruct
+  public void init() {
+    List<Pf4bootPluginSupport> pluginSupports = getPluginSupports(true);
+    pluginSupports.forEach(pluginSupport -> {
+      pluginSupport.initiatedPluginManager(this);
+    });
+    loadPlugins();
+
+  }
+
+  public void close(){
+    if(scheduledExecutor!=null) {
+      scheduledExecutor.shutdown();
+      scheduledExecutor = null;
+    }
+    stopPlugins();
+
+  }
 
   @Override
   public PluginDescriptorFinder getPluginDescriptorFinder() {
@@ -341,15 +365,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public synchronized void setApplicationStarted(boolean mainApplicationStarted) {
     this.mainApplicationStarted = mainApplicationStarted;
     if(mainApplicationStarted){
-//      if(scheduledExecutor==null) {
-//        scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
-//      }
-//      scheduledExecutor.scheduleAtFixedRate(()->{
-//        doStartPlugins(false);
-//      }, 5, 20, TimeUnit.SECONDS);
-    }else{
-      scheduledExecutor.shutdown();
-      scheduledExecutor = null;
+      scheduledExecutor.scheduleAtFixedRate(() -> {
+        doStartPlugins(false);
+      }, 30, 30, TimeUnit.SECONDS);
     }
   }
 
@@ -388,17 +406,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     return mainApplicationStarted;
   }
 
-  /**
-   * This method load, start plugins and inject extensions in Spring
-   */
-  @PostConstruct
-  public void init() {
-    List<Pf4bootPluginSupport> pluginSupports = getPluginSupports(true);
-    pluginSupports.forEach(pluginSupport -> {
-      pluginSupport.initiatedPluginManager(this);
-    });
-    loadPlugins();
-  }
+
 
   public PluginError getPluginErrors(String pluginId) {
     return pluginErrors.get(pluginId);
@@ -420,32 +428,35 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   // Plugin State Manipulation
   //*************************************************************************
 
-  protected void doStartPlugins(boolean startStoppedPlugin) {
+  protected synchronized void doStartPlugins(boolean startStoppedPlugin) {
     pluginErrors.clear();
     int failedCount = 0;
     long ts = System.currentTimeMillis();
-    for (PluginWrapper pluginWrapper : resolvedPlugins) {
+    List<PluginWrapper> wrappers = resolvedPlugins.stream().filter(p -> p.getPluginState().isResolved()
+        || p.getPluginState().isFailed()
+        || (p.getPluginState().isStopped() && startStoppedPlugin))
+      .collect(Collectors.toList());
+    for (PluginWrapper pluginWrapper : wrappers) {
       PluginState pluginState = pluginWrapper.getPluginState();
-      if ((PluginState.DISABLED != pluginState) && (PluginState.STARTED != pluginState)
-          && (startStoppedPlugin||PluginState.STOPPED != pluginState)) {
+      if ((PluginState.RESOLVED == pluginState) || (PluginState.FAILED == pluginState)
+        || (PluginState.STOPPED == pluginState && startStoppedPlugin)) {
         try {
           doStartPlugin(pluginWrapper);
         } catch (Exception e) {
           LOG.error(e.getMessage(), e);
           pluginErrors.put(pluginWrapper.getPluginId(), PluginError.of(
-              pluginWrapper.getPluginId(), e.getMessage(), e.toString()));
+            pluginWrapper.getPluginId(), e.getMessage(), e.toString()));
         }
-        if(!pluginWrapper.getPluginState().isStarted()){
-          failedCount+=1;
+        if (!pluginWrapper.getPluginState().isStarted()) {
+          failedCount += 1;
         }
       }
     }
-
-    LOG.info("[PF4BOOT] {} plugins are started in {}ms. {} failed", getPlugins().size(),
-        System.currentTimeMillis() - ts, failedCount);
+    LOG.info("[PF4BOOT] {} plugins are started in {}ms. {} failed", wrappers.size(),
+      System.currentTimeMillis() - ts, failedCount);
   }
 
-  private void doStopPlugins() {
+  private synchronized void doStopPlugins() {
     pluginErrors.clear();
     // stop started plugins in reverse order
     Collections.reverse(startedPlugins);
@@ -546,7 +557,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   @Override
   public void startPlugins() {
-    doStartPlugins(false);
+    doStartPlugins(true);
     notifyAppCacheFree();
   }
 
@@ -611,10 +622,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       //初始化插件后置处理
       lastHandlePlugin(p -> p.initiatedPlugin(plugin));
       ConfigurableApplicationContext pluginContext = plugin.createPluginContext(platformContext);
-
+      pluginContext.refresh();
       publishEvent(new PreStartPluginEvent(plugin));
 
-      pluginContext.refresh();
       ApplicationContextProvider.registerApplicationContext(pluginContext);
 
       //插件启动前置处理

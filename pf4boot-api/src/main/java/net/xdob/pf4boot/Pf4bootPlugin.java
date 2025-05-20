@@ -116,7 +116,7 @@ public class Pf4bootPlugin extends Plugin {
 
     DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
     pluginContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory, this);
-
+    pluginContext.setId("plugin-"+getPluginId());
     pluginContext.setClassLoader(pluginClassLoader);
     pluginContext.setParent(platformContext);
     //仅共享Bean定义，不继承事件监听链1

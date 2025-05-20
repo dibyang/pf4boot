@@ -24,6 +24,9 @@ public @interface PluginStarter {
    */
   Class<?>[] value();
 
+  /**
+   * 插件分组，默认为default
+   */
   String group() default DEFAULT;
 
   @AliasFor(annotation = ExportBeans.class)
