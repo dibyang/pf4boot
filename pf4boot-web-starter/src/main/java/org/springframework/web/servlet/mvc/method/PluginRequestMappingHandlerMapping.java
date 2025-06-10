@@ -2,6 +2,8 @@ package org.springframework.web.servlet.mvc.method;
 
 import com.google.common.base.Strings;
 import net.xdob.pf4boot.Pf4bootPlugin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
 import org.springframework.context.ApplicationContext;
@@ -9,11 +11,15 @@ import org.springframework.stereotype.Controller;
 import org.springframework.util.Assert;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.HandlerExecutionChain;
+import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+
+import javax.servlet.http.HttpServletRequest;
 
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * PluginRequestMappingHandlerMapping
@@ -22,6 +28,56 @@ import java.util.stream.Collectors;
  * @version 1.0
  */
 public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMapping {
+  static final Logger LOG = LoggerFactory.getLogger(PluginRequestMappingHandlerMapping.class);
+
+  private final List<HandlerInterceptor> dynamicInterceptors = new CopyOnWriteArrayList<>();
+
+  public void addDynamicInterceptor(HandlerInterceptor interceptor) {
+    dynamicInterceptors.add(interceptor);
+  }
+
+  public void removeDynamicInterceptor(HandlerInterceptor interceptor) {
+    dynamicInterceptors.remove(interceptor);
+  }
+
+  protected HandlerExecutionChain getHandlerExecutionChain(Object handler, HttpServletRequest request) {
+    HandlerExecutionChain chain = super.getHandlerExecutionChain(handler, request);
+    // 添加动态拦截器到执行链的最前面
+    if (!dynamicInterceptors.isEmpty()) {
+      for (HandlerInterceptor dynamicInterceptor : dynamicInterceptors) {
+        chain.addInterceptor(0, dynamicInterceptor);
+      }
+    }
+    return chain;
+  }
+
+
+  public void registerInterceptors(Pf4bootPlugin pf4BootPlugin) {
+    getInterceptorBeans(pf4BootPlugin).forEach(this::registerInterceptor);
+  }
+
+  private void registerInterceptor(String beanName, final HandlerInterceptor interceptor) {
+    unregisterInterceptor(beanName, interceptor);
+    registerBeanToMainContext(beanName, interceptor);
+    dynamicInterceptors.add(interceptor);
+    logger.info("register interceptor=" + interceptor);
+  }
+
+  public Map<String, HandlerInterceptor> getInterceptorBeans(Pf4bootPlugin pf4BootPlugin) {
+		ApplicationContext applicationContext = pf4BootPlugin.getPluginContext();
+		return new HashMap<>(applicationContext.getBeansOfType(HandlerInterceptor.class));
+  }
+
+  public void unregisterInterceptors(Pf4bootPlugin pf4BootPlugin) {
+    getInterceptorBeans(pf4BootPlugin).forEach(this::unregisterInterceptor);
+  }
+
+  private void unregisterInterceptor(String beanName, final HandlerInterceptor interceptor) {
+    if(dynamicInterceptors.removeIf(e -> e == interceptor)) {
+      unregisterBeanFromMainContext(beanName, interceptor);
+      logger.info("unregister interceptor=" + interceptor);
+    }
+  }
 
   @Override
   protected void registerHandlerMethod(Object handler, Method method, RequestMappingInfo mapping) {

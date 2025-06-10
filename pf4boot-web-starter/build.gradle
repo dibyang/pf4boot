@@ -2,6 +2,7 @@
 dependencies {
     implementation project(":pf4boot-api")
     implementation project(":pf4boot-core")
+    compileOnly 'javax.servlet:javax.servlet-api:3.1.0'
     api project(":pf4boot-web-support")
 }
 

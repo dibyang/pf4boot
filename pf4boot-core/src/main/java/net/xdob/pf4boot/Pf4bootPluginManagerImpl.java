@@ -365,9 +365,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public synchronized void setApplicationStarted(boolean mainApplicationStarted) {
     this.mainApplicationStarted = mainApplicationStarted;
     if(mainApplicationStarted){
-      scheduledExecutor.scheduleAtFixedRate(() -> {
-        doStartPlugins(false);
-      }, 30, 30, TimeUnit.SECONDS);
+//      scheduledExecutor.scheduleAtFixedRate(() -> {
+//        doStartPlugins(false);
+//      }, 30, 30, TimeUnit.SECONDS);
     }
   }
 
@@ -443,7 +443,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
         try {
           doStartPlugin(pluginWrapper);
         } catch (Exception e) {
-          LOG.error(e.getMessage(), e);
+          LOG.warn("Can't start plugin " + pluginWrapper.getPluginId(), e);
           pluginErrors.put(pluginWrapper.getPluginId(), PluginError.of(
             pluginWrapper.getPluginId(), e.getMessage(), e.toString()));
         }
@@ -469,7 +469,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
           stopPlugin(pluginWrapper.getPluginId());
           itr.remove();
         } catch (PluginRuntimeException e) {
-          LOG.error(e.getMessage(), e);
+          LOG.warn("stop plugin {} error", pluginWrapper.getPluginId(), e);
           pluginErrors.put(pluginWrapper.getPluginId(), PluginError.of(
               pluginWrapper.getPluginId(), e.getMessage(), e.toString()));
         }

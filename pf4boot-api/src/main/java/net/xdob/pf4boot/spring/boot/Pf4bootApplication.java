@@ -41,9 +41,6 @@ public class Pf4bootApplication extends SpringApplication implements PluginAppli
 
   private final ClassLoader pluginClassLoader;
 
-  //private final HashSet<String> sharedBeanNames = new HashSet<>();
-
-  //private final HashSet<String> importedBeanNames = new HashSet<>();
 
   private final Map<String, Object> presetProperties = new HashMap<>();
 

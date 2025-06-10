@@ -25,6 +25,8 @@ public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
   @Override
   public void startedPlugin(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
+    //register Interceptor
+    getMainRequestMapping(pluginManager).registerInterceptors(pf4bootPlugin);
     //register controllers
     getMainRequestMapping(pluginManager).registerControllers(pf4bootPlugin);
   }
@@ -34,6 +36,8 @@ public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     //unregister controllers
     getMainRequestMapping(pluginManager).unregisterControllers(pf4bootPlugin);
+    //unregister Interceptor
+    getMainRequestMapping(pluginManager).unregisterInterceptors(pf4bootPlugin);
   }
 
   @Override

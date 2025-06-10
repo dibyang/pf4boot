@@ -25,9 +25,12 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
 
   private static final Logger log = LoggerFactory.getLogger(Pf4bootPluginClassLoader.class);
 
-  private List<String> pluginFirstClasses;
 
   private List<String> pluginOnlyResources;
+
+  private final PluginManager pluginManager;
+  private final PluginDescriptor pluginDescriptor;
+  private final ClassLoadingStrategy classLoadingStrategy;
 
   public Pf4bootPluginClassLoader(PluginManager pluginManager, PluginDescriptor pluginDescriptor) {
     // load class from parent first to avoid same class loaded by different classLoader,
@@ -41,16 +44,14 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
 
   public Pf4bootPluginClassLoader(PluginManager pluginManager, PluginDescriptor pluginDescriptor, ClassLoader parent, ClassLoadingStrategy classLoadingStrategy) {
     super(pluginManager, pluginDescriptor, parent, classLoadingStrategy);
+    this.pluginManager = pluginManager;
+    this.pluginDescriptor = pluginDescriptor;
+    this.classLoadingStrategy =  classLoadingStrategy;
   }
 
   @Override
   public void setPluginFirstClasses(List<String> pluginFirstClasses) {
-    this.pluginFirstClasses = pluginFirstClasses.stream()
-        .map(pluginFirstClass -> pluginFirstClass
-            .replaceAll(".", "[$0]")
-            .replace("[*]", ".*?")
-            .replace("[?]", ".?"))
-        .collect(Collectors.toList());
+
   }
 
   @Override
@@ -82,32 +83,6 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
     return isPluginOnlyResources(name) ? findResources(name) : super.getResources(name);
   }
 
-  @Override
-  public Class<?> loadClass(String className) throws ClassNotFoundException {
-    try {
-      // if specified, try to load from plugin classpath first
-      if (isPluginFirstClass(className)) {
-        try {
-          return loadClassFromPlugin(className);
-        } catch (ClassNotFoundException ignored) {
-        }
-      }
-      // not found, load from parent
-      return super.loadClass(className);
-    } catch (ClassNotFoundException ignored) {
-    }
-
-    // try again in in dependencies classpath
-    return loadClassFromDependencies(className);
-  }
-
-  private boolean isPluginFirstClass(String name) {
-    if (pluginFirstClasses == null || pluginFirstClasses.size() <= 0) return false;
-    for (String pluginFirstClass : pluginFirstClasses) {
-      if (name.matches(pluginFirstClass)) return true;
-    }
-    return false;
-  }
 
   private boolean isPluginOnlyResources(String name) {
     if (pluginOnlyResources == null || pluginOnlyResources.size() <= 0) return false;
@@ -117,27 +92,10 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
     return false;
   }
 
-  private Class<?> loadClassFromPlugin(String className) throws ClassNotFoundException {
-    synchronized (getClassLoadingLock(className)) {
-      log.trace("Received request to load class '{}'", className);
 
-      // second check whether it's already been loaded
-      Class<?> loadedClass = findLoadedClass(className);
-      if (loadedClass != null) {
-        log.trace("Found loaded class '{}'", className);
-        return loadedClass;
-      }
 
-      // nope, try to load locally
-      try {
-        loadedClass = findClass(className);
-        log.trace("Found class '{}' in plugin classpath", className);
-        return loadedClass;
-      } catch (ClassNotFoundException ignored) {
-      }
-
-      // try next step
-      return loadClassFromDependencies(className);
-    }
+  @Override
+  public String toString() {
+    return "Pf4bootPluginClassLoader["+pluginDescriptor.getPluginId()+"]";
   }
 }
