@@ -9,6 +9,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ConfigurableApplicationContext;
 
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * Pf4bootPluginManager
@@ -103,4 +104,9 @@ public interface Pf4bootPluginManager extends PluginManager {
    * @param beanName bean名称
    */
   void unregisterBeanFromApplicationContext(String beanName);
+
+  /**
+   * 获取公用定时线程池
+   */
+  ScheduledExecutorService getScheduled();
 }

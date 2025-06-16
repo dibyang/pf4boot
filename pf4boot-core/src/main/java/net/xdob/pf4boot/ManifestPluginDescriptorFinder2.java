@@ -4,6 +4,7 @@ import org.pf4j.ManifestPluginDescriptorFinder;
 import org.pf4j.PluginDescriptor;
 
 import java.nio.file.Path;
+import java.util.jar.Manifest;
 
 public class ManifestPluginDescriptorFinder2 extends ManifestPluginDescriptorFinder {
   @Override
@@ -11,4 +12,5 @@ public class ManifestPluginDescriptorFinder2 extends ManifestPluginDescriptorFin
     PluginDescriptor pluginDescriptor = super.find(pluginPath);
     return pluginDescriptor.getPluginId()!=null?pluginDescriptor:null;
   }
+
 }

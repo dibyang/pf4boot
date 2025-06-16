@@ -1,7 +1,6 @@
 package net.xdob.pf4boot;
 
 import com.google.common.base.Strings;
-import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.internal.Pf4bootPluginFactory;
 import net.xdob.pf4boot.internal.Pf4bootPluginStateListener;
 import net.xdob.pf4boot.internal.SpringExtensionFactory;
@@ -22,6 +21,7 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
+import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
@@ -32,7 +32,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -71,7 +70,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 
   private final ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider;
-  private ScheduledExecutorService scheduledExecutor;
+  private ScheduledExecutorService scheduled;
 
 
   public Pf4bootPluginManagerImpl(ApplicationContext applicationContext, Pf4bootProperties properties,
@@ -228,8 +227,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   protected void doInitialize() {
     super.initialize();
-    if(scheduledExecutor==null) {
-      scheduledExecutor = Executors.newSingleThreadScheduledExecutor();
+    if(scheduled ==null) {
+      CustomizableThreadFactory threadFactory = new CustomizableThreadFactory("pm4schedule");
+      scheduled = Executors.newScheduledThreadPool(2, threadFactory);
     }
     addPluginStateListener(new Pf4bootPluginStateListener(platformContext));
 
@@ -239,6 +239,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     });
     LOG.info("PF4J version {} in '{}' mode", getVersion(), getRuntimeMode());
 
+  }
+
+  public ScheduledExecutorService getScheduled() {
+    return scheduled;
   }
 
   /**
@@ -255,9 +259,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   }
 
   public void close(){
-    if(scheduledExecutor!=null) {
-      scheduledExecutor.shutdown();
-      scheduledExecutor = null;
+    if(scheduled !=null) {
+      scheduled.shutdown();
+      scheduled = null;
     }
     stopPlugins();
 
@@ -318,7 +322,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
     // create the plugin wrapper
     LOG.debug("Creating wrapper for plugin '{}'", pluginPath);
-    PluginWrapper pluginWrapper = new PluginWrapper(this, pluginDescriptor, pluginPath, pluginClassLoader);
+    Pf4bootPluginWrapper pluginWrapper = new Pf4bootPluginWrapper(this, pluginDescriptor, pluginPath, pluginClassLoader);
     pluginWrapper.setPluginFactory(getPluginFactory());
 
     // test for disabled plugin
@@ -365,7 +369,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public synchronized void setApplicationStarted(boolean mainApplicationStarted) {
     this.mainApplicationStarted = mainApplicationStarted;
     if(mainApplicationStarted){
-//      scheduledExecutor.scheduleAtFixedRate(() -> {
+//      scheduled.scheduleAtFixedRate(() -> {
 //        doStartPlugins(false);
 //      }, 30, 30, TimeUnit.SECONDS);
     }
@@ -564,11 +568,14 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public PluginState startPlugin(String pluginId) {
     checkPluginId(pluginId);
-    PluginWrapper pluginWrapper = getPlugin(pluginId);
+    Pf4bootPluginWrapper pluginWrapper = (Pf4bootPluginWrapper)getPlugin(pluginId);
     try{
       doStartPlugin(pluginWrapper);
+      pluginWrapper.getStartFailed().set(0);
     } catch (Throwable e) {
-      LOG.warn("Plugin {} is failed to start", pluginWrapper.getPluginId(), e);
+      int startFailed = pluginWrapper.getStartFailed().incrementAndGet();
+      LOG.warn("Plugin {} is failed to start, startFailed={}", pluginWrapper.getPluginId(), startFailed, e);
+
     }
 
     return pluginWrapper.getPluginState();
