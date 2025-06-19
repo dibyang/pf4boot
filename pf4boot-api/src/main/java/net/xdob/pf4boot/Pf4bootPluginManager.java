@@ -66,6 +66,7 @@ public interface Pf4bootPluginManager extends PluginManager {
 
   PluginError getPluginErrors(String pluginId);
 
+  void publishEvent(ConfigurableApplicationContext pluginContext, Object event);
   void publishEvent(Object event);
   /**
    * 注册bean到根级上下文，全局可见

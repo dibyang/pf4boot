@@ -137,7 +137,7 @@ public class Pf4bootPlugin extends Plugin {
   }
 
   public void publishEvent(Object event){
-    getPluginManager().publishEvent(event);
+    getPluginManager().publishEvent(this.pluginContext, event);
   }
 
 }

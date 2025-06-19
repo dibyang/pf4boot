@@ -134,18 +134,29 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			});
   }
 
+  public void publishEvent(ConfigurableApplicationContext pluginContext, Object event){
 
-  public void publishEvent(Object event){
     rootContext.publishEvent(event);
     applicationContext.publishEvent(event);
     platformContext.publishEvent(event);
     platformContexts.values().forEach(platformContext -> platformContext.publishEvent(event));
-
+    List<ConfigurableApplicationContext> contexts = new ArrayList<>();
     for (PluginWrapper startedPlugin : getPlugins(PluginState.STARTED)) {
       if(startedPlugin.getPluginState().isStarted()){
-        ((Pf4bootPlugin)startedPlugin.getPlugin()).getPluginContext().publishEvent(event);
+        contexts.add(((Pf4bootPlugin)startedPlugin.getPlugin()).getPluginContext());
       }
     }
+    if(pluginContext!=null){
+      pluginContext.publishEvent(event);
+      contexts.removeIf(e-> Objects.equals(e.getId(), pluginContext.getId()));
+    }
+    for (ConfigurableApplicationContext context : contexts) {
+      context.publishEvent(event);
+    }
+  }
+
+  public void publishEvent(Object event){
+    publishEvent(null, event);
   }
 
 
@@ -630,18 +641,18 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       lastHandlePlugin(p -> p.initiatedPlugin(plugin));
       ConfigurableApplicationContext pluginContext = plugin.createPluginContext(platformContext);
       pluginContext.refresh();
-      publishEvent(new PreStartPluginEvent(plugin));
+      publishEvent(pluginContext, new PreStartPluginEvent(plugin));
 
       ApplicationContextProvider.registerApplicationContext(pluginContext);
 
       //插件启动前置处理
       preHandlePlugin(p -> p.startPlugin(plugin));
-      publishEvent(new StartingPluginEvent(plugin));
+      publishEvent(pluginContext, new StartingPluginEvent(plugin));
 
       plugin.start();
       //插件启动后置处理
       lastHandlePlugin(p -> p.startedPlugin(plugin));
-      publishEvent(new StartedPluginEvent(plugin));
+      publishEvent(pluginContext, new StartedPluginEvent(plugin));
     }finally {
       replaceClassLoader(oldClassLoader);
     }
@@ -707,15 +718,15 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
     Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
     ConfigurableApplicationContext pluginContext = plugin.getPluginContext();
-    publishEvent(new PreStopPluginEvent(plugin));
+    publishEvent(pluginContext, new PreStopPluginEvent(plugin));
     //插件停止前置处理
     preHandlePlugin(p->p.stopPlugin(plugin));
-    publishEvent(new StoppingPluginEvent(plugin));
+    publishEvent(pluginContext, new StoppingPluginEvent(plugin));
     plugin.stop();
 
     //插件停止后置处理
     lastHandlePlugin(p->p.stoppedPlugin(plugin));
-    publishEvent(new StoppedPluginEvent(plugin));
+    publishEvent(pluginContext, new StoppedPluginEvent(plugin));
     firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STOPPED));
     pluginWrapper.setPluginState(PluginState.STOPPED);
     getStartedPlugins().remove(pluginWrapper);
