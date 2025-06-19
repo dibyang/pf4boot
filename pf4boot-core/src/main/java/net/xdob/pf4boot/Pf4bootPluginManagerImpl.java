@@ -634,7 +634,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       preHandlePlugin(p -> p.initiatePlugin(plugin));
       String group = plugin.getGroup();
       ConfigurableApplicationContext platformContext = this.getPlatformContext(group);
-      platformContext.getBeanFactory().autowireBean(plugin);
+
       plugin.initiate();
 
       //初始化插件后置处理
@@ -642,8 +642,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       ConfigurableApplicationContext pluginContext = plugin.createPluginContext(platformContext);
       pluginContext.refresh();
       publishEvent(pluginContext, new PreStartPluginEvent(plugin));
-
       ApplicationContextProvider.registerApplicationContext(pluginContext);
+
+      pluginContext.getBeanFactory().autowireBean(plugin);
 
       //插件启动前置处理
       preHandlePlugin(p -> p.startPlugin(plugin));
