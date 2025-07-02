@@ -5,9 +5,9 @@ import org.pf4j.PluginDescriptorFinder;
 import org.pf4j.PluginManager;
 import org.pf4j.PluginRepository;
 import org.pf4j.PluginState;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ConfigurableApplicationContext;
 
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -19,6 +19,9 @@ import java.util.concurrent.ScheduledExecutorService;
  */
 public interface Pf4bootPluginManager extends PluginManager {
   String BEAN_PLUGIN = "pf4j.plugin";
+
+  Path getPluginCacheDir();
+
   void setAutoStartPlugin(boolean autoStartPlugin);
 
   boolean isAutoStartPlugin();

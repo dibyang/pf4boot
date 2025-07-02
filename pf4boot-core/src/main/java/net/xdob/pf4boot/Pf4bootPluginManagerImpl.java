@@ -27,6 +27,7 @@ import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.nio.file.Path;
@@ -209,6 +210,15 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   }
 
   @Override
+  public Path getPluginCacheDir(){
+    Path cacheDir = getPluginsRoot().resolveSibling("plugin-cache");
+    if(!cacheDir.toFile().exists()){
+      cacheDir.toFile().mkdirs();
+    }
+    return cacheDir;
+  }
+
+  @Override
   protected PluginLoader createPluginLoader() {
     if (properties.getCustomPluginLoader() != null) {
       Class<PluginLoader> clazz = properties.getCustomPluginLoader();
@@ -268,8 +278,20 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     pluginSupports.forEach(pluginSupport -> {
       pluginSupport.initiatedPluginManager(this);
     });
+    File cacheDir = getPluginCacheDir().toFile();
+    for (File file : cacheDir.listFiles()) {
+      deleteDir(file);
+    }
     loadPlugins();
+  }
 
+  private void deleteDir(File file){
+    if(file.isDirectory()){
+      for (File listFile : file.listFiles()) {
+        deleteDir(listFile);
+      }
+    }
+    file.delete();
   }
 
   public void close(){
@@ -290,6 +312,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public void loadPlugins() {
     super.loadPlugins();
   }
+
 
 
 
@@ -561,6 +584,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     ConfigurableApplicationContext context = getContext(group, scope);
     context.getBeanFactory().registerSingleton(beanName, bean);
     LOG.info("[PF4BOOT] register bean {} [{}] to {} context [{}]", bean, beanName, scope, context.getId());
+
     BeanRegisterEvent registerBeanEvent = new BeanRegisterEvent(scope, context, beanName, bean);
     publishEvent(registerBeanEvent);
   }

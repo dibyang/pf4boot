@@ -1,10 +1,10 @@
 package net.xdob.pf4boot.loader;
 
+import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.internal.Pf4bootPluginClassLoader;
 import org.pf4j.PluginClassLoader;
 import org.pf4j.PluginDescriptor;
 import org.pf4j.PluginLoader;
-import org.pf4j.PluginManager;
 import org.pf4j.util.FileUtils;
 import org.pf4j.util.JarFileFilter;
 import org.pf4j.util.Unzip;
@@ -25,9 +25,10 @@ import java.nio.file.attribute.FileTime;
  */
 public class ZipPf4bootPluginLoader implements PluginLoader {
   static final Logger log = LoggerFactory.getLogger(ZipPf4bootPluginLoader.class);
-  protected PluginManager pluginManager;
+  public static final String PLUGIN_CACHE = "plugin-cache";
+  protected Pf4bootPluginManager pluginManager;
 
-  public ZipPf4bootPluginLoader(PluginManager pluginManager) {
+  public ZipPf4bootPluginLoader(Pf4bootPluginManager pluginManager) {
     this.pluginManager = pluginManager;
   }
 
@@ -39,15 +40,12 @@ public class ZipPf4bootPluginLoader implements PluginLoader {
   @Override
   public ClassLoader loadPlugin(Path pluginPath, PluginDescriptor pluginDescriptor) {
     PluginClassLoader pluginClassLoader = new Pf4bootPluginClassLoader(pluginManager, pluginDescriptor);
-    File cache = pluginManager.getPluginsRoot().resolveSibling("plugin-cache").toFile();
-    if(!cache.exists()){
-      cache.mkdirs();
-    }
+    Path cache = pluginManager.getPluginCacheDir();
     if(FileUtils.isZipFile(pluginPath)){
       try {
         String fileName = pluginPath.getFileName().toString();
         String directoryName = fileName.substring(0, fileName.lastIndexOf("."));
-        Path pluginDirectory = cache.toPath().resolve(directoryName);
+        Path pluginDirectory = cache.resolve(directoryName);
 
         expandIfZip(pluginPath, pluginDirectory);
         File[] libs = pluginDirectory.resolve("lib").toFile().listFiles(new JarFileFilter());
