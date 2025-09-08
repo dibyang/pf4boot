@@ -2,7 +2,6 @@
 dependencies {
     api("net.xdob.springframework:spring-orm:$spring_version")
     api("net.xdob.springframework.boot:spring-boot-starter-aop:${spring_boot_version}")
-    api("net.xdob.springframework.boot:spring-boot-starter-jdbc:${spring_boot_version}")
     api("org.springframework.data:spring-data-jpa:$jpa_version"){
         exclude group: 'org.springframework'
     }
