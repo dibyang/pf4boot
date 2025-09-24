@@ -249,6 +249,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   protected void doInitialize() {
     super.initialize();
+		this.setResolveRecoveryStrategy(ResolveRecoveryStrategy.IGNORE_PLUGIN_AND_CONTINUE);
     if(scheduled ==null) {
       CustomizableThreadFactory threadFactory = new CustomizableThreadFactory("pm4schedule");
       scheduled = Executors.newScheduledThreadPool(2, threadFactory);
@@ -483,7 +484,11 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     if(!wrappers.isEmpty()){
       for (PluginWrapper pluginWrapper : wrappers) {
         PluginState pluginState = pluginWrapper.getPluginState();
-        if ((PluginState.RESOLVED == pluginState) || (PluginState.FAILED == pluginState)
+				if(PluginState.DISABLED == pluginState){
+					continue;
+				}
+        if ((PluginState.RESOLVED == pluginState)
+						|| (PluginState.FAILED == pluginState)
             || (PluginState.STOPPED == pluginState && !autoStartPlugin)) {
           try {
             doStartPlugin(pluginWrapper, autoStartPlugin);
