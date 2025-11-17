@@ -29,7 +29,7 @@ public class Pf4bootPlugin extends Plugin {
   static final Logger LOG = LoggerFactory.getLogger(Pf4bootPlugin.class);
   private final List<Consumer<Pf4bootPlugin>> releaseHooks = new ArrayList<>();
 
-  protected AnnotationConfigApplicationContext pluginContext;
+  protected volatile AnnotationConfigApplicationContext pluginContext;
 
   private final ClassLoader pluginClassLoader;
 
@@ -113,7 +113,7 @@ public class Pf4bootPlugin extends Plugin {
         ((PluginClassLoader4boot) pluginClassLoader).setPluginOnlyResources(pluginOnlyResources);
       }
     }
-
+		closePluginContext();
     DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
     pluginContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory, this);
     pluginContext.setId("plugin-"+getPluginId());
@@ -127,6 +127,13 @@ public class Pf4bootPlugin extends Plugin {
     LOG.info("[PF4BOOT] create plugin context for {} context parent = {}", getPluginId(), platformContext.getId());
     return pluginContext;
   }
+
+	public void closePluginContext(){
+		if (pluginContext != null){
+			pluginContext.close();
+			pluginContext = null;
+		}
+	}
 
   public Optional<PluginStarter> getPluginStarter() {
 		return Optional.ofNullable(getClass().getAnnotation(PluginStarter.class));

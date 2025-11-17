@@ -729,7 +729,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       //插件启动后置处理
       lastHandlePlugin(p -> p.startedPlugin(plugin));
       publishEvent(pluginContext, new StartedPluginEvent(plugin));
-    }finally {
+    } catch (Exception e) {
+			plugin.closePluginContext();
+			throw e;
+		}finally {
       replaceClassLoader(oldClassLoader);
     }
     startedPlugins.add(pluginWrapper);
@@ -823,7 +826,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
     releaseResource(plugin);
     ApplicationContextProvider.unregisterApplicationContext(pluginContext);
-    pluginContext.close();
+		plugin.closePluginContext();
     plugin.closed();
 
     return PluginState.STOPPED;
