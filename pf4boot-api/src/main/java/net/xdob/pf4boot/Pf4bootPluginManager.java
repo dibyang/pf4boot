@@ -59,7 +59,7 @@ public interface Pf4bootPluginManager extends PluginManager {
 
   void reloadPlugins(boolean restartStartedOnly);
 
-  PluginState reloadPlugins(String pluginId);
+  PluginState reloadPlugin(String pluginId);
 
   void setExactVersionAllowed(boolean exactVersionAllowed);
 

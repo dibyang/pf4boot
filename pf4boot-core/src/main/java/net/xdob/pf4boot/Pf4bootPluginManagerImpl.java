@@ -885,7 +885,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   }
 
   @Override
-  public PluginState reloadPlugins(String pluginId) {
+  public PluginState reloadPlugin(String pluginId) {
     PluginWrapper plugin = getPlugin(pluginId);
     this.stopPlugin(pluginId);
     unloadPlugin(pluginId);

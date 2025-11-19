@@ -16,7 +16,8 @@ import java.util.stream.Collectors;
 public class PluginManagerController {
 
 
-  private final Pf4bootPluginManager pluginManager;
+	public static final String ALL = "all";
+	private final Pf4bootPluginManager pluginManager;
 
   public PluginManagerController(Pf4bootPluginManager pluginManager) {
     this.pluginManager = pluginManager;
@@ -85,45 +86,48 @@ public class PluginManagerController {
 
   @GetMapping(value = "/start/{pluginId}")
   public PluginInfo start(@PathVariable String pluginId) {
-    pluginManager.startPlugin(pluginId);
+		if(isAll(pluginId)){
+			pluginManager.startPlugins();
+		}else {
+			pluginManager.startPlugin(pluginId);
+		}
     return getPluginInfo(pluginId);
   }
 
 
   @GetMapping(value = "/stop/{pluginId}")
   public PluginInfo stop(@PathVariable String pluginId) {
-    pluginManager.stopPlugin(pluginId);
+		if(isAll(pluginId)){
+			pluginManager.stopPlugins();
+		}else {
+			pluginManager.stopPlugin(pluginId);
+		}
     return getPluginInfo(pluginId);
   }
 
   @GetMapping(value = "/restart/{pluginId}")
   public PluginInfo restart(@PathVariable String pluginId) {
-    pluginManager.restartPlugin(pluginId);
+		if(isAll(pluginId)){
+			pluginManager.restartPlugins();
+		}else {
+			pluginManager.restartPlugin(pluginId);
+		}
     return getPluginInfo(pluginId);
   }
 
   @GetMapping(value = "/reload/{pluginId}")
   public PluginInfo reload(@PathVariable String pluginId) {
-     pluginManager.reloadPlugins(pluginId);
+		if(isAll(pluginId)){
+			pluginManager.reloadPlugins(true);
+		}else {
+			pluginManager.reloadPlugin(pluginId);
+		}
     return getPluginInfo(pluginId);
   }
 
-  @GetMapping(value = "/start-all")
-  public List<PluginInfo>  startAll() {
-    pluginManager.startPlugins();
-    return getPluginInfos();
-  }
+	private static boolean isAll(String pluginId) {
+		return ALL.equals(pluginId);
+	}
 
-  @GetMapping(value = "/stop-all")
-  public List<PluginInfo>  stopAll() {
-    pluginManager.stopPlugins();
-    return getPluginInfos();
-  }
-
-  @GetMapping(value = "/reload-all")
-  public List<PluginInfo> reloadAll() {
-    pluginManager.reloadPlugins(false);
-    return getPluginInfos();
-  }
 
 }
