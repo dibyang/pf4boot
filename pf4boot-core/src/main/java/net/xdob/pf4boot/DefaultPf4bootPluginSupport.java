@@ -3,22 +3,17 @@ package net.xdob.pf4boot;
 import net.xdob.pf4boot.annotation.*;
 import net.xdob.pf4boot.internal.SpringExtensionFactory;
 import net.xdob.pf4boot.modal.*;
+import net.xdob.pf4boot.scheduling.DefaultScheduledMgr;
+import net.xdob.pf4boot.scheduling.ScheduledMgr;
 import net.xdob.pf4boot.util.Injections;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.beans.*;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.core.MethodIntrospector;
-import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.scheduling.annotation.Schedules;
-import org.springframework.stereotype.Component;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -26,6 +21,7 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
   static final Logger logger = LoggerFactory.getLogger(DefaultPf4bootPluginSupport.class);
 
   final ConcurrentHashMap<String, DynamicBean> dynamicImportBeans = new ConcurrentHashMap<>();
+  final ScheduledMgr scheduledMgr = new DefaultScheduledMgr();
 
   @Override
   public int getPriority() {
@@ -80,22 +76,9 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     registerDynamicImportBeans(pf4bootPlugin);
 
 		//register Schedules
-		registerSchedules(pf4bootPlugin);
+		scheduledMgr.registerScheduledTasks(pf4bootPlugin);
   }
 
-	private void registerSchedules(Pf4bootPlugin pf4bootPlugin){
-		ConfigurableApplicationContext context = pf4bootPlugin.getPluginContext();
-		Map<String, Object> beans = context.getBeansWithAnnotation(Component.class);
-		for (Object bean : beans.values()) {
-			Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
-			Map<Method, Set<Scheduled2>> annotatedMethods = MethodIntrospector.selectMethods(targetClass,
-					(MethodIntrospector.MetadataLookup<Set<Scheduled2>>) method -> {
-						Set<Scheduled2> scheduledAnnotations = AnnotatedElementUtils.getMergedRepeatableAnnotations(
-								method, Scheduled2.class, Schedules2.class);
-						return (!scheduledAnnotations.isEmpty() ? scheduledAnnotations : null);
-					});
-		}
-	}
 
 
   private void registerExtensions(Pf4bootPlugin pf4bootPlugin) {
@@ -280,6 +263,9 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
 
   @Override
   public void stopPlugin(Pf4bootPlugin pf4bootPlugin) {
+		//unregister Schedules
+		scheduledMgr.unregisterScheduledTasks(pf4bootPlugin);
+
     // unregister Extensions
     unregisterExtensions(pf4bootPlugin);
     //unregister ShareServices
