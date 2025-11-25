@@ -25,14 +25,6 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
 
   private static final Logger log = LoggerFactory.getLogger(Pf4bootPluginClassLoader.class);
 
-	// 想要由插件自身加载的包前缀
-	private static final String[] ISOLATED_PREFIXES = new String[]{
-			"org.springframework.",
-			"org.aopalliance.",
-			"net.sf.cglib.",
-			"org.aspectj."
-			// 如果你还想隔离其他库（如 jackson、guava 等），加在这里
-	};
 
   private List<String> pluginOnlyResources;
 
@@ -56,15 +48,6 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
     this.pluginDescriptor = pluginDescriptor;
     this.classLoadingStrategy =  classLoadingStrategy;
   }
-
-
-
-	private boolean shouldLoadInPlugin(String name) {
-		for (String p : ISOLATED_PREFIXES) {
-			if (name.startsWith(p)) return true;
-		}
-		return false;
-	}
 
 
 	@Override

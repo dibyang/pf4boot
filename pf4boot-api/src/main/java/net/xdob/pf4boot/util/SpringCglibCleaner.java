@@ -269,7 +269,7 @@ public final class SpringCglibCleaner {
 									}
 									// 最终把字段指向 null
 									try { f.set(null, null); } catch (Throwable ignored) {}
-									LOG.info("Cleared static callback field " + c.getName() + "#" + name);
+									//LOG.info("Cleared static callback field " + c.getName() + "#" + name);
 								}
 							} catch (Throwable t) {
 								LOG.info("Failed clearing field " + c.getName() + "#" + name + " : " + t.getMessage());

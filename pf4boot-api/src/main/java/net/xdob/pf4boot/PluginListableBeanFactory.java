@@ -1,9 +1,7 @@
 package net.xdob.pf4boot;
 
-import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
-import org.springframework.context.event.EventListenerMethodProcessor;
 
 /**
  * PluginListableBeanFactory
@@ -28,9 +26,4 @@ public class PluginListableBeanFactory extends DefaultListableBeanFactory {
     return super.predictBeanType(beanName, mbd, typesToMatch);
   }
 
-  @Override
-  public Object getBean(String name) throws BeansException {
-    Object bean = super.getBean(name);
-    return bean;
-  }
 }
