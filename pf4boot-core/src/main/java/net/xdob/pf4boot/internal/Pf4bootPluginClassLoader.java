@@ -2,6 +2,7 @@ package net.xdob.pf4boot.internal;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.PluginClassLoader4boot;
+import net.xdob.pf4boot.util.SpringCglibCleaner;
 import org.pf4j.ClassLoadingStrategy;
 import org.pf4j.PluginClassLoader;
 import org.pf4j.PluginDescriptor;
@@ -11,8 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.Enumeration;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -25,6 +25,14 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
 
   private static final Logger log = LoggerFactory.getLogger(Pf4bootPluginClassLoader.class);
 
+	// 想要由插件自身加载的包前缀
+	private static final String[] ISOLATED_PREFIXES = new String[]{
+			"org.springframework.",
+			"org.aopalliance.",
+			"net.sf.cglib.",
+			"org.aspectj."
+			// 如果你还想隔离其他库（如 jackson、guava 等），加在这里
+	};
 
   private List<String> pluginOnlyResources;
 
@@ -48,6 +56,33 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
     this.pluginDescriptor = pluginDescriptor;
     this.classLoadingStrategy =  classLoadingStrategy;
   }
+
+
+
+	private boolean shouldLoadInPlugin(String name) {
+		for (String p : ISOLATED_PREFIXES) {
+			if (name.startsWith(p)) return true;
+		}
+		return false;
+	}
+
+
+	@Override
+	public void close() throws IOException {
+		super.close();
+		cleanup();
+	}
+
+	@Override
+	public void cleanup() {
+		try {
+			SpringCglibCleaner.clearAll(this);
+		} catch (Exception e) {
+			log.warn("Failed to clean up classes", e);
+		}
+	}
+
+
 
   @Override
   public void setPluginFirstClasses(List<String> pluginFirstClasses) {

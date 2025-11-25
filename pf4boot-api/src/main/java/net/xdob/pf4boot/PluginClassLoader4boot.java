@@ -8,8 +8,9 @@ import java.util.List;
  * @author yangzj
  * @version 1.0
  */
-public interface PluginClassLoader4boot {
+public interface PluginClassLoader4boot extends Cleaner {
   void setPluginFirstClasses(List<String> pluginFirstClasses);
 
   void setPluginOnlyResources(List<String> pluginOnlyResources);
+
 }

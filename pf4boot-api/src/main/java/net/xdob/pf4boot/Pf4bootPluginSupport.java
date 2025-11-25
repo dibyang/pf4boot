@@ -77,6 +77,14 @@ public interface Pf4bootPluginSupport {
 
   }
 
+	/**
+	 * 开始释放插件资源
+	 * @param pf4bootPlugin 插件
+	 */
+	default void releasePlugin(Pf4bootPlugin pf4bootPlugin){
+
+	}
+
   /**
    * 删除插件前
    * @param pf4bootPlugin 插件

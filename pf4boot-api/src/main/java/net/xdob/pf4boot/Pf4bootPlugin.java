@@ -3,16 +3,13 @@ package net.xdob.pf4boot;
 import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.spring.boot.Pf4bootAnnotationConfigApplicationContext;
 import org.pf4j.Plugin;
+import org.pf4j.PluginClassLoader;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.support.BeanDefinitionBuilder;
-import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.annotation.ConfigurationClassPostProcessor;
-import org.springframework.util.ClassUtils;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -31,7 +28,7 @@ public class Pf4bootPlugin extends Plugin {
 
   protected volatile AnnotationConfigApplicationContext pluginContext;
 
-  private final ClassLoader pluginClassLoader;
+  private final PluginClassLoader pluginClassLoader;
 
 
 
@@ -94,7 +91,7 @@ public class Pf4bootPlugin extends Plugin {
    */
   public Pf4bootPlugin(PluginWrapper wrapper) {
     super(wrapper);
-    pluginClassLoader = wrapper.getPluginClassLoader();
+    pluginClassLoader = (PluginClassLoader) wrapper.getPluginClassLoader();
   }
 
   public String getPluginId(){
@@ -114,13 +111,16 @@ public class Pf4bootPlugin extends Plugin {
       }
     }
 		closePluginContext();
-    DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
-    pluginContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory, this);
+
+		DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
+		beanFactory.setParentBeanFactory(platformContext.getBeanFactory());
+		pluginContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory, this);
     pluginContext.setId("plugin-"+getPluginId());
-    pluginContext.setClassLoader(pluginClassLoader);
-    pluginContext.setParent(platformContext);
+		pluginContext.setClassLoader(pluginClassLoader);
+
+    //pluginContext.setParent(platformContext);
     //仅共享Bean定义，不继承事件监听链1
-    pluginContext.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
+    //pluginContext.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
     pluginContext.register(primarySources);
     pluginContext.getBeanFactory().registerSingleton(BEAN_PLUGIN, this);
     pluginContext.getBeanFactory().autowireBean(this);
@@ -130,10 +130,25 @@ public class Pf4bootPlugin extends Plugin {
 
 	public void closePluginContext(){
 		if (pluginContext != null){
-			pluginContext.close();
+			try {
+				pluginContext.getBeanFactory().destroyBean(BEAN_PLUGIN);
+			} catch (Exception e) {
+				LOG.error("[PF4BOOT] destroy bean error", e);
+			}
+			try {
+				pluginContext.close();
+			} catch (Exception e) {
+				LOG.error("[PF4BOOT] close plugin context error", e);
+			}
+			pluginContext.setClassLoader( null);
 			pluginContext = null;
+			if(pluginClassLoader instanceof Cleaner) {
+				((Cleaner) pluginClassLoader).cleanup();
+			}
+			LOG.info("[PF4BOOT] close plugin context for {}", getPluginId());
 		}
 	}
+
 
   public Optional<PluginStarter> getPluginStarter() {
 		return Optional.ofNullable(getClass().getAnnotation(PluginStarter.class));

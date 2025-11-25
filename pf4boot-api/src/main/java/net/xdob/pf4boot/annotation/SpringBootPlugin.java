@@ -80,5 +80,5 @@ public @interface SpringBootPlugin {
    * @return whether to proxy {@code @Bean} methods
    */
   @AliasFor(annotation = Configuration.class)
-  boolean proxyBeanMethods() default true;
+  boolean proxyBeanMethods() default false;
 }

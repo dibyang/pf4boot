@@ -715,7 +715,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       //初始化插件后置处理
       lastHandlePlugin(p -> p.initiatedPlugin(plugin));
       ConfigurableApplicationContext pluginContext = plugin.createPluginContext(platformContext);
-      pluginContext.refresh();
+
+			pluginContext.refresh();
+
+
       publishEvent(pluginContext, new PreStartPluginEvent(plugin));
       ApplicationContextProvider.registerApplicationContext(pluginContext);
 
@@ -825,6 +828,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     getStartedPlugins().remove(pluginWrapper);
 
     releaseResource(plugin);
+		lastHandlePlugin(p->p.releasePlugin(plugin));
     ApplicationContextProvider.unregisterApplicationContext(pluginContext);
 		plugin.closePluginContext();
     plugin.closed();

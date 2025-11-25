@@ -39,4 +39,5 @@ public class Pf4bootAnnotationConfigApplicationContext extends AnnotationConfigA
 
     super.close();
   }
+
 }
