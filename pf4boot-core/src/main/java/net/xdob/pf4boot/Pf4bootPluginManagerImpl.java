@@ -270,9 +270,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 	@Override
 	public void releasePlugin(Pf4bootPlugin plugin) {
-		shareBeanMgr.stopPlugin( plugin);
 		lastHandlePlugin(p->p.stopPlugin( plugin));
+		shareBeanMgr.stopPlugin( plugin);
 		lastHandlePlugin(p->p.stoppedPlugin( plugin));
+
 		lastHandlePlugin(p->p.releasePlugin( plugin));
 	}
 
@@ -634,22 +635,27 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     return startPlugin(pluginId, false);
   }
 
- protected PluginState startPlugin(String pluginId, boolean autoStartPlugin) {
-    checkPluginId(pluginId);
-    Pf4bootPluginWrapper pluginWrapper = (Pf4bootPluginWrapper)getPlugin(pluginId);
-    try{
-      doStartPlugin(pluginWrapper, autoStartPlugin);
-      pluginWrapper.getStartFailed().set(0);
-    } catch (Throwable e) {
-      int startFailed = pluginWrapper.getStartFailed().incrementAndGet();
-      pluginWrapper.setFailedException(e);
-      pluginWrapper.setPluginState(PluginState.FAILED);
-      LOG.warn("Plugin {} is failed to start, startFailed={}", pluginWrapper.getPluginId(), startFailed, e);
+	protected PluginState startPlugin(String pluginId, boolean autoStartPlugin) {
+		checkPluginId(pluginId);
+		Pf4bootPluginWrapper pluginWrapper = (Pf4bootPluginWrapper) getPlugin(pluginId);
+		if(pluginWrapper!=null) {
+			synchronized (this) {
+				try {
+					doStartPlugin(pluginWrapper, autoStartPlugin);
+					pluginWrapper.getStartFailed().set(0);
+				} catch (Throwable e) {
+					int startFailed = pluginWrapper.getStartFailed().incrementAndGet();
+					pluginWrapper.setFailedException(e);
+					pluginWrapper.setPluginState(PluginState.FAILED);
+					LOG.warn("Plugin {} is failed to start, startFailed={}", pluginWrapper.getPluginId(), startFailed, e);
 
-    }
-
-    return pluginWrapper.getPluginState();
-  }
+				}
+			}
+			return pluginWrapper.getPluginState();
+		}else{
+			throw new PluginNotFoundException(pluginId);
+		}
+	}
 
   /**
    *
@@ -783,7 +789,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   }
 
   protected PluginState stopPlugin(String pluginId, boolean stopDependents) {
-    return stopPlugin(pluginId, stopDependents, null);
+		synchronized (this) {
+			return stopPlugin(pluginId, stopDependents, null);
+		}
   }
 
   /**

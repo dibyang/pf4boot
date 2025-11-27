@@ -110,7 +110,6 @@ public class Pf4bootPlugin extends Plugin {
         ((PluginClassLoader4boot) pluginClassLoader).setPluginOnlyResources(pluginOnlyResources);
       }
     }
-		closePluginContext();
 
 		DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
 		beanFactory.setParentBeanFactory(platformContext.getBeanFactory());
@@ -130,13 +129,13 @@ public class Pf4bootPlugin extends Plugin {
 
 	public void closePluginContext(){
 		if (pluginContext != null){
+			//释放插件注册资源
+			this.getPluginManager().releasePlugin(this);
 			try {
 				pluginContext.getBeanFactory().destroyBean(BEAN_PLUGIN);
 			} catch (Exception e) {
 				LOG.error("[PF4BOOT] destroy bean error", e);
 			}
-      //释放插件注册资源
-			this.getPluginManager().releasePlugin(this);
 			try {
 				pluginContext.close();
 			} catch (Exception e) {
