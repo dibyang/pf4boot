@@ -73,16 +73,17 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   private final ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider;
   private ScheduledExecutorService scheduled;
-
+	private final ShareBeanMgr shareBeanMgr;
 
   public Pf4bootPluginManagerImpl(ApplicationContext applicationContext, Pf4bootProperties properties,
-                                  ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider, Path... pluginsRoots) {
+																	ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider, ShareBeanMgr shareBeanMgr, Path... pluginsRoots) {
     super(pluginsRoots);
     this.applicationContext = (ConfigurableApplicationContext)applicationContext;
 
     this.properties = properties;
     this.pluginSupportProvider = pluginSupportProvider;
-    this.rootContext = new AnnotationConfigApplicationContext();
+		this.shareBeanMgr = shareBeanMgr;
+		this.rootContext = new AnnotationConfigApplicationContext();
     this.rootContext.refresh();
     ConfigurableApplicationContext topContext = (ConfigurableApplicationContext)getTopContext(applicationContext);
     topContext.setParent(this.rootContext);
@@ -256,10 +257,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     }
     addPluginStateListener(new Pf4bootPluginStateListener(platformContext));
 
-    List<Pf4bootPluginSupport> pluginSupports = getPluginSupports(true);
-    pluginSupports.forEach(pluginSupport -> {
-      pluginSupport.initiatePluginManager(this);
-    });
+
+		shareBeanMgr.initiatePluginManager( this);
     LOG.info("PF4J version {} in '{}' mode", getVersion(), getRuntimeMode());
 
   }
@@ -268,17 +267,23 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     return scheduled;
   }
 
-  /**
+
+	@Override
+	public void releasePlugin(Pf4bootPlugin plugin) {
+		shareBeanMgr.stopPlugin( plugin);
+		lastHandlePlugin(p->p.stopPlugin( plugin));
+		lastHandlePlugin(p->p.stoppedPlugin( plugin));
+		lastHandlePlugin(p->p.releasePlugin( plugin));
+	}
+
+	/**
    * This method load, start plugins and inject extensions in Spring
    */
   @PostConstruct
   public void init() {
     this.registerBeanToRootContext("pPluginManager", this);
 
-    List<Pf4bootPluginSupport> pluginSupports = getPluginSupports(true);
-    pluginSupports.forEach(pluginSupport -> {
-      pluginSupport.initiatedPluginManager(this);
-    });
+		shareBeanMgr.initiatedPluginManager(this);
     File cacheDir = getPluginCacheDir().toFile();
     for (File file : cacheDir.listFiles()) {
       deleteDir(file);
@@ -729,6 +734,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       publishEvent(pluginContext, new StartingPluginEvent(plugin));
 
       plugin.start();
+			shareBeanMgr.startedPlugin(plugin);
       //插件启动后置处理
       lastHandlePlugin(p -> p.startedPlugin(plugin));
       publishEvent(pluginContext, new StartedPluginEvent(plugin));

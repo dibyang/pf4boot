@@ -72,9 +72,9 @@ public class Pf4bootAutoConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean(DefaultPf4bootPluginSupport.class)
-  public DefaultPf4bootPluginSupport defaultPf4bootPluginSupport(){
-    return new DefaultPf4bootPluginSupport();
+  @ConditionalOnMissingBean(DefaultShareBeanMgr.class)
+  public DefaultShareBeanMgr defaultPf4bootPluginSupport(){
+    return new DefaultShareBeanMgr();
   }
 
 
@@ -87,7 +87,9 @@ public class Pf4bootAutoConfiguration {
   @Bean
   @Lazy
   @ConditionalOnMissingBean
-  public Pf4bootPluginManager pluginManager(ApplicationContext applicationContext,  Pf4bootProperties properties, ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider) {
+  public Pf4bootPluginManager pluginManager(ApplicationContext applicationContext,  Pf4bootProperties properties,
+																						ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider,
+																						ShareBeanMgr shareBeanMgr) {
     // Setup RuntimeMode
     System.setProperty(PF4J_MODE, properties.getRuntimeMode().toString());
 
@@ -96,7 +98,8 @@ public class Pf4bootAutoConfiguration {
 
     System.setProperty(PF4J_PLUGINS_DIR, pluginsRoot);
 
-    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(applicationContext, properties, pluginSupportProvider, new File(pluginsRoot).toPath());
+    Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(applicationContext, properties,
+				pluginSupportProvider, shareBeanMgr, new File(pluginsRoot).toPath());
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));

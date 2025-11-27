@@ -135,6 +135,8 @@ public class Pf4bootPlugin extends Plugin {
 			} catch (Exception e) {
 				LOG.error("[PF4BOOT] destroy bean error", e);
 			}
+      //释放插件注册资源
+			this.getPluginManager().releasePlugin(this);
 			try {
 				pluginContext.close();
 			} catch (Exception e) {

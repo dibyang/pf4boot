@@ -113,4 +113,7 @@ public interface Pf4bootPluginManager extends PluginManager {
    * 获取公用定时线程池
    */
   ScheduledExecutorService getScheduled();
+
+
+	void releasePlugin(Pf4bootPlugin plugin);
 }

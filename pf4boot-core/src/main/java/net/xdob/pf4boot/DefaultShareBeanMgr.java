@@ -17,27 +17,18 @@ import java.lang.annotation.Annotation;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
-  static final Logger logger = LoggerFactory.getLogger(DefaultPf4bootPluginSupport.class);
+public class DefaultShareBeanMgr implements ShareBeanMgr{
+  static final Logger logger = LoggerFactory.getLogger(DefaultShareBeanMgr.class);
 
   final ConcurrentHashMap<String, DynamicBean> dynamicImportBeans = new ConcurrentHashMap<>();
   final ScheduledMgr scheduledMgr = new DefaultScheduledMgr();
 
-  @Override
-  public int getPriority() {
-    return Pf4bootPluginSupport.HEIGHT_PRIORITY;
-  }
 
   @Override
   public void initiatePluginManager(Pf4bootPluginManager pluginManager) {
     ConfigurableApplicationContext applicationContext = pluginManager.getApplicationContext();
     registerShareServices(pluginManager, null, applicationContext);
     registerDynamicImportBeans(null, applicationContext);
-  }
-
-  @Override
-  public void initiatedPluginManager(Pf4bootPluginManager pluginManager) {
-
   }
 
   private <A extends Annotation> List<A> getAnnotations(Class<?> primarySource, Class<A> annotationClazz) {
@@ -56,15 +47,6 @@ public class DefaultPf4bootPluginSupport implements Pf4bootPluginSupport{
     return annotations;
   }
 
-  @Override
-  public void initiatePlugin(Pf4bootPlugin pf4bootPlugin) {
-
-  }
-
-  @Override
-  public void initiatedPlugin(Pf4bootPlugin pf4bootPlugin) {
-
-  }
 
   @Override
   public void startedPlugin(Pf4bootPlugin pf4bootPlugin) {
