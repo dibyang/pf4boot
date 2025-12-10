@@ -10,6 +10,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.Lock;
 
 /**
  * Pf4bootPluginManager
@@ -116,4 +117,6 @@ public interface Pf4bootPluginManager extends PluginManager {
 
 
 	void releasePlugin(Pf4bootPlugin plugin);
+
+	Lock getStateLock();
 }

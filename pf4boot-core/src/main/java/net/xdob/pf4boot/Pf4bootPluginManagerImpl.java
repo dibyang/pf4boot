@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -73,8 +74,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public static final String PLUGINS_DIR_CONFIG_PROPERTY_NAME = "pf4j.pluginsConfigDir";
 
 
-	private final ReentrantLock startLock = new ReentrantLock();
-	private final ReentrantLock stopLock = new ReentrantLock();
+	private final ReentrantLock stateLock = new ReentrantLock();
 
   private final ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider;
   private ScheduledExecutorService scheduled;
@@ -104,7 +104,12 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   }
 
-  /**
+	@Override
+	public Lock getStateLock() {
+		return stateLock;
+	}
+
+	/**
    * 获取顶层上下文
    */
   private ApplicationContext getTopContext(ApplicationContext context) {
@@ -258,7 +263,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 		this.setResolveRecoveryStrategy(ResolveRecoveryStrategy.IGNORE_PLUGIN_AND_CONTINUE);
     if(scheduled ==null) {
       CustomizableThreadFactory threadFactory = new CustomizableThreadFactory("pm4schedule");
-      scheduled = Executors.newScheduledThreadPool(2, threadFactory);
+      scheduled = Executors.newScheduledThreadPool(1, threadFactory);
     }
     addPluginStateListener(new Pf4bootPluginStateListener(platformContext));
 
@@ -418,7 +423,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public void setApplicationStarted(boolean mainApplicationStarted) {
     this.mainApplicationStarted = mainApplicationStarted;
     if(mainApplicationStarted){
-      scheduled.scheduleAtFixedRate(() -> {
+      scheduled.scheduleWithFixedDelay(() -> {
         doStartPlugins(true);
       }, 10, 10, TimeUnit.SECONDS);
     }
@@ -717,7 +722,11 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
     Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
     ClassLoader oldClassLoader = replaceClassLoader(plugin.getWrapper().getPluginClassLoader());
-		try(AutoCloseableLock lock = AutoCloseableLock.acquire(startLock)) {
+		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+			PluginState state = pluginWrapper.getPluginState();
+			if (state.isStarted()||pluginState.isDisabled()) {
+				return;
+			}
       pluginWrapper.setFailedException(null);
       //初始化插件前置处理
       preHandlePlugin(p -> p.initiatePlugin(plugin));
@@ -747,16 +756,16 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       //插件启动后置处理
       lastHandlePlugin(p -> p.startedPlugin(plugin));
       publishEvent(pluginContext, new StartedPluginEvent(plugin));
+			startedPlugins.add(pluginWrapper);
+			pluginWrapper.setPluginState(PluginState.STARTED);
+			firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STARTED));
+			notifyAppCacheFree();
     } catch (Exception e) {
 			plugin.closePluginContext();
 			throw e;
 		}finally {
       replaceClassLoader(oldClassLoader);
     }
-    startedPlugins.add(pluginWrapper);
-    pluginWrapper.setPluginState(PluginState.STARTED);
-    firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STARTED));
-    notifyAppCacheFree();
   }
 
 
@@ -823,10 +832,13 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 				stopPlugin(dependent, true, pluginId);
 			}
 		}
-		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stopLock)){
-			LOG.info("Stop plugin '{}'", getPluginLabel(pluginId));
+		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)){
 			PluginWrapper pluginWrapper = getPlugin(pluginId);
-
+			PluginState pluginState = pluginWrapper.getPluginState();
+			if(!pluginState.isStarted()){
+				return pluginState;
+			}
+			LOG.info("Stop plugin '{}'", getPluginLabel(pluginId));
 			Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
 			ConfigurableApplicationContext pluginContext = plugin.getPluginContext();
 			publishEvent(pluginContext, new PreStopPluginEvent(plugin));
