@@ -49,9 +49,10 @@ import java.util.stream.Collectors;
  */
 public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     implements Pf4bootPluginManager {
-  static final Logger LOG = LoggerFactory.getLogger(Pf4bootPluginManagerImpl.class);
+	static final Logger LOG = LoggerFactory.getLogger(Pf4bootPluginManagerImpl.class);
+	public static final int MAX_FAILED_NUM = 3;
 
-  private volatile boolean mainApplicationStarted;
+	private volatile boolean mainApplicationStarted;
   /**
    * 根级上下文，全局可见
    */
@@ -89,7 +90,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     this.pluginSupportProvider = pluginSupportProvider;
 		this.shareBeanMgr = shareBeanMgr;
 		this.rootContext = new AnnotationConfigApplicationContext();
-    this.rootContext.refresh();
+		this.rootContext.refresh();
+
     ConfigurableApplicationContext topContext = (ConfigurableApplicationContext)getTopContext(applicationContext);
     topContext.setParent(this.rootContext);
     //仅共享Bean定义，不继承事件监听链1
@@ -100,7 +102,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     platformContext.refresh();
     //仅共享Bean定义，不继承事件监听链1
     platformContext.getBeanFactory().setParentBeanFactory(this.rootContext.getBeanFactory());
-    this.doInitialize();
+
+		this.doInitialize();
 
   }
 
@@ -273,6 +276,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   }
 
+
   public ScheduledExecutorService getScheduled() {
     return scheduled;
   }
@@ -280,11 +284,15 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 	@Override
 	public void releasePlugin(Pf4bootPlugin plugin) {
-		lastHandlePlugin(p->p.stopPlugin( plugin));
-		shareBeanMgr.stopPlugin( plugin);
-		lastHandlePlugin(p->p.stoppedPlugin( plugin));
+		try {
+			lastHandlePlugin(p -> p.stopPlugin(plugin));
+			shareBeanMgr.stopPlugin(plugin);
+			lastHandlePlugin(p -> p.stoppedPlugin(plugin));
 
-		lastHandlePlugin(p->p.releasePlugin( plugin));
+			lastHandlePlugin(p -> p.releasePlugin(plugin));
+		} catch (Exception e) {
+			LOG.error("[PF4BOOT] release plugin error:{}", e.getMessage());
+		}
 	}
 
 	/**
@@ -292,7 +300,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
    */
   @PostConstruct
   public void init() {
-    this.registerBeanToRootContext("pPluginManager", this);
+    this.registerBeanToRootContext("pluginManager", this);
 
 		shareBeanMgr.initiatedPluginManager(this);
     File cacheDir = getPluginCacheDir().toFile();
@@ -300,6 +308,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       deleteDir(file);
     }
     loadPlugins();
+
   }
 
   private void deleteDir(File file){
@@ -494,17 +503,18 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   protected void doStartPlugins(boolean autoStartPlugin) {
     int failedCount = 0;
     long ts = System.currentTimeMillis();
-    List<PluginWrapper> wrappers = resolvedPlugins.stream()
-        .filter(p -> needStart(autoStartPlugin, p))
-      .collect(Collectors.toList());
+    List<Pf4bootPluginWrapper> wrappers = resolvedPlugins.stream()
+				.filter(p -> needStart(autoStartPlugin, p))
+				.map(p -> (Pf4bootPluginWrapper)p)
+      	.collect(Collectors.toList());
     if(!wrappers.isEmpty()){
-      for (PluginWrapper pluginWrapper : wrappers) {
+      for (Pf4bootPluginWrapper pluginWrapper : wrappers) {
         PluginState pluginState = pluginWrapper.getPluginState();
 				if(PluginState.DISABLED == pluginState){
 					continue;
 				}
         if ((PluginState.RESOLVED == pluginState)
-						|| (PluginState.FAILED == pluginState)
+						|| (PluginState.FAILED == pluginState && pluginWrapper.getStartFailed().get()< MAX_FAILED_NUM)
             || (PluginState.STOPPED == pluginState && !autoStartPlugin)) {
           try {
             doStartPlugin(pluginWrapper, autoStartPlugin);
@@ -603,9 +613,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     Assert.notNull(bean, "bean must not be null");
     beanName = Strings.isNullOrEmpty(beanName) ? bean.getClass().getName() : beanName;
     ConfigurableApplicationContext context = getContext(group, scope);
-    context.getBeanFactory().registerSingleton(beanName, bean);
-    LOG.info("[PF4BOOT] register bean {} [{}] to {} context [{}]", bean, beanName, scope, context.getId());
-
+		context.getBeanFactory().registerSingleton(beanName, bean);
+		LOG.info("[PF4BOOT] register bean {} [{}] to {} context [{}]", bean, beanName, scope, context.getId());
     BeanRegisterEvent registerBeanEvent = new BeanRegisterEvent(scope, context, beanName, bean);
     publishEvent(registerBeanEvent);
   }
@@ -758,6 +767,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       publishEvent(pluginContext, new StartedPluginEvent(plugin));
 			startedPlugins.add(pluginWrapper);
 			pluginWrapper.setPluginState(PluginState.STARTED);
+			((Pf4bootPluginWrapper)pluginWrapper).getStartFailed().set(0);
 			firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STARTED));
 			notifyAppCacheFree();
     } catch (Exception e) {

@@ -99,7 +99,9 @@ public class Pf4bootPlugin extends Plugin {
   }
 
   public ConfigurableApplicationContext createPluginContext(ConfigurableApplicationContext platformContext) {
-
+		if (pluginContext != null){
+			closePluginContext();
+		}
     Class<?>[] primarySources = getPluginStarter().map(PluginStarter::value).orElse(new Class[]{});
 
     if (pluginClassLoader instanceof PluginClassLoader4boot) {

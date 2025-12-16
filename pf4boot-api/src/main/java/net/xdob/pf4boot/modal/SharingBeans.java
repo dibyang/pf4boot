@@ -1,7 +1,5 @@
 package net.xdob.pf4boot.modal;
 
-import net.xdob.pf4boot.annotation.PluginStarter;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,4 +32,9 @@ public class SharingBeans {
       .filter(bean -> bean.getScope() == SharingScope.PLATFORM)
       .collect(Collectors.toList());
   }
+
+	@Override
+	public String toString() {
+		return beans.toString();
+	}
 }

@@ -61,4 +61,14 @@ public class SharingBean {
 	public int hashCode() {
 		return Objects.hashCode(beanName);
 	}
+
+	@Override
+	public String toString() {
+		return "{" +
+				"beanName:'" + beanName + "'" +
+				", bean:" + bean +
+				", scope:" + scope +
+				", group:'" + group + "'" +
+				'}';
+	}
 }
