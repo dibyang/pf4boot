@@ -2,6 +2,7 @@ package org.springframework.web.servlet.mvc.method;
 
 import com.google.common.base.Strings;
 import net.xdob.pf4boot.Pf4bootPlugin;
+import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
@@ -110,7 +111,17 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   public void unregisterControllers(Pf4bootPlugin pf4BootPlugin) {
     //this.logger.info("unregister controller=" + controller);
     getControllerBeans(pf4BootPlugin).forEach(this::unregisterController);
+		PluginWrapper pluginWrapper = pf4BootPlugin.getPluginManager().getPlugin(pf4BootPlugin.getPluginId());
+		unregisterPluginControllers(pluginWrapper.getPluginClassLoader());
   }
+
+	public void unregisterPluginControllers(ClassLoader cl) {
+		getHandlerMethods().forEach((info, method) -> {
+			if (method.getBeanType().getClassLoader() == cl) {
+				unregisterMapping(info);
+			}
+		});
+	}
   public Map<String, Object> getControllerBeans(Pf4bootPlugin pf4BootPlugin) {
     Map<String, Object> beans = new HashMap<>();
     ApplicationContext applicationContext = pf4BootPlugin.getPluginContext();

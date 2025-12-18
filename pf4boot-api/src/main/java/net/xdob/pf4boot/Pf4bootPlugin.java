@@ -1,13 +1,14 @@
 package net.xdob.pf4boot;
 
 import net.xdob.pf4boot.annotation.PluginStarter;
-import net.xdob.pf4boot.spring.boot.Pf4bootAnnotationConfigApplicationContext;
+import org.springframework.context.support.Pf4bootAnnotationConfigApplicationContext;
 import org.pf4j.Plugin;
 import org.pf4j.PluginClassLoader;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
@@ -26,29 +27,61 @@ public class Pf4bootPlugin extends Plugin {
   static final Logger LOG = LoggerFactory.getLogger(Pf4bootPlugin.class);
   private final List<Consumer<Pf4bootPlugin>> releaseHooks = new ArrayList<>();
 
-  protected volatile AnnotationConfigApplicationContext pluginContext;
+  protected volatile AnnotationConfigApplicationContext pluginContext = null;
 
   private final PluginClassLoader pluginClassLoader;
 
 
 
-  //private final HashSet<String> sharedBeanNames = new HashSet<>();
-
-  //private final HashSet<String> importedBeanNames = new HashSet<>();
-
-  private final Map<String, Object> presetProperties = new HashMap<>();
+  private final Set<String> propNames = new HashSet<>();
 
   private List<String> pluginFirstClasses;
 
   private List<String> pluginOnlyResources;
 
-//  public Pf4bootApplication getApplication() {
-//    return application;
-//  }
+  private final Object lock = new Object();
 
   public ConfigurableApplicationContext getPluginContext() {
     return pluginContext;
   }
+
+	public void setProperty(String name, String value){
+		propNames.add(name);
+		System.setProperty(name, value);
+	}
+
+	public String getProperty(String name){
+		return getProperty(name, null);
+	}
+
+	public String getProperty(String name, String defaultValue){
+		return System.getProperty(name, defaultValue);
+	}
+
+	public Map<String, String> getProperties(){
+		Map<String, String> properties = new HashMap<>();
+		for (String name : propNames) {
+			String property = getProperty(name);
+			properties.put(name, property);
+		}
+		return properties;
+	}
+
+	public void clearProperties(String name){
+		if(propNames.remove(name)){
+			System.clearProperty(name);
+		}
+	}
+
+	public void clearAllProperties(){
+		List<String> names = new ArrayList<>(propNames);
+		if(!names.isEmpty()) {
+			LOG.info("[PF4BOOT] clear properties for {}", getPluginId());
+			for (String name : names) {
+				clearProperties(name);
+			}
+		}
+	}
 
   public List<Consumer<Pf4bootPlugin>> getReleaseHooks() {
     return releaseHooks;
@@ -99,9 +132,7 @@ public class Pf4bootPlugin extends Plugin {
   }
 
   public ConfigurableApplicationContext createPluginContext(ConfigurableApplicationContext platformContext) {
-		if (pluginContext != null){
-			closePluginContext();
-		}
+		closePluginContext();
     Class<?>[] primarySources = getPluginStarter().map(PluginStarter::value).orElse(new Class[]{});
 
     if (pluginClassLoader instanceof PluginClassLoader4boot) {
@@ -112,43 +143,57 @@ public class Pf4bootPlugin extends Plugin {
         ((PluginClassLoader4boot) pluginClassLoader).setPluginOnlyResources(pluginOnlyResources);
       }
     }
+    synchronized (lock) {
+			if (pluginContext == null) {
+				DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
 
-		DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
-		beanFactory.setParentBeanFactory(platformContext.getBeanFactory());
-		pluginContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory, this);
-    pluginContext.setId("plugin-"+getPluginId());
-		pluginContext.setClassLoader(pluginClassLoader);
-
-    //pluginContext.setParent(platformContext);
-    //仅共享Bean定义，不继承事件监听链1
-    //pluginContext.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
-    pluginContext.register(primarySources);
-    pluginContext.getBeanFactory().registerSingleton(BEAN_PLUGIN, this);
-    pluginContext.getBeanFactory().autowireBean(this);
-    LOG.info("[PF4BOOT] create plugin context for {} context parent = {}", getPluginId(), platformContext.getId());
-    return pluginContext;
+				beanFactory.setParentBeanFactory(platformContext.getBeanFactory());
+				pluginContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory, this);
+				pluginContext.setId("plugin-" + getPluginId());
+				pluginContext.setClassLoader(pluginClassLoader);
+				//pluginContext.setParent(platformContext);
+				//仅共享Bean定义，不继承事件监听链1
+				//pluginContext.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
+				pluginContext.register(primarySources);
+				pluginContext.getBeanFactory().registerSingleton(BEAN_PLUGIN, this);
+				pluginContext.getBeanFactory().autowireBean(this);
+				LOG.info("[PF4BOOT] create plugin context for {} context parent = {}", getPluginId(), platformContext.getId());
+			}
+			return pluginContext;
+		}
   }
 
 	public void closePluginContext(){
-		if (pluginContext != null){
-			//释放插件注册资源
-			this.getPluginManager().releasePlugin(this);
-			try {
-				pluginContext.getBeanFactory().destroyBean(BEAN_PLUGIN);
-			} catch (Exception e) {
-				LOG.error("[PF4BOOT] destroy bean error", e);
+		synchronized (lock) {
+			if (pluginContext != null){
+				try {
+					//释放插件注册资源
+					this.getPluginManager().releasePlugin(this);
+				} catch (Exception e) {
+					LOG.warn("[PF4BOOT] release plugin error", e);
+				}
+				try {
+					pluginContext.getBeanFactory().destroyBean(BEAN_PLUGIN);
+				} catch (Exception e) {
+					LOG.warn("[PF4BOOT] destroy bean error", e);
+				}
+
+				try {
+					pluginContext.close();
+				} catch (Exception e) {
+					LOG.warn("[PF4BOOT] close plugin context error", e);
+				}
+
+				pluginContext.setClassLoader( null);
+				//释放插件上下文
+				pluginContext = null;
+				if(pluginClassLoader instanceof Cleaner) {
+					((Cleaner) pluginClassLoader).cleanup();
+				}
+
+				clearAllProperties();
+				LOG.info("[PF4BOOT] close plugin context for {}", getPluginId());
 			}
-			try {
-				pluginContext.close();
-			} catch (Exception e) {
-				LOG.error("[PF4BOOT] close plugin context error", e);
-			}
-			pluginContext.setClassLoader( null);
-			pluginContext = null;
-			if(pluginClassLoader instanceof Cleaner) {
-				((Cleaner) pluginClassLoader).cleanup();
-			}
-			LOG.info("[PF4BOOT] close plugin context for {}", getPluginId());
 		}
 	}
 
@@ -162,7 +207,7 @@ public class Pf4bootPlugin extends Plugin {
   }
 
   public void publishEvent(Object event){
-    getPluginManager().publishEvent(this.pluginContext, event);
+    getPluginManager().publishEvent(this.getPluginContext(), event);
   }
 
 }

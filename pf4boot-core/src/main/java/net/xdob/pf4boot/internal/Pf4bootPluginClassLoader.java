@@ -49,7 +49,6 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
     this.classLoadingStrategy =  classLoadingStrategy;
   }
 
-
 	@Override
 	public void close() throws IOException {
 		super.close();
@@ -58,11 +57,11 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
 
 	@Override
 	public void cleanup() {
-		try {
-			SpringCglibCleaner.clearAll(this);
-		} catch (Exception e) {
-			log.warn("Failed to clean up classes", e);
-		}
+//		try {
+//			SpringCglibCleaner.clearAll(this);
+//		} catch (Exception e) {
+//			log.warn("Failed to clean up classes", e);
+//		}
 	}
 
 

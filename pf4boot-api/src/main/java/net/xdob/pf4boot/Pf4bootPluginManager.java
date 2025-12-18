@@ -118,5 +118,5 @@ public interface Pf4bootPluginManager extends PluginManager {
 
 	void releasePlugin(Pf4bootPlugin plugin);
 
-	Lock getStateLock();
+
 }

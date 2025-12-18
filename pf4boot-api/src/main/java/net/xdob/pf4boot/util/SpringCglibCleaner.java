@@ -13,8 +13,7 @@ public final class SpringCglibCleaner {
 	public static void clearAll(ClassLoader pluginCl) {
 		if (pluginCl == null) return;
 		clearAbstractClassGeneratorCache(pluginCl);
-		clearMethodProxyCache(pluginCl);
-		clearEnhancerStaticCallbacks(pluginCl);
+		clearEnhancerStaticCGLIBFields(pluginCl);
 		clearEnhancerThreadLocals(pluginCl);
 		// 可选：如果你还想尝试清理其他 cglib 相关静态缓存，可以在这里扩展
 	}
@@ -84,154 +83,16 @@ public final class SpringCglibCleaner {
 		}
 	}
 
-	// ---------- MethodProxy 静态缓存 ----------
-	public static void clearMethodProxyCache(ClassLoader pluginCl) {
-		try {
-			Class<?> methodProxyClass = Class.forName("org.springframework.cglib.proxy.MethodProxy");
-			Field cacheField = findStaticMapField(methodProxyClass,
-					new String[] {"methodCache", "methodProxyCache", "cache", "FAST_CLASS_CACHE", "METHOD_CACHE"});
-			if (cacheField == null) {
-				LOG.info("MethodProxy static Map field not found");
-				return;
-			}
-			cacheField.setAccessible(true);
-			Object cacheObj = cacheField.get(null);
-			if (!(cacheObj instanceof Map<?, ?>)) return;
-			Map<?, ?> cache = (Map<?, ?>) cacheObj;
 
-			cache.entrySet().removeIf(entry -> {
-				Object value = entry.getValue();
-				try {
-					if (value == null) return false;
-					Class<?> mpClass = value.getClass();
-
-					// 尝试路径 1：createInfo.c1 / c2
-					Field createInfoField = findFieldRecursive(mpClass, "createInfo");
-					if (createInfoField != null) {
-						createInfoField.setAccessible(true);
-						Object createInfo = createInfoField.get(value);
-						if (createInfo != null) {
-							Field c1 = findFieldRecursive(createInfo.getClass(), "c1");
-							Field c2 = findFieldRecursive(createInfo.getClass(), "c2");
-							if (c1 != null) {
-								c1.setAccessible(true);
-								Object c1v = c1.get(createInfo);
-								if (c1v instanceof Class<?> && ((Class<?>) c1v).getClassLoader() == pluginCl) return true;
-							}
-							if (c2 != null) {
-								c2.setAccessible(true);
-								Object c2v = c2.get(createInfo);
-								if (c2v instanceof Class<?> && ((Class<?>) c2v).getClassLoader() == pluginCl) return true;
-							}
-						}
-					}
-
-					// 尝试路径 2：fastClassInfo.f1 / f2 -> 检测 FastClass 里的类型
-					Field fciField = findFieldRecursive(mpClass, "fastClassInfo");
-					if (fciField != null) {
-						fciField.setAccessible(true);
-						Object fci = fciField.get(value);
-						if (fci != null) {
-							Field f1 = findFieldRecursive(fci.getClass(), "f1");
-							Field f2 = findFieldRecursive(fci.getClass(), "f2");
-							if (f1 != null) {
-								f1.setAccessible(true);
-								Object fastClass1 = f1.get(fci);
-								if (fastClass1 != null && fastClassBelongsToLoader(fastClass1, pluginCl)) return true;
-							}
-							if (f2 != null) {
-								f2.setAccessible(true);
-								Object fastClass2 = f2.get(fci);
-								if (fastClass2 != null && fastClassBelongsToLoader(fastClass2, pluginCl)) return true;
-							}
-						}
-					}
-
-					// 尝试路径 3：如果 MethodProxy 的实现类本身由 pluginCl 加载
-					if (mpClass.getClassLoader() == pluginCl) return true;
-
-				} catch (Throwable ignored) {}
-				return false;
-			});
-
-			LOG.info("Cleared MethodProxy cache entries for pluginClassLoader");
-		} catch (Throwable t) {
-			LOG.warn("clearMethodProxyCache failed: " + t.getMessage(), t);
-		}
-	}
 
 	// ---------- helper ----------
 
-	private static Field findStaticMapField(Class<?> cls, String[] candidates) {
-		for (String name : candidates) {
-			try {
-				Field f = cls.getDeclaredField(name);
-				if (Map.class.isAssignableFrom(f.getType()) && Modifier.isStatic(f.getModifiers())) {
-					return f;
-				}
-			} catch (NoSuchFieldException ignored) {}
-		}
-		for (Field f : cls.getDeclaredFields()) {
-			if (Modifier.isStatic(f.getModifiers()) && Map.class.isAssignableFrom(f.getType())) {
-				return f;
-			}
-		}
-		return null;
-	}
-
-	private static Field findFieldRecursive(Class<?> cls, String name) {
-		Class<?> cur = cls;
-		while (cur != null && cur != Object.class) {
-			try {
-				Field f = cur.getDeclaredField(name);
-				return f;
-			} catch (NoSuchFieldException ignored) {}
-			cur = cur.getSuperclass();
-		}
-		return null;
-	}
-
-	private static boolean fastClassBelongsToLoader(Object fastClassObj, ClassLoader pluginCl) {
-		if (fastClassObj == null) return false;
-		Class<?> fcClass = fastClassObj.getClass();
-
-		// 尝试常见方法名获取被代理的类型
-		String[] methodCandidates = new String[] {"getType", "getJavaClass", "getClazz", "getRealClass"};
-		for (String mname : methodCandidates) {
-			try {
-				Method m = fcClass.getMethod(mname);
-				if (m != null) {
-					Object type = m.invoke(fastClassObj);
-					if (type instanceof Class<?> && ((Class<?>) type).getClassLoader() == pluginCl) return true;
-				}
-			} catch (NoSuchMethodException ignored) {
-			} catch (Throwable ignored) {}
-		}
-
-		// 反射查找 Class 字段
-		for (Field f : fcClass.getDeclaredFields()) {
-			if (Class.class.isAssignableFrom(f.getType())) {
-				try {
-					f.setAccessible(true);
-					Object val = f.get(fastClassObj);
-					if (val instanceof Class<?> && ((Class<?>) val).getClassLoader() == pluginCl) return true;
-				} catch (Throwable ignored) {}
-			}
-		}
-
-		// 最后回退：FastClass 实现类本身由 pluginCl 加载
-		try {
-			if (fcClass.getClassLoader() == pluginCl) return true;
-		} catch (Throwable ignored) {}
-
-		return false;
-	}
 
 	/**
 	 * 清理所有由 pluginCl 加载的 CGLIB 生成类中的静态 CALLBACK 字段（比如 CGLIB$CALLBACK_FILTER）。
 	 * 也会尝试清空 CGLIB$CALLBACKS 数组元素。
 	 */
-	private static void clearEnhancerStaticCallbacks(ClassLoader pluginCl) {
+	private static void clearEnhancerStaticCGLIBFields(ClassLoader pluginCl) {
 		try {
 
 
@@ -248,14 +109,14 @@ public final class SpringCglibCleaner {
 				}
 			}
 
-			// 扫描这些 Class 的静态字段，清掉 CGLIB CALLBACK 类型的静态引用
+			// 扫描这些 Class 的静态字段，清掉 CGLIB 类型的静态引用
 			for (Class<?> c : classesToScan) {
 				try {
 					for (Field f : c.getDeclaredFields()) {
 						int mod = f.getModifiers();
-						if (!Modifier.isStatic(mod)) continue;
+						if (!Modifier.isStatic(mod)||Modifier.isFinal(mod)) continue;
 						String name = f.getName();
-						if (name.startsWith("CGLIB$CALLBACK") || name.contains("CALLBACK") || name.contains("CGLIB$BIND") || name.contains("CGLIB$THREAD")) {
+						if (name.startsWith("CGLIB$")) {
 							try {
 								f.setAccessible(true);
 								Object old = f.get(null);
@@ -268,8 +129,10 @@ public final class SpringCglibCleaner {
 										}
 									}
 									// 最终把字段指向 null
-									try { f.set(null, null); } catch (Throwable ignored) {}
-									//LOG.info("Cleared static callback field " + c.getName() + "#" + name);
+									try { f.set(null, null); } catch (Throwable ignored) {
+										LOG.warn("Failed clearing field " + c.getName() + "#" + name + " : ", ignored);
+									}
+									//LOG.info("Cleared static CGLIB field " + c.getName() + "#" + name);
 								}
 							} catch (Throwable t) {
 								LOG.info("Failed clearing field " + c.getName() + "#" + name + " : " + t.getMessage());
@@ -279,7 +142,7 @@ public final class SpringCglibCleaner {
 				} catch (Throwable ignored) {}
 			}
 		} catch (Throwable t) {
-			LOG.info("clearEnhancerStaticCallbacks failed: " + t.getMessage(), t);
+			LOG.info("clearEnhancerStaticCGLIBFields failed: " + t.getMessage(), t);
 		}
 	}
 
@@ -296,7 +159,6 @@ public final class SpringCglibCleaner {
 				int mod = f.getModifiers();
 				if (!Modifier.isStatic(mod)) continue;
 				Class<?> t = f.getType();
-				String fname = f.getName().toUpperCase();
 				if (ThreadLocal.class.isAssignableFrom(t) || Map.class.isAssignableFrom(t) || t.isArray()) {
 					try {
 						f.setAccessible(true);

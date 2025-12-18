@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -50,7 +51,7 @@ import java.util.stream.Collectors;
 public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     implements Pf4bootPluginManager {
 	static final Logger LOG = LoggerFactory.getLogger(Pf4bootPluginManagerImpl.class);
-	public static final int MAX_FAILED_NUM = 3;
+	public static final int MAX_FAILED_NUM = 6;
 
 	private volatile boolean mainApplicationStarted;
   /**
@@ -76,18 +77,20 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 
 	private final ReentrantLock stateLock = new ReentrantLock();
+	private final AtomicBoolean starting = new AtomicBoolean(false);
+  private final AtomicBoolean stopping = new AtomicBoolean(false);
 
-  private final ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider;
+	private final Pf4bootPluginSupport pluginSupport;
   private ScheduledExecutorService scheduled;
 	private final ShareBeanMgr shareBeanMgr;
 
   public Pf4bootPluginManagerImpl(ApplicationContext applicationContext, Pf4bootProperties properties,
-																	ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider, ShareBeanMgr shareBeanMgr, Path... pluginsRoots) {
+																	Pf4bootPluginSupport pluginSupport, ShareBeanMgr shareBeanMgr, Path... pluginsRoots) {
     super(pluginsRoots);
     this.applicationContext = (ConfigurableApplicationContext)applicationContext;
 
     this.properties = properties;
-    this.pluginSupportProvider = pluginSupportProvider;
+    this.pluginSupport = pluginSupport;
 		this.shareBeanMgr = shareBeanMgr;
 		this.rootContext = new AnnotationConfigApplicationContext();
 		this.rootContext.refresh();
@@ -107,10 +110,6 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   }
 
-	@Override
-	public Lock getStateLock() {
-		return stateLock;
-	}
 
 	/**
    * 获取顶层上下文
@@ -284,15 +283,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 	@Override
 	public void releasePlugin(Pf4bootPlugin plugin) {
-		try {
-			lastHandlePlugin(p -> p.stopPlugin(plugin));
-			shareBeanMgr.stopPlugin(plugin);
-			lastHandlePlugin(p -> p.stoppedPlugin(plugin));
-
-			lastHandlePlugin(p -> p.releasePlugin(plugin));
-		} catch (Exception e) {
-			LOG.error("[PF4BOOT] release plugin error:{}", e.getMessage());
-		}
+		pluginSupport.stopPlugin(plugin);
+		shareBeanMgr.stopPlugin(plugin);
+		pluginSupport.stoppedPlugin(plugin);
+		pluginSupport.releasePlugin(plugin);
 	}
 
 	/**
@@ -338,9 +332,6 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public void loadPlugins() {
     super.loadPlugins();
   }
-
-
-
 
   @Override
   protected PluginWrapper loadPluginFromPath(Path pluginPath) {
@@ -434,7 +425,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     if(mainApplicationStarted){
       scheduled.scheduleWithFixedDelay(() -> {
         doStartPlugins(true);
-      }, 10, 10, TimeUnit.SECONDS);
+      }, 10, 20, TimeUnit.SECONDS);
     }
   }
 
@@ -501,39 +492,66 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
    * @param autoStartPlugin 此次是否是自动启动
    */
   protected void doStartPlugins(boolean autoStartPlugin) {
-    int failedCount = 0;
+    int totalCount = 0;
+		int failedCount = 0;
     long ts = System.currentTimeMillis();
     List<Pf4bootPluginWrapper> wrappers = resolvedPlugins.stream()
-				.filter(p -> needStart(autoStartPlugin, p))
 				.map(p -> (Pf4bootPluginWrapper)p)
       	.collect(Collectors.toList());
     if(!wrappers.isEmpty()){
       for (Pf4bootPluginWrapper pluginWrapper : wrappers) {
-        PluginState pluginState = pluginWrapper.getPluginState();
+				if(starting.get()||stopping.get()){
+					break;
+				}
+				if(!needStart(autoStartPlugin, pluginWrapper)){
+					continue;
+				}
+				PluginState pluginState = pluginWrapper.getPluginState();
 				if(PluginState.DISABLED == pluginState){
 					continue;
 				}
-        if ((PluginState.RESOLVED == pluginState)
-						|| (PluginState.FAILED == pluginState && pluginWrapper.getStartFailed().get()< MAX_FAILED_NUM)
-            || (PluginState.STOPPED == pluginState && !autoStartPlugin)) {
-          try {
-            doStartPlugin(pluginWrapper, autoStartPlugin);
-          } catch (Throwable e) {
-            LOG.warn("Can't start plugin {}", pluginWrapper.getPluginId(), e);
-            pluginWrapper.setPluginState(PluginState.FAILED);
-            pluginWrapper.setFailedException(e);
-          }
-          if (!pluginWrapper.getPluginState().isStarted()) {
-            failedCount += 1;
-          }
-        }
+
+				totalCount += 1;
+				if (canStart(pluginWrapper, autoStartPlugin)) {
+					if(starting.get()||stopping.get()){
+						break;
+					}
+					try {
+						doStartPlugin(pluginWrapper, autoStartPlugin);
+					} catch (Throwable e) {
+						LOG.warn("Can't start plugin {}", pluginWrapper.getPluginId(), e);
+						pluginWrapper.setPluginState(PluginState.FAILED);
+						pluginWrapper.setFailedException(e);
+					}
+					if (!pluginWrapper.getPluginState().isStarted()) {
+						failedCount += 1;
+					}
+				}
+				if(starting.get()||stopping.get()){
+					break;
+				}
       }
-      LOG.info("[PF4BOOT] {} plugins are started in {}ms. {} failed", wrappers.size(),
-          System.currentTimeMillis() - ts, failedCount);
+			if(totalCount>0) {
+				LOG.info("[PF4BOOT] {} plugins are started in {}ms. {} failed", totalCount,
+						System.currentTimeMillis() - ts, failedCount);
+			}
     }
   }
 
-  private boolean needStart(boolean autoStartPlugin, PluginWrapper p) {
+	private static boolean canStart(Pf4bootPluginWrapper pluginWrapper, boolean autoStartPlugin) {
+		PluginState pluginState = pluginWrapper.getPluginState();
+		if(!autoStartPlugin){
+			return PluginState.RESOLVED == pluginState
+					|| PluginState.FAILED == pluginState
+					|| PluginState.STOPPED == pluginState;
+		}else{
+			return (PluginState.RESOLVED == pluginState)
+					|| (PluginState.FAILED == pluginState && pluginWrapper.getStartFailed().get() < MAX_FAILED_NUM)
+			    || (PluginState.STOPPED == pluginState && !pluginWrapper.getStopped().get());
+		}
+	}
+
+	private boolean needStart(boolean autoStartPlugin, PluginWrapper p) {
     if(!autoStartPlugin){
       return p.getPluginState().isResolved()
           ||p.getPluginState().isFailed()
@@ -712,40 +730,44 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       }
     }
 
-    for (PluginDependency dependency : pluginDescriptor.getDependencies()) {
-      // start dependency only if it marked as required (non-optional) or if it optional and loaded
-      if (!dependency.isOptional() || plugins.containsKey(dependency.getPluginId())) {
-        startPlugin(dependency.getPluginId(), autoStartPlugin);
-      }
-      if (!dependency.isOptional()){
-        Pf4bootPluginWrapper wrapper = (Pf4bootPluginWrapper) plugins.get(dependency.getPluginId());
-        if(wrapper == null || !wrapper.getPluginState().isStarted()){
-          LOG.info("Plugin {} is not started. stop start {}", dependency.getPluginId(), pluginWrapper.getPluginId());
-          pluginWrapper.setPluginState(PluginState.FAILED);
-          pluginWrapper.setFailedException(new DependencyNotStartedException(dependency.getPluginId()));
-          return;
-        }
-      }
-    }
-    LOG.info("Start plugin '{}'", getPluginLabel(pluginDescriptor));
+
 
     Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
     ClassLoader oldClassLoader = replaceClassLoader(plugin.getWrapper().getPluginClassLoader());
 		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+			starting.set( true);
+			for (PluginDependency dependency : pluginDescriptor.getDependencies()) {
+				// start dependency only if it marked as required (non-optional) or if it optional and loaded
+				if (!dependency.isOptional() || plugins.containsKey(dependency.getPluginId())) {
+					startPlugin(dependency.getPluginId(), autoStartPlugin);
+				}
+				if (!dependency.isOptional()){
+					Pf4bootPluginWrapper wrapper = (Pf4bootPluginWrapper) plugins.get(dependency.getPluginId());
+					if(wrapper == null || !wrapper.getPluginState().isStarted()){
+						LOG.info("Plugin {} is not started. stop start {}", dependency.getPluginId(), pluginWrapper.getPluginId());
+						pluginWrapper.setPluginState(PluginState.FAILED);
+						pluginWrapper.setFailedException(new DependencyNotStartedException(dependency.getPluginId()));
+						return;
+					}
+				}
+			}
+			LOG.info("Start plugin '{}'", getPluginLabel(pluginDescriptor));
+
 			PluginState state = pluginWrapper.getPluginState();
 			if (state.isStarted()||pluginState.isDisabled()) {
 				return;
 			}
-      pluginWrapper.setFailedException(null);
+			pluginWrapper.setFailedException(null);
+			((Pf4bootPluginWrapper)pluginWrapper).getStopped().set( false);
       //初始化插件前置处理
-      preHandlePlugin(p -> p.initiatePlugin(plugin));
+			pluginSupport.initiatePlugin(plugin);
       String group = plugin.getGroup();
       ConfigurableApplicationContext platformContext = this.getPlatformContext(group);
 
       plugin.initiate();
 
       //初始化插件后置处理
-      lastHandlePlugin(p -> p.initiatedPlugin(plugin));
+			pluginSupport.initiatedPlugin(plugin);
       ConfigurableApplicationContext pluginContext = plugin.createPluginContext(platformContext);
 
 			pluginContext.refresh();
@@ -757,13 +779,13 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       pluginContext.getBeanFactory().autowireBean(plugin);
 
       //插件启动前置处理
-      preHandlePlugin(p -> p.startPlugin(plugin));
+			pluginSupport.startPlugin(plugin);
       publishEvent(pluginContext, new StartingPluginEvent(plugin));
 
       plugin.start();
 			shareBeanMgr.startedPlugin(plugin);
       //插件启动后置处理
-      lastHandlePlugin(p -> p.startedPlugin(plugin));
+			pluginSupport.startedPlugin(plugin);
       publishEvent(pluginContext, new StartedPluginEvent(plugin));
 			startedPlugins.add(pluginWrapper);
 			pluginWrapper.setPluginState(PluginState.STARTED);
@@ -775,6 +797,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			throw e;
 		}finally {
       replaceClassLoader(oldClassLoader);
+			starting.set( false);
     }
   }
 
@@ -805,7 +828,6 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public PluginState stopPlugin(String pluginId) {
     PluginState state = stopPlugin(pluginId, true);
-
     notifyAppCacheFree();
     return state;
   }
@@ -843,6 +865,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			}
 		}
 		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)){
+			stopping.set( true);
 			PluginWrapper pluginWrapper = getPlugin(pluginId);
 			PluginState pluginState = pluginWrapper.getPluginState();
 			if(!pluginState.isStarted()){
@@ -853,12 +876,12 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			ConfigurableApplicationContext pluginContext = plugin.getPluginContext();
 			publishEvent(pluginContext, new PreStopPluginEvent(plugin));
 			//插件停止前置处理
-			preHandlePlugin(p->p.stopPlugin(plugin));
+			pluginSupport.stopPlugin(plugin);
 			publishEvent(pluginContext, new StoppingPluginEvent(plugin));
 			plugin.stop();
 
 			//插件停止后置处理
-			lastHandlePlugin(p->p.stoppedPlugin(plugin));
+			pluginSupport.stoppedPlugin(plugin);
 			publishEvent(pluginContext, new StoppedPluginEvent(plugin));
 			firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STOPPED));
 			if(culpritDependency !=null&&!culpritDependency.isEmpty()){
@@ -870,24 +893,18 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			getStartedPlugins().remove(pluginWrapper);
 
 			releaseResource(plugin);
-			lastHandlePlugin(p->p.releasePlugin(plugin));
+			pluginSupport.releasePlugin(plugin);
 			ApplicationContextProvider.unregisterApplicationContext(pluginContext);
 			plugin.closePluginContext();
 			plugin.closed();
-
+			if(culpritDependency==null){
+				((Pf4bootPluginWrapper)pluginWrapper).getStopped().set(true);
+			}
 			return PluginState.STOPPED;
+		}finally {
+			stopping.set( false);
 		}
 	}
-
-	private List<Pf4bootPluginSupport> getPluginSupports(boolean reversed) {
-    Comparator<Pf4bootPluginSupport> comparator = Comparator.comparingInt(Pf4bootPluginSupport::getPriority);
-    if(reversed) {
-      comparator = comparator.reversed();
-    }
-    return pluginSupportProvider.stream()
-        .sorted(comparator)
-        .collect(Collectors.toList());
-  }
 
 
   @Override
@@ -1037,9 +1054,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     }
     if(plugin instanceof Pf4bootPlugin) {
       Pf4bootPlugin pf4bootPlugin = (Pf4bootPlugin) plugin;
-      preHandlePlugin(p -> p.deletePlugin(pf4bootPlugin));
+			pluginSupport.deletePlugin(pf4bootPlugin);
       pf4bootPlugin.delete();
-      lastHandlePlugin(p -> p.deletedPlugin(pf4bootPlugin));
+			pluginSupport.deletedPlugin(pf4bootPlugin);
     }else {
       // notify the plugin as it's deleted
       plugin.delete();
@@ -1048,13 +1065,4 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     return pluginRepository.deletePluginPath(pluginWrapper.getPluginPath());
   }
 
-  private void preHandlePlugin(Consumer<Pf4bootPluginSupport> consumer) {
-    List<Pf4bootPluginSupport> pluginSupportList = getPluginSupports(false);
-    pluginSupportList.forEach(consumer);
-  }
-
-  private void lastHandlePlugin(Consumer<Pf4bootPluginSupport> consumer) {
-    List<Pf4bootPluginSupport> pluginSupportList = getPluginSupports(true);
-    pluginSupportList.forEach(consumer);
-  }
 }

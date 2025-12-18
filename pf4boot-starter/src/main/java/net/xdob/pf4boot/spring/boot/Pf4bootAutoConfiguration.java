@@ -8,7 +8,6 @@ import org.pf4j.PluginManager;
 import org.pf4j.PluginStateListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -73,7 +72,7 @@ public class Pf4bootAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(DefaultShareBeanMgr.class)
-  public DefaultShareBeanMgr defaultPf4bootPluginSupport(){
+  public DefaultShareBeanMgr shareBeanMgr(){
     return new DefaultShareBeanMgr();
   }
 
@@ -88,7 +87,7 @@ public class Pf4bootAutoConfiguration {
   @Lazy
   @ConditionalOnMissingBean
   public Pf4bootPluginManager pluginManager(ApplicationContext applicationContext,  Pf4bootProperties properties,
-																						ObjectProvider<Pf4bootPluginSupport> pluginSupportProvider,
+																						WebPf4BootPluginSupport pluginSupport,
 																						ShareBeanMgr shareBeanMgr) {
     // Setup RuntimeMode
     System.setProperty(PF4J_MODE, properties.getRuntimeMode().toString());
@@ -99,7 +98,7 @@ public class Pf4bootAutoConfiguration {
     System.setProperty(PF4J_PLUGINS_DIR, pluginsRoot);
 
     Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(applicationContext, properties,
-				pluginSupportProvider, shareBeanMgr, new File(pluginsRoot).toPath());
+				pluginSupport, shareBeanMgr, new File(pluginsRoot).toPath());
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));

@@ -4,11 +4,17 @@ package net.xdob.pf4boot.internal;
 import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.Pf4bootPluginSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.util.ReflectionUtils;
 import org.springframework.web.servlet.mvc.method.PluginRequestMappingHandlerMapping;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter;
+
+import java.util.Map;
 
 
 public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
-
+	static final Logger LOG = LoggerFactory.getLogger(WebPf4BootPluginSupport.class);
   public static final String REQUEST_MAPPING_HANDLER_MAPPING = "requestMappingHandlerMapping";
 
 
@@ -38,6 +44,24 @@ public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
     getMainRequestMapping(pluginManager).unregisterControllers(pf4bootPlugin);
     //unregister Interceptor
     getMainRequestMapping(pluginManager).unregisterInterceptors(pf4bootPlugin);
+    try {
+      //clear RequestMappingHandlerAdapter
+			RequestMappingHandlerAdapter adapter =
+					pluginManager.getApplicationContext().getBean(RequestMappingHandlerAdapter.class);
+			ReflectionUtils.doWithFields(
+					RequestMappingHandlerAdapter.class,
+					f -> {
+						f.setAccessible(true);
+						Object v = f.get(adapter);
+						if (v instanceof Map) {
+							((Map<?, ?>) v).clear();
+						}
+					}
+			);
+    } catch (Exception e) {
+			LOG.warn("Failed to clear RequestMappingHandlerAdapter", e);
+    }
+
   }
 
   @Override

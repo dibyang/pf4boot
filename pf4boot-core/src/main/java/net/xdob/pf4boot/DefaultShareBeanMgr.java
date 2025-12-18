@@ -270,8 +270,8 @@ public class DefaultShareBeanMgr implements ShareBeanMgr{
             .getPluginManager().getExtensionFactory();
         String beanName = extensionFactory.getExtensionBeanName(extensionClass);
         pluginManager.unregisterBeanFromPlatformContext(group, beanName);
-      } catch (ClassNotFoundException e) {
-        throw new IllegalArgumentException(e.getMessage(), e);
+      } catch (Exception e) {
+        logger.warn("unregister extension <{}> to platform [{}] failed", extensionClassName, group, e);
       }
     }
     ConfigurableApplicationContext applicationContext = pluginManager.getApplicationContext();
