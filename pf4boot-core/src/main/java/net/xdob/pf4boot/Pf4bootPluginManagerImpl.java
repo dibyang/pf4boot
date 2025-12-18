@@ -572,7 +572,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     while (itr.hasNext()) {
       PluginWrapper pluginWrapper = itr.next();
       PluginState pluginState = pluginWrapper.getPluginState();
-      if (PluginState.STARTED == pluginState) {
+      if (PluginState.STOPPED != pluginState) {
         try {
           stopPlugin(pluginWrapper.getPluginId());
           itr.remove();
@@ -866,9 +866,12 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 		}
 		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)){
 			stopping.set( true);
-			PluginWrapper pluginWrapper = getPlugin(pluginId);
+			Pf4bootPluginWrapper pluginWrapper = (Pf4bootPluginWrapper)getPlugin(pluginId);
 			PluginState pluginState = pluginWrapper.getPluginState();
 			if(!pluginState.isStarted()){
+				pluginWrapper.setPluginState(PluginState.STOPPED);
+				pluginWrapper.setFailedException(null);
+				pluginWrapper.getStartFailed().set(0);
 				return pluginState;
 			}
 			LOG.info("Stop plugin '{}'", getPluginLabel(pluginId));
