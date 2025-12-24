@@ -18,6 +18,7 @@ import org.springframework.core.io.support.SpringFactoriesLoaderHelp;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import static net.xdob.pf4boot.Pf4bootPluginManager.BEAN_PLUGIN;
@@ -185,57 +186,64 @@ public class Pf4bootPlugin extends Plugin {
 				} catch (Exception e) {
 					LOG.warn("[PF4BOOT] destroy bean error", e);
 				}
-
         try {
-          for (String name : beanFactory.getBeanDefinitionNames()) {
-            BeanDefinition bd = beanFactory.getBeanDefinition(name);
-            String beanClassName = bd.getBeanClassName();
-            if (beanClassName != null &&
-                beanClassName.startsWith("com.sun.proxy.$Proxy")) {
-              beanFactory.removeBeanDefinition(name);
-              LOG.info("[PF4BOOT] remove BeanDefinition for {}, beanClassName = {}", name, beanClassName);
-            }
-          }
-        } catch (Exception e) {
-          LOG.warn("[PF4BOOT] remove BeanDefinition error", e);
+          Thread.sleep(1000);
+        } catch (InterruptedException ignore) {
+
         }
-
-				try {
-					pluginContext.close();
-				} catch (Exception e) {
-					LOG.warn("[PF4BOOT] close plugin context error", e);
-				}
-
-        try {
-          beanFactory.clearMetadataCache();
-        } catch (Exception e) {
-          LOG.warn("[PF4BOOT] clearMetadataCache error", e);
-        }
-
-        ClassLoader classLoader = pluginContext.getClassLoader();
-        pluginContext.setClassLoader( null);
-        if(classLoader!=null){
-          if(classLoader instanceof Closeable){
-            try {
-              ((Closeable) classLoader).close();
-            } catch (IOException e) {
-              LOG.warn("[PF4BOOT] close plugin classloader error", e);
-            }
-          }
-        }
-
-        SpringFactoriesLoaderHelp.clearCache();
-				//释放插件上下文
+        freeContext(pluginContext);
+        //释放插件上下文
 				pluginContext = null;
-				if(pluginClassLoader instanceof Cleaner) {
-					((Cleaner) pluginClassLoader).cleanup();
-				}
 
 				clearAllProperties();
 				LOG.info("[PF4BOOT] close plugin context for {}", getPluginId());
 			}
 		}
 	}
+
+  private void freeContext( AnnotationConfigApplicationContext context) {
+    DefaultListableBeanFactory beanFactory = context.getDefaultListableBeanFactory();
+
+    try {
+      for (String name : beanFactory.getBeanDefinitionNames()) {
+        BeanDefinition bd = beanFactory.getBeanDefinition(name);
+        String beanClassName = bd.getBeanClassName();
+        if (beanClassName != null &&
+            beanClassName.startsWith("com.sun.proxy.$Proxy")) {
+          beanFactory.removeBeanDefinition(name);
+          LOG.info("[PF4BOOT] remove BeanDefinition for {}, beanClassName = {}", name, beanClassName);
+        }
+      }
+    } catch (Exception e) {
+      LOG.warn("[PF4BOOT] remove BeanDefinition error", e);
+    }
+
+    try {
+      context.close();
+    } catch (Exception e) {
+      LOG.warn("[PF4BOOT] close plugin context error", e);
+    }
+
+    try {
+      beanFactory.clearMetadataCache();
+    } catch (Exception e) {
+      LOG.warn("[PF4BOOT] clearMetadataCache error", e);
+    }
+
+    ClassLoader classLoader = context.getClassLoader();
+    context.setClassLoader( null);
+    if(classLoader!=null){
+      if(classLoader instanceof Closeable){
+        try {
+          ((Closeable) classLoader).close();
+        } catch (IOException e) {
+          LOG.warn("[PF4BOOT] close plugin classloader error", e);
+        }
+      }
+    }
+
+    SpringFactoriesLoaderHelp.clearCache();
+  }
 
 
   public Optional<PluginStarter> getPluginStarter() {
