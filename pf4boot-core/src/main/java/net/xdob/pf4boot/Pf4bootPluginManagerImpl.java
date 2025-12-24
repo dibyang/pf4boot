@@ -2,9 +2,7 @@ package net.xdob.pf4boot;
 
 import com.google.common.base.Strings;
 import net.xdob.pf4boot.exception.DependencyNotStartedException;
-import net.xdob.pf4boot.internal.Pf4bootPluginFactory;
-import net.xdob.pf4boot.internal.Pf4bootPluginStateListener;
-import net.xdob.pf4boot.internal.SpringExtensionFactory;
+import net.xdob.pf4boot.internal.*;
 import net.xdob.pf4boot.loader.JarPf4bootPluginLoader;
 import net.xdob.pf4boot.loader.Pf4bootPluginLoader;
 import net.xdob.pf4boot.loader.ZipPf4bootPluginLoader;
@@ -15,8 +13,8 @@ import net.xdob.pf4boot.util.AutoCloseableLock;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -36,7 +34,6 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -287,9 +284,31 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 		shareBeanMgr.stopPlugin(plugin);
 		pluginSupport.stoppedPlugin(plugin);
 		pluginSupport.releasePlugin(plugin);
-	}
+    clearMetadataCache();
+  }
 
-	/**
+  private void clearMetadataCache() {
+    clearMetadataCache(rootContext);
+    clearMetadataCache(platformContext);
+    clearMetadataCache(applicationContext);
+    for (ConfigurableApplicationContext context : platformContexts.values()) {
+      clearMetadataCache(context);
+    }
+    for (PluginWrapper pluginWrapper : this.startedPlugins) {
+      Pf4bootPlugin plugin1 = (Pf4bootPlugin)pluginWrapper.getPlugin();
+      ConfigurableApplicationContext context = plugin1.getPluginContext();
+      if (context != null) {
+        clearMetadataCache(context);
+      }
+    }
+  }
+
+  private void clearMetadataCache(ConfigurableApplicationContext context) {
+    DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getBeanFactory();
+    beanFactory.clearMetadataCache();
+  }
+
+  /**
    * This method load, start plugins and inject extensions in Spring
    */
   @PostConstruct
@@ -653,12 +672,27 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     Assert.notNull(beanName, "bean must not be null");
     ConfigurableApplicationContext context = getContext(group, scope);
     Object bean = context.getBean(beanName);
-    ((AbstractAutowireCapableBeanFactory) context.getBeanFactory())
-        .destroySingleton(beanName);
+    DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getBeanFactory();
+    beanFactory.destroySingleton(beanName);
+    removeBeanDefinition(beanName);
     BeanUnregisterEvent unRegisterBeanEvent = new BeanUnregisterEvent(scope, context, beanName, bean);
     publishEvent(unRegisterBeanEvent);
   }
 
+  private void removeBeanDefinition(String beanName) {
+    try {
+      DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory)this.rootContext.getBeanFactory();
+      beanFactory.removeBeanDefinition(beanName);
+      LOG.info("[PF4BOOT] remove bean definition {} from root", beanName);
+    } catch (Exception ignore) {
+    }
+    try {
+      DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory)this.applicationContext.getBeanFactory();
+      beanFactory.removeBeanDefinition(beanName);
+      LOG.info("[PF4BOOT] remove bean definition {} from app", beanName);
+    } catch (Exception ignore) {
+    }
+  }
 
 
   @Override

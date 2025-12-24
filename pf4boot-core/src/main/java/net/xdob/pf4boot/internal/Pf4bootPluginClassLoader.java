@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -28,11 +29,12 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
 
   private List<String> pluginOnlyResources;
 
-  private final PluginManager pluginManager;
-  private final PluginDescriptor pluginDescriptor;
-  private final ClassLoadingStrategy classLoadingStrategy;
+  final PluginManager pluginManager;
+  final PluginDescriptor pluginDescriptor;
+  final ClassLoadingStrategy classLoadingStrategy;
 
-  public Pf4bootPluginClassLoader(PluginManager pluginManager, PluginDescriptor pluginDescriptor) {
+
+	public Pf4bootPluginClassLoader(PluginManager pluginManager, PluginDescriptor pluginDescriptor) {
     // load class from parent first to avoid same class loaded by different classLoader,
     // so Spring could autowired bean by type correctly.
     this(pluginManager, pluginDescriptor, ((Pf4bootPluginManager)pluginManager).getApplicationContext().getClassLoader());
@@ -52,19 +54,7 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
 	@Override
 	public void close() throws IOException {
 		super.close();
-		cleanup();
 	}
-
-	@Override
-	public void cleanup() {
-//		try {
-//			SpringCglibCleaner.clearAll(this);
-//		} catch (Exception e) {
-//			log.warn("Failed to clean up classes", e);
-//		}
-	}
-
-
 
   @Override
   public void setPluginFirstClasses(List<String> pluginFirstClasses) {

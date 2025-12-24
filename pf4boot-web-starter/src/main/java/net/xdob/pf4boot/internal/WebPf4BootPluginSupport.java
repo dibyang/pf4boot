@@ -7,9 +7,12 @@ import net.xdob.pf4boot.Pf4bootPluginSupport;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.ReflectionUtils;
+import org.springframework.validation.beanvalidation.MethodValidationPostProcessor;
+import org.springframework.web.method.support.HandlerMethodArgumentResolverComposite;
 import org.springframework.web.servlet.mvc.method.PluginRequestMappingHandlerMapping;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter;
 
+import java.lang.reflect.Field;
 import java.util.Map;
 
 
@@ -44,24 +47,23 @@ public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
     getMainRequestMapping(pluginManager).unregisterControllers(pf4bootPlugin);
     //unregister Interceptor
     getMainRequestMapping(pluginManager).unregisterInterceptors(pf4bootPlugin);
-    try {
-      //clear RequestMappingHandlerAdapter
-			RequestMappingHandlerAdapter adapter =
-					pluginManager.getApplicationContext().getBean(RequestMappingHandlerAdapter.class);
-			ReflectionUtils.doWithFields(
-					RequestMappingHandlerAdapter.class,
-					f -> {
-						f.setAccessible(true);
-						Object v = f.get(adapter);
-						if (v instanceof Map) {
-							((Map<?, ?>) v).clear();
-						}
-					}
-			);
-    } catch (Exception e) {
-			LOG.warn("Failed to clear RequestMappingHandlerAdapter", e);
-    }
 
+    try {
+      Object p =
+          pluginManager.getApplicationContext().getBean(MethodValidationPostProcessor.class);
+
+      Field field = p.getClass().getDeclaredField("validator");
+      field.setAccessible(true);
+      Object validator = ReflectionUtils.getField(field, p);
+
+      if (validator != null &&
+          validator.getClass().getClassLoader() == pf4bootPlugin.getPluginContext().getClassLoader()) {
+
+        ReflectionUtils.setField(field, p, null);
+      }
+    } catch (Exception e) {
+      LOG.warn("unregister validator error", e);
+    }
   }
 
   @Override

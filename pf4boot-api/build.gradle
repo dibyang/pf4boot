@@ -10,4 +10,5 @@ dependencies {
     api("net.xdob.springframework.boot:spring-boot-autoconfigure:${spring_boot_version}"){
         exclude group: 'org.slf4j'
     }
+	implementation("net.xdob.springframework:spring-aop:$spring_version")
 }

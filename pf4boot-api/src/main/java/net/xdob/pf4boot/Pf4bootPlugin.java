@@ -1,9 +1,11 @@
 package net.xdob.pf4boot;
 
 import net.xdob.pf4boot.annotation.PluginStarter;
+
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.context.support.Pf4bootAnnotationConfigApplicationContext;
 import org.pf4j.Plugin;
-import org.pf4j.PluginClassLoader;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +13,10 @@ import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.core.io.support.SpringFactoriesLoaderHelp;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -29,7 +34,7 @@ public class Pf4bootPlugin extends Plugin {
 
   protected volatile AnnotationConfigApplicationContext pluginContext = null;
 
-  private final PluginClassLoader pluginClassLoader;
+  private final ClassLoader pluginClassLoader;
 
 
 
@@ -124,7 +129,7 @@ public class Pf4bootPlugin extends Plugin {
    */
   public Pf4bootPlugin(PluginWrapper wrapper) {
     super(wrapper);
-    pluginClassLoader = (PluginClassLoader) wrapper.getPluginClassLoader();
+    pluginClassLoader = wrapper.getPluginClassLoader();
   }
 
   public String getPluginId(){
@@ -145,12 +150,14 @@ public class Pf4bootPlugin extends Plugin {
     }
     synchronized (lock) {
 			if (pluginContext == null) {
-				DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(pluginClassLoader);
+        DelegatingPluginClassLoader classLoader = new DelegatingPluginClassLoader(this.getPluginId(), this.pluginClassLoader);
+
+        DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(classLoader);
 
 				beanFactory.setParentBeanFactory(platformContext.getBeanFactory());
 				pluginContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory, this);
 				pluginContext.setId("plugin-" + getPluginId());
-				pluginContext.setClassLoader(pluginClassLoader);
+        pluginContext.setClassLoader(classLoader);
 				//pluginContext.setParent(platformContext);
 				//仅共享Bean定义，不继承事件监听链1
 				//pluginContext.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
@@ -172,11 +179,26 @@ public class Pf4bootPlugin extends Plugin {
 				} catch (Exception e) {
 					LOG.warn("[PF4BOOT] release plugin error", e);
 				}
-				try {
-					pluginContext.getBeanFactory().destroyBean(BEAN_PLUGIN);
+        DefaultListableBeanFactory beanFactory = pluginContext.getDefaultListableBeanFactory();
+        try {
+					beanFactory.destroyBean(BEAN_PLUGIN);
 				} catch (Exception e) {
 					LOG.warn("[PF4BOOT] destroy bean error", e);
 				}
+
+        try {
+          for (String name : beanFactory.getBeanDefinitionNames()) {
+            BeanDefinition bd = beanFactory.getBeanDefinition(name);
+            String beanClassName = bd.getBeanClassName();
+            if (beanClassName != null &&
+                beanClassName.startsWith("com.sun.proxy.$Proxy")) {
+              beanFactory.removeBeanDefinition(name);
+              LOG.info("[PF4BOOT] remove BeanDefinition for {}, beanClassName = {}", name, beanClassName);
+            }
+          }
+        } catch (Exception e) {
+          LOG.warn("[PF4BOOT] remove BeanDefinition error", e);
+        }
 
 				try {
 					pluginContext.close();
@@ -184,7 +206,25 @@ public class Pf4bootPlugin extends Plugin {
 					LOG.warn("[PF4BOOT] close plugin context error", e);
 				}
 
-				pluginContext.setClassLoader( null);
+        try {
+          beanFactory.clearMetadataCache();
+        } catch (Exception e) {
+          LOG.warn("[PF4BOOT] clearMetadataCache error", e);
+        }
+
+        ClassLoader classLoader = pluginContext.getClassLoader();
+        pluginContext.setClassLoader( null);
+        if(classLoader!=null){
+          if(classLoader instanceof Closeable){
+            try {
+              ((Closeable) classLoader).close();
+            } catch (IOException e) {
+              LOG.warn("[PF4BOOT] close plugin classloader error", e);
+            }
+          }
+        }
+
+        SpringFactoriesLoaderHelp.clearCache();
 				//释放插件上下文
 				pluginContext = null;
 				if(pluginClassLoader instanceof Cleaner) {
