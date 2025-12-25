@@ -1,5 +1,6 @@
 package net.xdob.pf4boot.util;
 
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
 
@@ -28,6 +29,22 @@ public final class AutoCloseableLock implements AutoCloseable {
     return new AutoCloseableLock(lock, preUnlock);
   }
 
+  public static AutoCloseableLock acquire(final Lock lock, int timeout, TimeUnit unit) {
+    return acquire(lock, timeout,unit, null);
+  }
+
+  public static AutoCloseableLock acquire(final Lock lock, int timeout, TimeUnit unit, Runnable preUnlock) {
+    try {
+      if(lock.tryLock(timeout, unit)) {
+        return new AutoCloseableLock(lock, preUnlock);
+      }else{
+        return new AutoCloseableLock(null, preUnlock);
+      }
+    } catch (InterruptedException e) {
+      return new AutoCloseableLock(null, preUnlock);
+    }
+  }
+
   private final Lock underlying;
   private final AtomicBoolean closed = new AtomicBoolean(false);
   private final Runnable preUnlock;
@@ -41,12 +58,14 @@ public final class AutoCloseableLock implements AutoCloseable {
   @Override
   public void close() {
     if (closed.compareAndSet(false, true)) {
-      try {
-        if (preUnlock != null) {
-          preUnlock.run();
+      if(underlying!=null) {
+        try {
+          if (preUnlock != null) {
+            preUnlock.run();
+          }
+        } finally {
+          underlying.unlock();
         }
-      } finally {
-        underlying.unlock();
       }
     }
   }

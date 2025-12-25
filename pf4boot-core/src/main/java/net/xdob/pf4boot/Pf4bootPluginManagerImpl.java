@@ -768,7 +768,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
     Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
     ClassLoader oldClassLoader = replaceClassLoader(plugin.getWrapper().getPluginClassLoader());
-		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock, 10, TimeUnit.SECONDS)) {
 			starting.set( true);
 			for (PluginDependency dependency : pluginDescriptor.getDependencies()) {
 				// start dependency only if it marked as required (non-optional) or if it optional and loaded
@@ -898,7 +898,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 				stopPlugin(dependent, true, pluginId);
 			}
 		}
-		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)){
+		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock, 10, TimeUnit.SECONDS)){
 			stopping.set( true);
 			Pf4bootPluginWrapper pluginWrapper = (Pf4bootPluginWrapper)getPlugin(pluginId);
 			PluginState pluginState = pluginWrapper.getPluginState();
