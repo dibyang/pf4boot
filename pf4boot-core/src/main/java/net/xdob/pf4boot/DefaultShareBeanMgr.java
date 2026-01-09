@@ -54,6 +54,8 @@ public class DefaultShareBeanMgr implements ShareBeanMgr{
 
   @Override
   public void startedPlugin(Pf4bootPlugin pf4bootPlugin) {
+    //register AutoExports
+    registerAutoExports(pf4bootPlugin);
     //register ShareServices
     registerShareServices(pf4bootPlugin);
     // register Extensions
@@ -65,6 +67,17 @@ public class DefaultShareBeanMgr implements ShareBeanMgr{
 		scheduledMgr.registerScheduledTasks(pf4bootPlugin);
   }
 
+  private void registerAutoExports(Pf4bootPlugin pf4bootPlugin) {
+    Class<?> primarySource = pf4bootPlugin.getClass();
+    getAnnotations(primarySource, AutoExports.class)
+    .forEach(autoExports -> {
+      for (AutoExports.AutoExport autoExport : autoExports.value()) {
+        for (Class<?> clazz : autoExport.types()) {
+          autoExportMgr.addAutoExportClass(clazz, autoExport.scope());
+        }
+      }
+    });
+  }
 
 
   private void registerExtensions(Pf4bootPlugin pf4bootPlugin) {
@@ -266,6 +279,20 @@ public class DefaultShareBeanMgr implements ShareBeanMgr{
     unregisterShareServices(pf4bootPlugin);
     //unregister DynamicImportBeans
     unregisterDynamicImportBeans(pf4bootPlugin);
+    //unregister AutoExports
+    unregisterAutoExports(pf4bootPlugin);
+  }
+
+  private void unregisterAutoExports(Pf4bootPlugin pf4bootPlugin) {
+    Class<?> primarySource = pf4bootPlugin.getClass();
+    getAnnotations(primarySource, AutoExports.class)
+        .forEach(autoExports -> {
+          for (AutoExports.AutoExport autoExport : autoExports.value()) {
+            for (Class<?> clazz : autoExport.types()) {
+              autoExportMgr.removeAutoExportClass(clazz);
+            }
+          }
+        });
   }
 
   private void unregisterExtensions(Pf4bootPlugin pf4bootPlugin) {

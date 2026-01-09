@@ -72,7 +72,6 @@ public class Pf4bootAutoConfiguration {
     return new PluginPathResourceResolver(pluginManager);
   }
 
-  @Export(scope = SharingScope.ROOT)
   @Bean
   @ConditionalOnMissingBean(AutoExportMgr.class)
   public DefaultAutoExportMgr autoExportMgr(){

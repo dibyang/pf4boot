@@ -32,4 +32,12 @@ public class AutoExport {
   public Class<?> getClazz() {
     return clazz;
   }
+
+  @Override
+  public String toString() {
+    return "{" +
+        "scope=" + scope +
+        ", clazz=" + clazz +
+        '}';
+  }
 }
