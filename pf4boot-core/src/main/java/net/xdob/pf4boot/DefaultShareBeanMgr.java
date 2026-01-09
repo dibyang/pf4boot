@@ -22,7 +22,11 @@ public class DefaultShareBeanMgr implements ShareBeanMgr{
 
   final ConcurrentHashMap<String, DynamicBean> dynamicImportBeans = new ConcurrentHashMap<>();
   final ScheduledMgr scheduledMgr = new DefaultScheduledMgr();
+  final AutoExportMgr autoExportMgr;
 
+  public DefaultShareBeanMgr(AutoExportMgr autoExportMgr) {
+    this.autoExportMgr = autoExportMgr;
+  }
 
   @Override
   public void initiatePluginManager(Pf4bootPluginManager pluginManager) {
@@ -135,6 +139,14 @@ public class DefaultShareBeanMgr implements ShareBeanMgr{
           getSharingBeans(sharingBeans, context, exportBeans);
         });
     }
+    autoExportMgr.getAutoExportClasses().forEach(autoExport -> {
+      //logger.info("search auto export beans <{}> to platform [{}]", autoExport.getClazz(), autoExport.getGroup());
+      context.getBeansOfType(autoExport.getClazz())
+          .forEach((key, value) -> {
+            sharingBeans.add(key, value, autoExport.getScope(), autoExport.getGroup());
+          });
+
+    });
     return sharingBeans;
   }
 

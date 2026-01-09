@@ -1,8 +1,10 @@
 package net.xdob.pf4boot.spring.boot;
 
 
+import net.xdob.pf4boot.annotation.Export;
 import net.xdob.pf4boot.internal.*;
 import net.xdob.pf4boot.*;
+import net.xdob.pf4boot.modal.SharingScope;
 import org.pf4j.PluginDescriptor;
 import org.pf4j.PluginManager;
 import org.pf4j.PluginStateListener;
@@ -70,12 +72,18 @@ public class Pf4bootAutoConfiguration {
     return new PluginPathResourceResolver(pluginManager);
   }
 
+  @Export(scope = SharingScope.ROOT)
   @Bean
-  @ConditionalOnMissingBean(DefaultShareBeanMgr.class)
-  public DefaultShareBeanMgr shareBeanMgr(){
-    return new DefaultShareBeanMgr();
+  @ConditionalOnMissingBean(AutoExportMgr.class)
+  public DefaultAutoExportMgr autoExportMgr(){
+    return new DefaultAutoExportMgr();
   }
 
+  @Bean
+  @ConditionalOnMissingBean(ShareBeanMgr.class)
+  public DefaultShareBeanMgr shareBeanMgr(AutoExportMgr autoExportMgr){
+    return new DefaultShareBeanMgr(autoExportMgr);
+  }
 
   @Bean
   @ConditionalOnClass({WebPf4BootPluginSupport.class})
