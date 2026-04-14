@@ -5,10 +5,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.aop.support.AopUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.MethodIntrospector;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.annotation.Schedules;
 import org.springframework.scheduling.config.*;
@@ -66,8 +68,12 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 	public void registerScheduledTasks(Pf4bootPlugin pf4bootPlugin) {
 		String pluginId = pf4bootPlugin.getPluginId();
 		ConfigurableApplicationContext context = pf4bootPlugin.getPluginContext();
-		PluginScheduledTasks pluginScheduledTasks = this.scheduledTasks.computeIfAbsent(pluginId, key -> new PluginScheduledTasks(key, new ScheduledTaskRegistrar()));
-
+    ScheduledTaskRegistrar scheduledTaskRegistrar = new ScheduledTaskRegistrar();
+    TaskScheduler taskScheduler = context.getBeanProvider(TaskScheduler.class).getIfAvailable();
+    if (taskScheduler != null) {
+      scheduledTaskRegistrar.setTaskScheduler(taskScheduler);
+    }
+    PluginScheduledTasks pluginScheduledTasks = this.scheduledTasks.computeIfAbsent(pluginId, key -> new PluginScheduledTasks(key, scheduledTaskRegistrar));
 		Map<String, Object> beans = context.getBeansWithAnnotation(Component.class);
 		for (Map.Entry<String, Object> entry : beans.entrySet()) {
 			String beanName = entry.getKey();
