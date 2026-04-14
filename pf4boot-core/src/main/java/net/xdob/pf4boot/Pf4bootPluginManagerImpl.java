@@ -13,7 +13,6 @@ import net.xdob.pf4boot.util.AutoCloseableLock;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -25,6 +24,7 @@ import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.util.Assert;
 
 import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -333,6 +333,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     file.delete();
   }
 
+  @PreDestroy
   public void close(){
     if(scheduled !=null) {
       scheduled.shutdown();

@@ -3,7 +3,6 @@ package net.xdob.pf4boot;
 import net.xdob.pf4boot.annotation.PluginStarter;
 
 import org.springframework.beans.factory.config.BeanDefinition;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.context.support.Pf4bootAnnotationConfigApplicationContext;
 import org.pf4j.Plugin;
 import org.pf4j.PluginWrapper;
@@ -18,7 +17,6 @@ import org.springframework.core.io.support.SpringFactoriesLoaderHelp;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 import static net.xdob.pf4boot.Pf4bootPluginManager.BEAN_PLUGIN;
@@ -137,7 +135,7 @@ public class Pf4bootPlugin extends Plugin {
     return getWrapper().getPluginId();
   }
 
-  public ConfigurableApplicationContext createPluginContext(ConfigurableApplicationContext platformContext) {
+  protected ConfigurableApplicationContext createPluginContext(ConfigurableApplicationContext platformContext) {
 		closePluginContext();
     Class<?>[] primarySources = getPluginStarter().map(PluginStarter::value).orElse(new Class[]{});
 
