@@ -17,7 +17,7 @@ tasks.all { task ->
 }
 
 dependencies {
-    runtimeOnly("ch.qos.logback:logback-classic:${logbak_version}")
+    runtimeOnly("ch.qos.logback:logback-classic:${logback_version}")
     implementation project(":pf4boot-api")
     implementation project(":pf4boot-core")
     implementation project(":demo-app")
