@@ -82,14 +82,25 @@ subprojects {
         }
     }
 
-    def publishable = project.hasProperty("publishable")
-            ? project.property("publishable").toString().toBoolean()
-            : true
+    def publishable = ![
+            'demo-app',
+            'demo-lib',
+            'plugin1',
+            'plugin2'
+    ].contains(project.name)
 
     apply plugin: 'java'
     apply plugin: "java-library"
     apply plugin: 'net.xdob.pf4boot'
 
+    if (!publishable) {
+        tasks.withType(PublishToMavenRepository).configureEach {
+            enabled = false
+        }
+        tasks.withType(PublishToMavenLocal).configureEach {
+            enabled = false
+        }
+    }
 
     configurations.all {
         resolutionStrategy {

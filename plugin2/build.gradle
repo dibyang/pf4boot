@@ -1,5 +1,4 @@
 apply plugin: 'net.xdob.pf4boot-plugin'
-ext.publishable = false
 
 dependencies {
     plugin project(":plugin1")
