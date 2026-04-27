@@ -317,30 +317,58 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 		shareBeanMgr.initiatedPluginManager(this);
     File cacheDir = getPluginCacheDir().toFile();
-    for (File file : cacheDir.listFiles()) {
-      deleteDir(file);
+    File[] files = cacheDir.listFiles();
+    if (files != null) {
+      for (File file : files) {
+        deleteDir(file);
+      }
     }
     loadPlugins();
 
   }
 
-  private void deleteDir(File file){
-    if(file.isDirectory()){
-      for (File listFile : file.listFiles()) {
-        deleteDir(listFile);
+  public static void deleteDir(File dir) {
+    if (dir.isDirectory()) {
+      for (File f : dir.listFiles()) {
+        deleteDir(f);
       }
     }
-    file.delete();
+    dir.delete();
   }
+
 
   @PreDestroy
   public void close(){
-    if(scheduled !=null) {
-      scheduled.shutdown();
-      scheduled = null;
+    try {
+      stopPlugins();
+    } finally {
+      if(scheduled !=null) {
+        scheduled.shutdownNow();
+        scheduled = null;
+      }
+      closePlatformContexts();
+      closeContext(platformContext);
+      closeContext(rootContext);
+      rootContext = null;
     }
-    stopPlugins();
 
+  }
+
+  private void closePlatformContexts() {
+    for (ConfigurableApplicationContext context : platformContexts.values()) {
+      closeContext(context);
+    }
+    platformContexts.clear();
+  }
+
+  private void closeContext(ConfigurableApplicationContext context) {
+    if (context != null && context.isActive()) {
+      try {
+        context.close();
+      } catch (Exception e) {
+        LOG.warn("close context {} failed", context.getId(), e);
+      }
+    }
   }
 
   @Override
@@ -520,7 +548,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       	.collect(Collectors.toList());
     if(!wrappers.isEmpty()){
       for (Pf4bootPluginWrapper pluginWrapper : wrappers) {
-				if(starting.get()||stopping.get()){
+				if(stopping.get()){
 					break;
 				}
 				if(!needStart(autoStartPlugin, pluginWrapper)){
@@ -533,7 +561,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 				totalCount += 1;
 				if (canStart(pluginWrapper, autoStartPlugin)) {
-					if(starting.get()||stopping.get()){
+					if(stopping.get()){
 						break;
 					}
 					try {
@@ -547,7 +575,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 						failedCount += 1;
 					}
 				}
-				if(starting.get()||stopping.get()){
+				if(stopping.get()){
 					break;
 				}
       }
@@ -586,16 +614,14 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 
   private void doStopPlugins() {
-    // stop started plugins in reverse order
-    Collections.reverse(startedPlugins);
-    Iterator<PluginWrapper> itr = startedPlugins.iterator();
-    while (itr.hasNext()) {
-      PluginWrapper pluginWrapper = itr.next();
+    // stop started plugins in reverse order, but do not mutate startedPlugins ordering directly
+    List<PluginWrapper> pluginsToStop = new ArrayList<>(startedPlugins);
+    Collections.reverse(pluginsToStop);
+    for (PluginWrapper pluginWrapper : pluginsToStop) {
       PluginState pluginState = pluginWrapper.getPluginState();
       if (PluginState.STOPPED != pluginState) {
         try {
           stopPlugin(pluginWrapper.getPluginId());
-          itr.remove();
         } catch (PluginRuntimeException e) {
           LOG.warn("stop plugin {} error", pluginWrapper.getPluginId(), e);
         }
@@ -670,12 +696,18 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   }
 
   private void unregisterBeanFromContext(String group, SharingScope scope, String beanName) {
-    Assert.notNull(beanName, "bean must not be null");
+    Assert.notNull(beanName, "beanName must not be null");
     ConfigurableApplicationContext context = getContext(group, scope);
-    Object bean = context.getBean(beanName);
     DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getBeanFactory();
-    beanFactory.destroySingleton(beanName);
-    removeBeanDefinition(beanName);
+    Object bean = context.containsBean(beanName) ? context.getBean(beanName) : null;
+
+    if (beanFactory.containsSingleton(beanName)) {
+      beanFactory.destroySingleton(beanName);
+    }
+    if (beanFactory.containsBeanDefinition(beanName)) {
+      beanFactory.removeBeanDefinition(beanName);
+    }
+
     BeanUnregisterEvent unRegisterBeanEvent = new BeanUnregisterEvent(scope, context, beanName, bean);
     publishEvent(unRegisterBeanEvent);
   }
@@ -770,7 +802,6 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
     ClassLoader oldClassLoader = replaceClassLoader(plugin.getWrapper().getPluginClassLoader());
 		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock, 10, TimeUnit.SECONDS)) {
-			starting.set( true);
 			for (PluginDependency dependency : pluginDescriptor.getDependencies()) {
 				// start dependency only if it marked as required (non-optional) or if it optional and loaded
 				if (!dependency.isOptional() || plugins.containsKey(dependency.getPluginId())) {
@@ -789,7 +820,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			LOG.info("Start plugin '{}'", getPluginLabel(pluginDescriptor));
 
 			PluginState state = pluginWrapper.getPluginState();
-			if (state.isStarted()||pluginState.isDisabled()) {
+			if (state.isStarted() || state.isDisabled()) {
 				return;
 			}
 			pluginWrapper.setFailedException(null);
@@ -821,18 +852,19 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			shareBeanMgr.startedPlugin(plugin);
       //插件启动后置处理
 			pluginSupport.startedPlugin(plugin);
-      publishEvent(pluginContext, new StartedPluginEvent(plugin));
-			startedPlugins.add(pluginWrapper);
-			pluginWrapper.setPluginState(PluginState.STARTED);
+      pluginWrapper.setPluginState(PluginState.STARTED);
+			if (!startedPlugins.contains(pluginWrapper)) {
+				startedPlugins.add(pluginWrapper);
+			}
 			((Pf4bootPluginWrapper)pluginWrapper).getStartFailed().set(0);
 			firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STARTED));
+      publishEvent(pluginContext, new StartedPluginEvent(plugin));
 			notifyAppCacheFree();
     } catch (Exception e) {
 			plugin.closePluginContext();
 			throw e;
 		}finally {
       replaceClassLoader(oldClassLoader);
-			starting.set( false);
     }
   }
 
@@ -920,15 +952,16 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 			//插件停止后置处理
 			pluginSupport.stoppedPlugin(plugin);
-			publishEvent(pluginContext, new StoppedPluginEvent(plugin));
-			firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STOPPED));
 			if(culpritDependency !=null&&!culpritDependency.isEmpty()){
 				pluginWrapper.setPluginState(PluginState.FAILED);
 				pluginWrapper.setFailedException(new DependencyNotStartedException(culpritDependency));
 			}else{
 				pluginWrapper.setPluginState(PluginState.STOPPED);
+				pluginWrapper.setFailedException(null);
 			}
 			getStartedPlugins().remove(pluginWrapper);
+			firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, pluginWrapper.getPluginState()));
+			publishEvent(pluginContext, new StoppedPluginEvent(plugin));
 
 			releaseResource(plugin);
 			pluginSupport.releasePlugin(plugin);
@@ -964,14 +997,14 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   @Override
   public void reloadPlugins(boolean restartStartedOnly) {
+    List<String> startedPluginIds = getStartedPlugins().stream()
+        .map(PluginWrapper::getPluginId)
+        .collect(Collectors.toList());
     doStopPlugins();
-    List<String> startedPluginIds = new ArrayList<>();
-    getPlugins().forEach(plugin -> {
-      if (plugin.getPluginState() == PluginState.STARTED) {
-        startedPluginIds.add(plugin.getPluginId());
-      }
-      unloadPlugin(plugin.getPluginId());
-    });
+    List<String> pluginIds = getPlugins().stream()
+        .map(PluginWrapper::getPluginId)
+        .collect(Collectors.toList());
+    pluginIds.forEach(this::unloadPlugin);
     loadPlugins();
     if (restartStartedOnly) {
       startedPluginIds.forEach(pluginId -> {

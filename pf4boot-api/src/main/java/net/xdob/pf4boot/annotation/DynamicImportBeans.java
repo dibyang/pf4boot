@@ -4,7 +4,10 @@ import java.lang.annotation.*;
 
 /**
  * 需要动态导入依赖bean
+ * 该特性已被废弃
+ * @deprecated
  */
+@Deprecated
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented

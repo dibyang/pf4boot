@@ -21,7 +21,7 @@ import java.util.List;
  */
 public class Pf4bootPluginRepository extends BasePluginRepository {
 
-  private static final Logger log = LoggerFactory.getLogger(DefaultPluginRepository.class);
+  private static final Logger log = LoggerFactory.getLogger(Pf4bootPluginRepository.class);
 
   public Pf4bootPluginRepository(Path... pluginsRoots) {
     this(Arrays.asList(pluginsRoots));
@@ -35,14 +35,13 @@ public class Pf4bootPluginRepository extends BasePluginRepository {
     setFilter(pluginsFilter);
   }
 
-  @Override
-  public List<Path> getPluginPaths() {
-    return super.getPluginPaths();
-  }
 
   @Override
   public boolean deletePluginPath(Path pluginPath) {
-    FileUtils.optimisticDelete(FileUtils.findWithEnding(pluginPath, ".zip", ".ZIP", ".Zip"));
+    Path zip = FileUtils.findWithEnding(pluginPath, ".zip", ".ZIP", ".Zip");
+    if (zip != null && zip.toFile().exists()) {
+      FileUtils.optimisticDelete(zip);
+    }
     return super.deletePluginPath(pluginPath);
   }
 

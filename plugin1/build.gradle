@@ -1,5 +1,7 @@
 apply plugin: 'net.xdob.pf4boot-plugin'
 
+ext.publishable = false
+
 pf4bootPlugin {
   id = "plugin1"
   pluginClass = "net.xdob.demo.plugin1.Plugin1Plugin"

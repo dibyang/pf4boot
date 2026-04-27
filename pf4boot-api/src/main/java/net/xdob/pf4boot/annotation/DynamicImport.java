@@ -11,7 +11,10 @@ import java.lang.annotation.*;
  *
  * @author yangzj
  * @version 1.0
+ * @deprecated
+ * 该特性已被废弃
  */
+@Deprecated
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 @Qualifier

@@ -1,4 +1,4 @@
-
+ext.publishable = false
 
 dependencies {
     api project(":pf4boot-starter")

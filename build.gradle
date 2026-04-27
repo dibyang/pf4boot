@@ -21,8 +21,6 @@ buildscript {
 
 
 apply plugin: 'java'
-apply plugin: 'maven-publish'
-apply plugin: 'signing'
 apply plugin: 'net.researchgate.release'
 
 
@@ -44,10 +42,6 @@ if(signing_cfg.exists()) {
         project.ext.set(prop.key, prop.value)
     }
 
-    // 将构建的包签名
-    signing {
-        sign configurations.archives
-    }
 }
 
 
@@ -88,13 +82,13 @@ subprojects {
         }
     }
 
+    def publishable = project.hasProperty("publishable")
+            ? project.property("publishable").toString().toBoolean()
+            : true
+
     apply plugin: 'java'
     apply plugin: "java-library"
-    apply plugin: 'maven-publish'
-    apply plugin: 'signing'
     apply plugin: 'net.xdob.pf4boot'
-
-
 
 
     configurations.all {
@@ -168,81 +162,87 @@ subprojects {
         options.charSet = 'UTF-8'
     }
 
-    // 并将它们与项目 jar 本身一起连接到 artifacts 集合中：
-    artifacts {
-        archives javadocJar, sourceJar
-    }
+    if (publishable) {
+        apply plugin: 'maven-publish'
+        apply plugin: 'signing'
 
-    publishing {
-        publications {
-            maven(MavenPublication) {
-                groupId = project.group
-                artifactId = project.name
-                version = project.version
-                //如果不定义，则会按照以上默认值执行
-                // 添加源码jar
-                artifact sourceJar
-                // 添加javadocjar
-                artifact javadocJar
-                // 指定要发布的模块
-                from components.java
+        // 并将它们与项目 jar 本身一起连接到 artifacts 集合中：
+        artifacts {
+            archives javadocJar, sourceJar
+        }
+
+        publishing {
+            publications {
+                maven(MavenPublication) {
+                    groupId = project.group
+                    artifactId = project.name
+                    version = project.version
+                    //如果不定义，则会按照以上默认值执行
+                    // 添加源码jar
+                    artifact sourceJar
+                    // 添加javadocjar
+                    artifact javadocJar
+                    // 指定要发布的模块
+                    from components.java
 
 
-                pom {
-                    name = 'pf4boot'
-                    description = "基于pf4j 设计的Spring Boot插件框架"
-                    url = 'https://github.com/dibyang/pf4boot'
-                    licenses {
-                        license {
-                            name = 'The Apache License, Version 2.0'
-                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    pom {
+                        name = 'pf4boot'
+                        description = "基于pf4j 设计的Spring Boot插件框架"
+                        url = 'https://github.com/dibyang/pf4boot'
+                        licenses {
+                            license {
+                                name = 'The Apache License, Version 2.0'
+                                url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                            }
+                        }
+                        developers {
+                            developer {
+                                id = 'yangzj'
+                                name = 'Yang zhijian'
+                                email = '3227817@qq.com'
+                            }
+                        }
+                        scm {
+                            connection = 'scm:git:https://github.com/dibyang/pf4boot.git'
+                            developerConnection = 'scm:git:https://github.com/dibyang/pf4boot.git'
+                            url = 'https://github.com/dibyang/pf4boot.git'
                         }
                     }
-                    developers {
-                        developer {
-                            id = 'yangzj'
-                            name = 'Yang zhijian'
-                            email = '3227817@qq.com'
+
+                    versionMapping {
+                        usage('java-api') {
+                            fromResolutionOf('runtimeClasspath')
                         }
-                    }
-                    scm {
-                        connection = 'scm:git:https://github.com/dibyang/pf4boot.git'
-                        developerConnection = 'scm:git:https://github.com/dibyang/pf4boot.git'
-                        url = 'https://github.com/dibyang/pf4boot.git'
+                        usage('java-runtime') {
+                            fromResolutionResult()
+                        }
                     }
                 }
-
-                versionMapping {
-                    usage('java-api') {
-                        fromResolutionOf('runtimeClasspath')
+            }
+            repositories {
+                maven {
+                    // 发布仓库配置，这里基于version后缀是否为SNAPSHOT来区分发布到release库还是snapshots库
+                    if(version.endsWith('SNAPSHOT')){
+                        it.url = project.property("snapshotsRepository")
+                    }else{
+                        it.url = project.property("releasesRepository")
                     }
-                    usage('java-runtime') {
-                        fromResolutionResult()
+                    it.name = "deployment"
+                    it.credentials {
+                        it.username = project.property("ossrhUsername")
+                        it.password = project.property("ossrhPassword")
                     }
                 }
             }
         }
-        repositories {
-            maven {
-                // 发布仓库配置，这里基于version后缀是否为SNAPSHOT来区分发布到release库还是snapshots库
-                if(version.endsWith('SNAPSHOT')){
-                    it.url = project.property("snapshotsRepository")
-                }else{
-                    it.url = project.property("releasesRepository")
-                }
-                it.name = "deployment"
-                it.credentials {
-                    it.username = project.property("ossrhUsername")
-                    it.password = project.property("ossrhPassword")
-                }
-            }
+
+        // 将构建的包签名
+        signing {
+            sign publishing.publications.maven
         }
     }
 
-    // 将构建的包签名
-    signing {
-        sign publishing.publications.maven
-    }
 
 
 

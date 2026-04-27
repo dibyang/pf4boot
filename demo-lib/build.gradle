@@ -1,3 +1,4 @@
+ext.publishable = false
 
 dependencies {
     implementation project(":pf4boot-web-support")
