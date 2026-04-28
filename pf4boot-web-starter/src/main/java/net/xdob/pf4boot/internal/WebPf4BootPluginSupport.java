@@ -49,18 +49,20 @@ public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
     getMainRequestMapping(pluginManager).unregisterInterceptors(pf4bootPlugin);
 
     try {
-      Object p =
-          pluginManager.getApplicationContext().getBean(MethodValidationPostProcessor.class);
+      MethodValidationPostProcessor p =
+          pluginManager.getApplicationContext().getBeanProvider(MethodValidationPostProcessor.class)
+              .getIfAvailable();
+      if (p != null) {
+        Field field = p.getClass().getDeclaredField("validator");
+        field.setAccessible(true);
+        Object validator = ReflectionUtils.getField(field, p);
 
-      Field field = p.getClass().getDeclaredField("validator");
-      field.setAccessible(true);
-      Object validator = ReflectionUtils.getField(field, p);
-
-      if (validator != null &&
-          validator.getClass().getClassLoader() == pf4bootPlugin.getPluginContext().getClassLoader()) {
-
-        ReflectionUtils.setField(field, p, null);
+        if (validator != null &&
+            validator.getClass().getClassLoader() == pf4bootPlugin.getPluginContext().getClassLoader()) {
+          ReflectionUtils.setField(field, p, null);
+        }
       }
+
     } catch (Exception e) {
       LOG.warn("unregister validator error", e);
     }
