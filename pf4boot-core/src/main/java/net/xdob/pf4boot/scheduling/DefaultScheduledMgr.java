@@ -31,7 +31,7 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 	static final Logger logger = LoggerFactory.getLogger(DefaultScheduledMgr.class);
 	private final Set<Class<?>> nonAnnotatedClasses = Collections.newSetFromMap(new ConcurrentHashMap<>(64));
 
-	private final Map<String, PluginScheduledTasks> scheduledTasks = new IdentityHashMap<>(16);
+	private final Map<String, PluginScheduledTasks> scheduledTasks = new HashMap<>(16);
 	//private final ScheduledTaskRegistrar registrar;
 
 	private StringValueResolver embeddedValueResolver;
@@ -243,7 +243,7 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 	@Override
 	public void destroy() {
 		synchronized (this.scheduledTasks) {
-			Set<String> pluginIds = this.scheduledTasks.keySet();
+			Set<String> pluginIds = new LinkedHashSet<>(this.scheduledTasks.keySet());
 			for (String pluginId : pluginIds) {
 				unregisterScheduledTasks4Plugin(pluginId);
 			}

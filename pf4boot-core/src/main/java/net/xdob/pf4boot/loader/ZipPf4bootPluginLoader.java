@@ -49,8 +49,10 @@ public class ZipPf4bootPluginLoader implements PluginLoader {
 
         expandIfZip(pluginPath, pluginDirectory);
         File[] libs = pluginDirectory.resolve("lib").toFile().listFiles(new JarFileFilter());
-        for (File lib : libs) {
-          pluginClassLoader.addFile(lib);
+        if (libs != null) {
+          for (File lib : libs) {
+            pluginClassLoader.addFile(lib);
+          }
         }
       } catch (IOException e) {
         log.error("Cannot expand plugin zip '{}'", pluginPath);

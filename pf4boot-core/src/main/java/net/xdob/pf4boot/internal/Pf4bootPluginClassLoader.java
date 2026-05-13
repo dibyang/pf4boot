@@ -11,9 +11,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.*;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -27,7 +27,9 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
   private static final Logger log = LoggerFactory.getLogger(Pf4bootPluginClassLoader.class);
 
 
-  private List<String> pluginOnlyResources;
+  private List<Pattern> pluginFirstClasses = Collections.emptyList();
+
+  private List<Pattern> pluginOnlyResources = Collections.emptyList();
 
   final PluginManager pluginManager;
   final PluginDescriptor pluginDescriptor;
@@ -58,17 +60,32 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
 
   @Override
   public void setPluginFirstClasses(List<String> pluginFirstClasses) {
-
+    this.pluginFirstClasses = toPatterns(pluginFirstClasses);
   }
 
   @Override
   public void setPluginOnlyResources(List<String> pluginOnlyResources) {
-    this.pluginOnlyResources = pluginOnlyResources.stream()
-        .map(pluginFirstClass -> pluginFirstClass
-            .replaceAll(".", "[$0]")
-            .replace("[*]", ".*?")
-            .replace("[?]", ".?"))
-        .collect(Collectors.toList());
+    this.pluginOnlyResources = toPatterns(pluginOnlyResources);
+  }
+
+  @Override
+  public Class<?> loadClass(String className) throws ClassNotFoundException {
+    if (!isPluginFirstClass(className)) {
+      return super.loadClass(className);
+    }
+
+    synchronized (getClassLoadingLock(className)) {
+      Class<?> loadedClass = findLoadedClass(className);
+      if (loadedClass != null) {
+        return loadedClass;
+      }
+
+      try {
+        return findClass(className);
+      } catch (ClassNotFoundException ignored) {
+        return super.loadClass(className);
+      }
+    }
   }
 
   @Override
@@ -92,13 +109,56 @@ public class Pf4bootPluginClassLoader extends PluginClassLoader implements Plugi
 
 
   private boolean isPluginOnlyResources(String name) {
-    if (pluginOnlyResources == null || pluginOnlyResources.size() <= 0) return false;
-    for (String pluginOnlyResource : pluginOnlyResources) {
-      if (name.matches(pluginOnlyResource)) return true;
+    return matches(pluginOnlyResources, name);
+  }
+
+  private boolean isPluginFirstClass(String className) {
+    if (className.startsWith("java.") || shouldDelegateToParent(className)) {
+      return false;
+    }
+    return matches(pluginFirstClasses, className);
+  }
+
+  private boolean matches(List<Pattern> patterns, String value) {
+    for (Pattern pattern : patterns) {
+      if (pattern.matcher(value).matches()) {
+        return true;
+      }
     }
     return false;
   }
 
+  private List<Pattern> toPatterns(List<String> globs) {
+    if (globs == null || globs.isEmpty()) {
+      return Collections.emptyList();
+    }
+
+    return globs.stream()
+        .filter(Objects::nonNull)
+        .map(String::trim)
+        .filter(glob -> !glob.isEmpty())
+        .map(this::toPattern)
+        .collect(Collectors.toList());
+  }
+
+  private Pattern toPattern(String glob) {
+    StringBuilder regex = new StringBuilder("^");
+    for (int i = 0; i < glob.length(); i++) {
+      char ch = glob.charAt(i);
+      if (ch == '*') {
+        regex.append(".*");
+      } else if (ch == '?') {
+        regex.append('.');
+      } else {
+        if ("\\.[]{}()+-^$|".indexOf(ch) >= 0) {
+          regex.append('\\');
+        }
+        regex.append(ch);
+      }
+    }
+    regex.append('$');
+    return Pattern.compile(regex.toString());
+  }
 
 
   @Override
