@@ -116,11 +116,13 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   }
 
 	public void unregisterPluginControllers(ClassLoader cl) {
+		List<RequestMappingInfo> mappings = new ArrayList<>();
 		getHandlerMethods().forEach((info, method) -> {
 			if (method.getBeanType().getClassLoader() == cl) {
-				unregisterMapping(info);
+				mappings.add(info);
 			}
 		});
+		mappings.forEach(this::unregisterMapping);
 	}
   public Map<String, Object> getControllerBeans(Pf4bootPlugin pf4BootPlugin) {
     Map<String, Object> beans = new HashMap<>();
@@ -132,11 +134,13 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
 
   private void unregisterController(String beanName, final Object controller) {
 
+    List<RequestMappingInfo> mappings = new ArrayList<>();
     getHandlerMethods().forEach((mapping, handlerMethod) -> {
       if (controller == handlerMethod.getBean()) {
-        this.unregisterMapping(mapping);
+        mappings.add(mapping);
       }
     });
+    mappings.forEach(this::unregisterMapping);
     unregisterBeanFromMainContext(beanName, controller);
   }
 

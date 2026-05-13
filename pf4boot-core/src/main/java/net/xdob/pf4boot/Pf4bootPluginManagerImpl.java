@@ -280,10 +280,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 	@Override
 	public void releasePlugin(Pf4bootPlugin plugin) {
-		pluginSupport.stopPlugin(plugin);
 		shareBeanMgr.stopPlugin(plugin);
-		pluginSupport.stoppedPlugin(plugin);
-		pluginSupport.releasePlugin(plugin);
     clearMetadataCache();
   }
 
@@ -964,6 +961,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			publishEvent(pluginContext, new StoppedPluginEvent(plugin));
 
 			releaseResource(plugin);
+			releasePlugin(plugin);
 			pluginSupport.releasePlugin(plugin);
 			ApplicationContextProvider.unregisterApplicationContext(pluginContext);
 			plugin.closePluginContext();

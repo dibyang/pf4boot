@@ -11,6 +11,7 @@
 - [jpa-integration.md](jpa-integration.md)：插件 JPA starter 行为和实体扫描规则。
 - [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md)：插件仓库、加载器、Gradle 插件打包和应用装配。
 - [code-quality-fixes.md](code-quality-fixes.md)：本轮代码质量检查发现的问题和修复方案。
+- [lifecycle-cleanup-fix.md](lifecycle-cleanup-fix.md)：插件停止和上下文清理职责边界修复方案。
 
 英文翻译版：
 
@@ -21,6 +22,7 @@
 - [en/jpa-integration.md](en/jpa-integration.md)
 - [en/plugin-loading-and-packaging.md](en/plugin-loading-and-packaging.md)
 - [en/code-quality-fixes.md](en/code-quality-fixes.md)
+- [en/lifecycle-cleanup-fix.md](en/lifecycle-cleanup-fix.md)
 
 ## 何时新增或更新设计文档
 

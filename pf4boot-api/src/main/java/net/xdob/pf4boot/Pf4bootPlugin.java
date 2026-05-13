@@ -172,23 +172,12 @@ public class Pf4bootPlugin extends Plugin {
 	public void closePluginContext(){
 		synchronized (lock) {
 			if (pluginContext != null){
-				try {
-					//释放插件注册资源
-					this.getPluginManager().releasePlugin(this);
-				} catch (Exception e) {
-					LOG.warn("[PF4BOOT] release plugin error", e);
-				}
         DefaultListableBeanFactory beanFactory = pluginContext.getDefaultListableBeanFactory();
         try {
 					beanFactory.destroyBean(BEAN_PLUGIN);
 				} catch (Exception e) {
 					LOG.warn("[PF4BOOT] destroy bean error", e);
 				}
-        try {
-          Thread.sleep(1000);
-        } catch (InterruptedException ignore) {
-
-        }
         freeContext(pluginContext);
         //释放插件上下文
 				pluginContext = null;

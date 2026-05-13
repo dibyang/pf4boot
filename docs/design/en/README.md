@@ -14,6 +14,7 @@ Use the parent directory for design notes before implementing non-trivial change
 - [jpa-integration.md](jpa-integration.md): plugin JPA starter behavior and entity scan rules.
 - [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md): repository, loader, Gradle plugin packaging, and app assembly.
 - [code-quality-fixes.md](code-quality-fixes.md): issues found in this code quality review and the fix plan.
+- [lifecycle-cleanup-fix.md](lifecycle-cleanup-fix.md): fix plan for plugin stop and context cleanup responsibility boundaries.
 
 Create or update a design document when a change affects:
 
