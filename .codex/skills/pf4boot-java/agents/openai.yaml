@@ -1,0 +1,4 @@
+interface:
+  display_name: "PF4Boot Java"
+  short_description: "Work safely in the pf4boot Gradle Java plugin framework."
+  default_prompt: "Use $pf4boot-java to modify or review the pf4boot Java project."
