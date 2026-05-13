@@ -13,6 +13,7 @@
 - [code-quality-fixes.md](code-quality-fixes.md)：本轮代码质量检查发现的问题和修复方案。
 - [lifecycle-cleanup-fix.md](lifecycle-cleanup-fix.md)：插件停止和上下文清理职责边界修复方案。
 - [scheduler-sharingbeans-fix.md](scheduler-sharingbeans-fix.md)：自动启动调度幂等和共享 Bean 记录 key 修复方案。
+- [autoexport-jpa-boundary.md](autoexport-jpa-boundary.md)：AutoExport 分组和 JPA 动态元数据能力边界。
 
 英文翻译版：
 
@@ -25,6 +26,7 @@
 - [en/code-quality-fixes.md](en/code-quality-fixes.md)
 - [en/lifecycle-cleanup-fix.md](en/lifecycle-cleanup-fix.md)
 - [en/scheduler-sharingbeans-fix.md](en/scheduler-sharingbeans-fix.md)
+- [en/autoexport-jpa-boundary.md](en/autoexport-jpa-boundary.md)
 
 ## 何时新增或更新设计文档
 

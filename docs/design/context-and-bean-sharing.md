@@ -24,7 +24,7 @@
 - `@ShareComponent`，组合了 Spring `@Component` 和 `@Export`。
 - `@ExportBeans`，按 Bean 名称或类型导出。
 - `@PluginStarter`，它本身以 `@ExportBeans` 作为元注解。
-- `@AutoExports`，为匹配类型的 Bean 注册自动导出规则。
+- `@AutoExports`，为匹配类型的 Bean 注册自动导出规则；规则保留声明的 `scope` 和 `group`。
 
 宿主应用在插件管理器初始化时会扫描一次，因此宿主侧共享服务也可以被导出。
 

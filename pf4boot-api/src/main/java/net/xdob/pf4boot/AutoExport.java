@@ -26,7 +26,7 @@ public class AutoExport {
   }
 
   public AutoExport setGroup(String group) {
-    this.group = group;
+    this.group = group == null ? PluginStarter.DEFAULT : group;
     return this;
   }
   public Class<?> getClazz() {
@@ -37,6 +37,7 @@ public class AutoExport {
   public String toString() {
     return "{" +
         "scope=" + scope +
+        ", group='" + group + '\'' +
         ", clazz=" + clazz +
         '}';
   }

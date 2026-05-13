@@ -8,7 +8,7 @@ Some plugins need JPA repositories and entities, but non-JPA plugins should not 
 
 - `pf4boot-jpa`: provides `Pf4bootJpaPersistenceProvider`, which merges managed class names and managed packages for Hibernate.
 - `pf4boot-jpa-starter`: provides `PluginJPAStarter`, a plugin-side Spring Boot auto-configuration class.
-- `pf4boot-api`: declares `DynamicMetadata` and `DynamicMetadataSupport`; current runtime implementation is a placeholder in `DefaultDynamicMetadata`.
+- `pf4boot-api`: declares `DynamicMetadata` and `DynamicMetadataSupport`; it currently records candidate entity classes only and does not support runtime synchronization into an already-created JPA metamodel.
 
 ## Plugin Starter Behavior
 
@@ -52,9 +52,15 @@ The data source, `JpaProperties`, `HibernateProperties`, and `HibernatePropertie
 
 The starter intentionally defaults plugin `ddl-auto` to `none` through `HibernateSettings.ddlAuto`. Automatic schema updates are considered risky in production and must be explicitly configured by the application or plugin.
 
+## Dynamic Metadata Boundary
+
+`DynamicMetadata` only records candidate entity classes. It does not synchronize added or removed classes into an already-created `EntityManagerFactory`. `sync()` must fail clearly so callers do not assume that Hibernate metamodel, repository proxies, or transaction context were refreshed at runtime.
+
+The effective discovery boundary for plugin JPA entities is the startup scan used when `PluginJPAStarter` creates the `EntityManagerFactory`. Plugins that need additional entities should expose them before plugin startup through `@EntityScan`, auto-configuration packages, or the plugin main class package scan.
+
 ## Compatibility
 
-JPA support depends on Spring Boot 2.7.x and Hibernate 5.6.x behavior. Changes to package scan order, default DDL behavior, or transaction bean conditions can affect plugin startup and schema management.
+JPA support depends on Spring Boot 2.7.x and Hibernate 5.6.x behavior. Changes to package scan order, default DDL behavior, transaction bean conditions, or the runtime dynamic sync boundary can affect plugin startup and schema management.
 
 ## Verification
 

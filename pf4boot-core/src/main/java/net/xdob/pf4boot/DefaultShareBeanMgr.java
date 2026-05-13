@@ -120,7 +120,7 @@ public class DefaultShareBeanMgr implements ShareBeanMgr {
         .forEach(autoExports -> {
           for (AutoExports.AutoExport autoExport : autoExports.value()) {
             for (Class<?> clazz : autoExport.types()) {
-              autoExportMgr.addAutoExportClass(clazz, autoExport.scope());
+              autoExportMgr.addAutoExportClass(clazz, autoExport.scope(), autoExport.group());
             }
           }
         });
@@ -291,7 +291,7 @@ public class DefaultShareBeanMgr implements ShareBeanMgr {
         .forEach(autoExports -> {
           for (AutoExports.AutoExport autoExport : autoExports.value()) {
             for (Class<?> clazz : autoExport.types()) {
-              autoExportMgr.removeAutoExportClass(clazz);
+              autoExportMgr.removeAutoExportClass(clazz, autoExport.scope(), autoExport.group());
             }
           }
         });

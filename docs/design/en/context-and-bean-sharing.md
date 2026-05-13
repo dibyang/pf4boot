@@ -24,7 +24,7 @@ Supported export declarations:
 - `@ShareComponent`, which combines Spring `@Component` and `@Export`.
 - `@ExportBeans`, which exports beans by name or by type.
 - `@PluginStarter`, which is meta-annotated with `@ExportBeans`.
-- `@AutoExports`, which registers export rules for matching bean types.
+- `@AutoExports`, which registers export rules for matching bean types and preserves the declared `scope` and `group`.
 
 The host application is scanned once during plugin manager initiation so host-side shared services can also be exported.
 

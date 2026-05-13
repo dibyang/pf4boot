@@ -16,6 +16,7 @@ Use the parent directory for design notes before implementing non-trivial change
 - [code-quality-fixes.md](code-quality-fixes.md): issues found in this code quality review and the fix plan.
 - [lifecycle-cleanup-fix.md](lifecycle-cleanup-fix.md): fix plan for plugin stop and context cleanup responsibility boundaries.
 - [scheduler-sharingbeans-fix.md](scheduler-sharingbeans-fix.md): fix plan for auto-start scheduler idempotency and shared bean record keys.
+- [autoexport-jpa-boundary.md](autoexport-jpa-boundary.md): AutoExport groups and JPA dynamic metadata capability boundary.
 
 Create or update a design document when a change affects:
 

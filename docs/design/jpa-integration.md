@@ -8,7 +8,7 @@
 
 - `pf4boot-jpa`：提供 `Pf4bootJpaPersistenceProvider`，为 Hibernate 合并 managed class names 和 managed packages。
 - `pf4boot-jpa-starter`：提供 `PluginJPAStarter`，作为插件侧 Spring Boot 自动配置类。
-- `pf4boot-api`：声明 `DynamicMetadata` 和 `DynamicMetadataSupport`；当前运行时实现 `DefaultDynamicMetadata` 仍是占位。
+- `pf4boot-api`：声明 `DynamicMetadata` 和 `DynamicMetadataSupport`；当前只记录候选 entity class，不支持运行时同步到已创建的 JPA metamodel。
 
 ## Plugin Starter 行为
 
@@ -52,9 +52,15 @@ public class Plugin1Plugin extends Pf4bootPlugin {
 
 starter 通过 `HibernateSettings.ddlAuto` 将插件默认 `ddl-auto` 设为 `none`。自动 schema 更新在生产环境风险较高，必须由应用或插件显式配置。
 
+## 动态元数据边界
+
+`DynamicMetadata` 只用于记录候选 entity class，不会把新增或移除的 class 同步到已经创建的 `EntityManagerFactory`。`sync()` 必须明确失败，避免调用方误认为 Hibernate metamodel、repository 代理或事务上下文已被运行时刷新。
+
+插件 JPA entity 的有效发现边界是 `PluginJPAStarter` 创建 `EntityManagerFactory` 时的启动时扫描。需要新增 entity 的插件应在插件启动前通过 `@EntityScan`、auto-configuration package 或插件主类包扫描暴露实体。
+
 ## 兼容性
 
-JPA 支持依赖 Spring Boot 2.7.x 和 Hibernate 5.6.x 行为。包扫描顺序、默认 DDL 行为或事务 Bean 条件的变更，都可能影响插件启动和 schema 管理。
+JPA 支持依赖 Spring Boot 2.7.x 和 Hibernate 5.6.x 行为。包扫描顺序、默认 DDL 行为、事务 Bean 条件或运行时动态同步边界的变更，都可能影响插件启动和 schema 管理。
 
 ## 验证
 
