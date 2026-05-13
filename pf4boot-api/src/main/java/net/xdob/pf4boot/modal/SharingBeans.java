@@ -2,6 +2,7 @@ package net.xdob.pf4boot.modal;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -10,8 +11,13 @@ public class SharingBeans {
 
   public SharingBean add(String beanName, Object bean, SharingScope scope, String group) {
     SharingBean sharingBean = SharingBean.of(beanName, bean, scope, group);
-    beans.put(beanName, sharingBean);
+    beans.put(keyOf(beanName, scope, group), sharingBean);
     return sharingBean;
+  }
+
+  private String keyOf(String beanName, SharingScope scope, String group) {
+    String normalizedGroup = group == null ? "" : group;
+    return Objects.toString(scope, "") + ":" + normalizedGroup + ":" + beanName;
   }
 
 

@@ -54,12 +54,14 @@ public class SharingBean {
 	public boolean equals(Object object) {
 		if (object == null || getClass() != object.getClass()) return false;
 		SharingBean that = (SharingBean) object;
-		return Objects.equals(beanName, that.beanName);
+		return Objects.equals(beanName, that.beanName) &&
+				scope == that.scope &&
+				Objects.equals(group, that.group);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hashCode(beanName);
+		return Objects.hash(beanName, scope, group);
 	}
 
 	@Override

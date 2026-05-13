@@ -79,6 +79,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 	private final Pf4bootPluginSupport pluginSupport;
   private ScheduledExecutorService scheduled;
+  private ScheduledFuture<?> autoStartFuture;
 	private final ShareBeanMgr shareBeanMgr;
 
   public Pf4bootPluginManagerImpl(ApplicationContext applicationContext, Pf4bootProperties properties,
@@ -339,6 +340,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     try {
       stopPlugins();
     } finally {
+      cancelAutoStartPlugins();
       if(scheduled !=null) {
         scheduled.shutdownNow();
         scheduled = null;
@@ -468,9 +470,27 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   public void setApplicationStarted(boolean mainApplicationStarted) {
     this.mainApplicationStarted = mainApplicationStarted;
     if(mainApplicationStarted){
-      scheduled.scheduleWithFixedDelay(() -> {
+      scheduleAutoStartPlugins();
+    } else {
+      cancelAutoStartPlugins();
+    }
+  }
+
+  private void scheduleAutoStartPlugins() {
+    if (scheduled == null || scheduled.isShutdown()) {
+      return;
+    }
+    if (autoStartFuture == null || autoStartFuture.isCancelled() || autoStartFuture.isDone()) {
+      autoStartFuture = scheduled.scheduleWithFixedDelay(() -> {
         doStartPlugins(true);
       }, 10, 20, TimeUnit.SECONDS);
+    }
+  }
+
+  private void cancelAutoStartPlugins() {
+    if (autoStartFuture != null) {
+      autoStartFuture.cancel(false);
+      autoStartFuture = null;
     }
   }
 
