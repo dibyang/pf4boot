@@ -2,6 +2,7 @@ package net.xdob.pf4boot.spring.boot;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.internal.PluginPathResourceResolver;
+import net.xdob.pf4boot.internal.WebPf4BootPluginSupport;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.cache.Cache;
@@ -34,6 +35,24 @@ public class Pf4bootMvcPatchAutoConfiguration {
   @Qualifier("sbpResourceCache")
   private Cache sbpResourceCache;
 
+  @Bean
+  @ConditionalOnMissingBean
+  public WebPf4BootPluginSupport webPf4BootPluginSupport(){
+    return new WebPf4BootPluginSupport();
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  public PluginPathResourceResolver pluginResourceResolver(PluginManager pluginManager) {
+    return new PluginPathResourceResolver(pluginManager);
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(PluginManagerController.class)
+  @ConditionalOnProperty(prefix = Pf4bootProperties.PREFIX, value = "pluginAdminEnabled", havingValue = "true", matchIfMissing = true)
+  public PluginManagerController pluginManagerController(Pf4bootPluginManager pluginManager) {
+    return new PluginManagerController(pluginManager);
+  }
 
   @Bean
   @ConditionalOnMissingBean(WebMvcRegistrations.class)

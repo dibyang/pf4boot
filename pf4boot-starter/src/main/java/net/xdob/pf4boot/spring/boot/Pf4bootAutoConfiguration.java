@@ -10,6 +10,7 @@ import org.pf4j.PluginManager;
 import org.pf4j.PluginStateListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -60,19 +61,6 @@ public class Pf4bootAutoConfiguration {
   }
 
   @Bean
-  @ConditionalOnMissingBean(PluginManagerController.class)
-  @ConditionalOnProperty(prefix = Pf4bootProperties.PREFIX, value = "pluginAdminEnabled", havingValue = "true", matchIfMissing = true)
-  public PluginManagerController pluginManagerController(Pf4bootPluginManager pluginManager) {
-    return new PluginManagerController(pluginManager);
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  public PluginPathResourceResolver pluginResourceResolver(PluginManager pluginManager) {
-    return new PluginPathResourceResolver(pluginManager);
-  }
-
-  @Bean
   @ConditionalOnMissingBean(AutoExportMgr.class)
   public DefaultAutoExportMgr autoExportMgr(){
     return new DefaultAutoExportMgr();
@@ -85,16 +73,10 @@ public class Pf4bootAutoConfiguration {
   }
 
   @Bean
-  @ConditionalOnClass({WebPf4BootPluginSupport.class})
-  public WebPf4BootPluginSupport webPf4BootPluginSupport(){
-    return new WebPf4BootPluginSupport();
-  }
-
-  @Bean
   @Lazy
   @ConditionalOnMissingBean
   public Pf4bootPluginManager pluginManager(ApplicationContext applicationContext,  Pf4bootProperties properties,
-																						WebPf4BootPluginSupport pluginSupport,
+																						ObjectProvider<Pf4bootPluginSupport> pluginSupports,
 																						ShareBeanMgr shareBeanMgr) {
     // Setup RuntimeMode
     System.setProperty(PF4J_MODE, properties.getRuntimeMode().toString());
@@ -105,7 +87,7 @@ public class Pf4bootAutoConfiguration {
     System.setProperty(PF4J_PLUGINS_DIR, pluginsRoot);
 
     Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(applicationContext, properties,
-				pluginSupport, shareBeanMgr, new File(pluginsRoot).toPath());
+				compositePluginSupport(pluginSupports), shareBeanMgr, new File(pluginsRoot).toPath());
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));
@@ -113,6 +95,69 @@ public class Pf4bootAutoConfiguration {
     pluginManager.setSystemVersion(properties.getSystemVersion());
 
     return pluginManager;
+  }
+
+  private Pf4bootPluginSupport compositePluginSupport(ObjectProvider<Pf4bootPluginSupport> pluginSupports) {
+    List<Pf4bootPluginSupport> supports = pluginSupports.orderedStream()
+        .collect(java.util.stream.Collectors.toList());
+    if (supports.isEmpty()) {
+      return new Pf4bootPluginSupport() {
+      };
+    }
+    if (supports.size() == 1) {
+      return supports.get(0);
+    }
+    return new Pf4bootPluginSupport() {
+      @Override
+      public int getPriority() {
+        return Pf4bootPluginSupport.DEFAULT_PRIORITY;
+      }
+
+      @Override
+      public void initiatePlugin(Pf4bootPlugin pf4bootPlugin) {
+        supports.forEach(support -> support.initiatePlugin(pf4bootPlugin));
+      }
+
+      @Override
+      public void initiatedPlugin(Pf4bootPlugin pf4bootPlugin) {
+        supports.forEach(support -> support.initiatedPlugin(pf4bootPlugin));
+      }
+
+      @Override
+      public void startPlugin(Pf4bootPlugin pf4bootPlugin) {
+        supports.forEach(support -> support.startPlugin(pf4bootPlugin));
+      }
+
+      @Override
+      public void startedPlugin(Pf4bootPlugin pf4bootPlugin) {
+        supports.forEach(support -> support.startedPlugin(pf4bootPlugin));
+      }
+
+      @Override
+      public void stopPlugin(Pf4bootPlugin pf4bootPlugin) {
+        supports.forEach(support -> support.stopPlugin(pf4bootPlugin));
+      }
+
+      @Override
+      public void stoppedPlugin(Pf4bootPlugin pf4bootPlugin) {
+        supports.forEach(support -> support.stoppedPlugin(pf4bootPlugin));
+      }
+
+      @Override
+      public void releasePlugin(Pf4bootPlugin pf4bootPlugin) {
+        supports.forEach(support -> support.releasePlugin(pf4bootPlugin));
+      }
+
+      @Override
+      public void deletePlugin(Pf4bootPlugin pf4bootPlugin) {
+        supports.forEach(support -> support.deletePlugin(pf4bootPlugin));
+      }
+
+      @Override
+      public void deletedPlugin(Pf4bootPlugin pf4bootPlugin) {
+        supports.forEach(support -> support.deletedPlugin(pf4bootPlugin));
+      }
+    };
   }
 
   private Map<String, Object> flatProperties(Map<String, Object> propertiesMap) {
