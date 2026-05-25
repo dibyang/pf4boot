@@ -12,7 +12,6 @@ import org.pf4j.DefaultPluginDescriptor;
 import org.pf4j.DependencyResolver;
 import org.pf4j.PluginState;
 import org.pf4j.PluginWrapper;
-import org.pf4j.PluginWrapper;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.context.annotation.Bean;
@@ -20,11 +19,14 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.stream.Collectors;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
@@ -68,6 +70,8 @@ public class DefaultShareBeanMgrTest {
     assertTrue(applicationContext.containsBean("appService"));
     assertTrue(pluginManager.getPlatformContext(PluginStarter.DEFAULT).containsBean("platformService"));
     assertTrue(groupedPlatform.containsBean("groupService"));
+    assertTrue(pluginManager.shareBeanMgr.getRegisteredSharingBeanCount("sharing") >= 4);
+    assertEquals(1, pluginManager.shareBeanMgr.getScheduledTaskCount("sharing"));
 
     pluginManager.stopPlugin("sharing");
 
@@ -75,6 +79,8 @@ public class DefaultShareBeanMgrTest {
     assertFalse(applicationContext.containsBean("appService"));
     assertFalse(pluginManager.getPlatformContext(PluginStarter.DEFAULT).containsBean("platformService"));
     assertFalse(groupedPlatform.containsBean("groupService"));
+    assertEquals(0, pluginManager.shareBeanMgr.getRegisteredSharingBeanCount("sharing"));
+    assertEquals(0, pluginManager.shareBeanMgr.getScheduledTaskCount("sharing"));
   }
 
   @Test
@@ -91,11 +97,30 @@ public class DefaultShareBeanMgrTest {
     assertFalse(pluginManager.getRootContext().containsBean("duplicateRootService"));
   }
 
+  @Test
+  public void dynamicBeanNameConflictIsRejectedByDefault() {
+    pluginManager.registerBeanToRootContext("rootService", new Object());
+    pluginManager.addResolvedPlugin("conflict", SharingPlugin.class);
+
+    assertEquals(PluginState.FAILED, pluginManager.startPlugin("conflict"));
+    assertTrue(pluginManager.getPlugin("conflict").getFailedException()
+        instanceof IllegalStateException);
+  }
+
   private static class TestPluginManager extends Pf4bootPluginManagerImpl {
+    private final DefaultShareBeanMgr shareBeanMgr;
 
     TestPluginManager(AnnotationConfigApplicationContext applicationContext, Path pluginsRoot) {
+      this(applicationContext, pluginsRoot, new DefaultShareBeanMgr(new DefaultAutoExportMgr()));
+    }
+
+    private TestPluginManager(
+        AnnotationConfigApplicationContext applicationContext,
+        Path pluginsRoot,
+        DefaultShareBeanMgr shareBeanMgr) {
       super(applicationContext, new Pf4bootProperties(), new Pf4bootPluginSupport() {
-      }, new DefaultShareBeanMgr(new DefaultAutoExportMgr()), pluginsRoot);
+      }, shareBeanMgr, pluginsRoot);
+      this.shareBeanMgr = shareBeanMgr;
     }
 
     void addResolvedPlugin(String pluginId, Class<? extends Pf4bootPlugin> pluginClass) {
@@ -164,6 +189,18 @@ public class DefaultShareBeanMgrTest {
     @Export(scope = SharingScope.PLATFORM, group = "g1")
     public Object groupService() {
       return new Object();
+    }
+
+    @Bean
+    public ScheduledService scheduledService() {
+      return new ScheduledService();
+    }
+  }
+
+  @Component
+  public static class ScheduledService {
+    @Scheduled(fixedDelay = 1000)
+    public void tick() {
     }
   }
 

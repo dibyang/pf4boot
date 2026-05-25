@@ -2,6 +2,7 @@ package net.xdob.pf4boot.spring.boot;
 
 import org.pf4j.PluginLoader;
 import org.pf4j.RuntimeMode;
+import net.xdob.pf4boot.modal.DynamicBeanConflictPolicy;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.ApplicationContext;
 
@@ -22,6 +23,10 @@ public class Pf4bootProperties {
   private boolean enabled = false;
 
   private boolean pluginAdminEnabled = true;
+  /**
+   * Strategy for dynamically registered bean name conflicts.
+   */
+  private DynamicBeanConflictPolicy dynamicBeanConflictPolicy = DynamicBeanConflictPolicy.REJECT;
   /**
    * Auto start plugin when main app is ready
    */
@@ -84,6 +89,16 @@ public class Pf4bootProperties {
 
   public void setPluginAdminEnabled(boolean pluginAdminEnabled) {
     this.pluginAdminEnabled = pluginAdminEnabled;
+  }
+
+  public DynamicBeanConflictPolicy getDynamicBeanConflictPolicy() {
+    return dynamicBeanConflictPolicy;
+  }
+
+  public void setDynamicBeanConflictPolicy(DynamicBeanConflictPolicy dynamicBeanConflictPolicy) {
+    this.dynamicBeanConflictPolicy = dynamicBeanConflictPolicy == null
+        ? DynamicBeanConflictPolicy.REJECT
+        : dynamicBeanConflictPolicy;
   }
 
   public boolean isAutoStartPlugin() {

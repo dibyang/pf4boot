@@ -250,6 +250,20 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 		}
 	}
 
+	public int getScheduledTaskCount(String pluginId) {
+		synchronized (this.scheduledTasks) {
+			PluginScheduledTasks pluginScheduledTasks = this.scheduledTasks.get(pluginId);
+			if (pluginScheduledTasks == null) {
+				return 0;
+			}
+			int count = 0;
+			for (Set<ScheduledTask> tasks : pluginScheduledTasks.getScheduledTasks().values()) {
+				count += tasks.size();
+			}
+			return count;
+		}
+	}
+
 	protected ScheduledMethodRunnable createRunnable(Object target, Method method) {
 		Assert.isTrue(method.getParameterCount() == 0, "Only no-arg methods may be annotated with @Scheduled");
 		Method invocableMethod = AopUtils.selectInvocableMethod(method, target.getClass());

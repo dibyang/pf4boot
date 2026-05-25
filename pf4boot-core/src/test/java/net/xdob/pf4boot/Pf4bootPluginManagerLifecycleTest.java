@@ -16,13 +16,19 @@ import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 
+import java.io.Closeable;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -36,6 +42,7 @@ public class Pf4bootPluginManagerLifecycleTest {
   public void setUp() throws Exception {
     LifecyclePlugin.events.clear();
     FailingPlugin.events.clear();
+    SlowStartPlugin.events.clear();
 
     applicationContext = new AnnotationConfigApplicationContext();
     applicationContext.registerBean(
@@ -63,7 +70,11 @@ public class Pf4bootPluginManagerLifecycleTest {
     pluginManager.addResolvedPlugin("sample", LifecyclePlugin.class);
 
     assertPluginState("sample", PluginState.STARTED, pluginManager.startPlugin("sample"));
+    Pf4bootPlugin plugin = (Pf4bootPlugin) pluginManager.getPlugin("sample").getPlugin();
+    ClassLoader contextClassLoader = plugin.getPluginContext().getClassLoader();
+    assertTrue(ApplicationContextProvider.containsApplicationContext(contextClassLoader));
     assertEquals(PluginState.STOPPED, pluginManager.stopPlugin("sample"));
+    assertFalse(ApplicationContextProvider.containsApplicationContext(contextClassLoader));
     assertEquals(PluginState.STARTED, pluginManager.restartPlugin("sample"));
 
     assertTrue(LifecyclePlugin.events.contains("sample:initiate"));
@@ -108,13 +119,36 @@ public class Pf4bootPluginManagerLifecycleTest {
     pluginManager.addResolvedPlugin("reloadable", LifecyclePlugin.class);
 
     pluginManager.startPlugin("reloadable");
+    TestPluginClassLoader oldClassLoader =
+        (TestPluginClassLoader) pluginManager.getPlugin("reloadable").getPluginClassLoader();
     PluginState state = pluginManager.reloadPlugin("reloadable");
 
     assertEquals(PluginState.STARTED, state);
+    assertTrue(oldClassLoader.isClosed());
     assertEquals(2, LifecyclePlugin.events.stream()
         .filter(event -> event.equals("reloadable:start"))
         .count());
     assertTrue(LifecyclePlugin.events.contains("reloadable:stop"));
+  }
+
+  @Test
+  public void concurrentStartsForSamePluginRunStartOnce() throws Exception {
+    pluginManager.addResolvedPlugin("slow", SlowStartPlugin.class);
+
+    ExecutorService executor = Executors.newFixedThreadPool(2);
+    try {
+      Future<PluginState> first = executor.submit(() -> pluginManager.startPlugin("slow"));
+      Future<PluginState> second = executor.submit(() -> pluginManager.startPlugin("slow"));
+
+      assertEquals(PluginState.STARTED, first.get());
+      assertEquals(PluginState.STARTED, second.get());
+    } finally {
+      executor.shutdownNow();
+    }
+
+    assertEquals(1, SlowStartPlugin.events.stream()
+        .filter(event -> event.equals("slow:start"))
+        .count());
   }
 
   private static class TestPluginManager extends Pf4bootPluginManagerImpl {
@@ -132,7 +166,7 @@ public class Pf4bootPluginManagerLifecycleTest {
         throw new IllegalStateException(e);
       }
       plugins.put(pluginId, wrapper);
-      pluginClassLoaders.put(pluginId, pluginClass.getClassLoader());
+      pluginClassLoaders.put(pluginId, wrapper.getPluginClassLoader());
       resolvedPlugins.add(wrapper);
       rebuildDependencyResolver();
     }
@@ -150,7 +184,7 @@ public class Pf4bootPluginManagerLifecycleTest {
       if ("reloadable".equals(pluginId)) {
         Pf4bootPluginWrapper wrapper = createWrapper(pluginId, LifecyclePlugin.class);
         plugins.put(pluginId, wrapper);
-        pluginClassLoaders.put(pluginId, LifecyclePlugin.class.getClassLoader());
+        pluginClassLoaders.put(pluginId, wrapper.getPluginClassLoader());
         resolvedPlugins.add(wrapper);
         rebuildDependencyResolver();
         return wrapper;
@@ -176,9 +210,20 @@ public class Pf4bootPluginManagerLifecycleTest {
     }
   }
 
-  private static class TestPluginClassLoader extends ClassLoader {
+  private static class TestPluginClassLoader extends ClassLoader implements Closeable {
+    private boolean closed;
+
     TestPluginClassLoader(ClassLoader parent) {
       super(parent);
+    }
+
+    @Override
+    public void close() throws IOException {
+      closed = true;
+    }
+
+    boolean isClosed() {
+      return closed;
     }
   }
 
@@ -223,6 +268,25 @@ public class Pf4bootPluginManagerLifecycleTest {
     public void start() {
       events.add(getPluginId() + ":start");
       throw new IllegalStateException("boom");
+    }
+  }
+
+  @PluginStarter(LifecycleConfig.class)
+  public static class SlowStartPlugin extends Pf4bootPlugin {
+    static final List<String> events = new ArrayList<>();
+
+    public SlowStartPlugin(PluginWrapper wrapper) {
+      super(wrapper);
+    }
+
+    @Override
+    public void start() {
+      events.add(getPluginId() + ":start");
+      try {
+        Thread.sleep(100);
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+      }
     }
   }
 

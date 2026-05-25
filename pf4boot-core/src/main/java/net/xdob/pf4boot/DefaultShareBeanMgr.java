@@ -53,6 +53,23 @@ public class DefaultShareBeanMgr implements ShareBeanMgr {
     this.autoExportMgr = autoExportMgr;
   }
 
+  public int getRegisteredSharingBeanCount(String pluginId) {
+    SharingBeans sharingBeans = pluginSharingBeans.get(pluginId);
+    if (sharingBeans == null) {
+      return 0;
+    }
+    return sharingBeans.getRootBeans().size()
+        + sharingBeans.getPlatformBeans().size()
+        + sharingBeans.getAppBeans().size();
+  }
+
+  public int getScheduledTaskCount(String pluginId) {
+    if (scheduledMgr instanceof DefaultScheduledMgr) {
+      return ((DefaultScheduledMgr) scheduledMgr).getScheduledTaskCount(pluginId);
+    }
+    return 0;
+  }
+
   @Override
   public void initiatePluginManager(Pf4bootPluginManager pluginManager) {
     ConfigurableApplicationContext applicationContext = pluginManager.getApplicationContext();

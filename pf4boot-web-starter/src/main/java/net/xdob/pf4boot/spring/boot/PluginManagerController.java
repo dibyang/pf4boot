@@ -23,12 +23,12 @@ public class PluginManagerController {
     this.pluginManager = pluginManager;
   }
 
-  @GetMapping(value = "/auto-start/get")
+  @GetMapping(value = "/auto-start")
   public Boolean istAutoStartPlugin() {
     return pluginManager.isAutoStartPlugin();
   }
 
-  @GetMapping(value = "/auto-start/set/{autoStartPlugin}")
+  @PutMapping(value = "/auto-start/{autoStartPlugin}")
   public Boolean setAutoStartPlugin(@PathVariable Boolean autoStartPlugin ) {
     if(autoStartPlugin!=null){
       pluginManager.setAutoStartPlugin(autoStartPlugin);
@@ -71,20 +71,20 @@ public class PluginManagerController {
         .findFirst().orElse(null);
   }
 
-  @GetMapping(value = "/enable/{pluginId}")
+  @PostMapping(value = "/{pluginId}/enable")
   public PluginInfo enable(@PathVariable String pluginId) {
     pluginManager.enablePlugin(pluginId);
     return getPluginInfo(pluginId);
   }
 
-  @GetMapping(value = "/disable/{pluginId}")
+  @DeleteMapping(value = "/{pluginId}/enable")
   public PluginInfo disable(@PathVariable String pluginId) {
     pluginManager.disablePlugin(pluginId);
     return getPluginInfo(pluginId);
   }
 
 
-  @GetMapping(value = "/start/{pluginId}")
+  @PostMapping(value = "/{pluginId}/start")
   public PluginInfo start(@PathVariable String pluginId) {
 		if(isAll(pluginId)){
 			pluginManager.startPlugins();
@@ -95,7 +95,7 @@ public class PluginManagerController {
   }
 
 
-  @GetMapping(value = "/stop/{pluginId}")
+  @DeleteMapping(value = "/{pluginId}/start")
   public PluginInfo stop(@PathVariable String pluginId) {
 		if(isAll(pluginId)){
 			pluginManager.stopPlugins();
@@ -105,7 +105,7 @@ public class PluginManagerController {
     return getPluginInfo(pluginId);
   }
 
-  @GetMapping(value = "/restart/{pluginId}")
+  @PostMapping(value = "/{pluginId}/restart")
   public PluginInfo restart(@PathVariable String pluginId) {
 		if(isAll(pluginId)){
 			pluginManager.restartPlugins();
@@ -115,7 +115,7 @@ public class PluginManagerController {
     return getPluginInfo(pluginId);
   }
 
-  @GetMapping(value = "/reload/{pluginId}")
+  @PostMapping(value = "/{pluginId}/reload")
   public PluginInfo reload(@PathVariable String pluginId) {
 		if(isAll(pluginId)){
 			pluginManager.reloadPlugins(true);

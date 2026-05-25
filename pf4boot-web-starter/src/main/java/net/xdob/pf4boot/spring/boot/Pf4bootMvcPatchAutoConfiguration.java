@@ -3,6 +3,8 @@ package net.xdob.pf4boot.spring.boot;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.internal.PluginPathResourceResolver;
 import net.xdob.pf4boot.internal.WebPf4BootPluginSupport;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.web.WebProperties;
 import org.springframework.cache.Cache;
@@ -26,6 +28,7 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 @ConditionalOnClass({PluginManager.class, Pf4bootPluginManager.class})
 @ConditionalOnProperty(prefix = Pf4bootProperties.PREFIX, value = "enabled", havingValue = "true")
 public class Pf4bootMvcPatchAutoConfiguration {
+  static final Logger LOG = LoggerFactory.getLogger(Pf4bootMvcPatchAutoConfiguration.class);
 
   @Autowired
   @SuppressWarnings("SpringJavaInjectionPointsAutowiringInspection")
@@ -51,6 +54,7 @@ public class Pf4bootMvcPatchAutoConfiguration {
   @ConditionalOnMissingBean(PluginManagerController.class)
   @ConditionalOnProperty(prefix = Pf4bootProperties.PREFIX, value = "pluginAdminEnabled", havingValue = "true", matchIfMissing = true)
   public PluginManagerController pluginManagerController(Pf4bootPluginManager pluginManager) {
+    LOG.warn("PF4Boot plugin administration controller is enabled. Protect it with authentication/authorization or set spring.pf4boot.plugin-admin-enabled=false when exposed to untrusted networks.");
     return new PluginManagerController(pluginManager);
   }
 

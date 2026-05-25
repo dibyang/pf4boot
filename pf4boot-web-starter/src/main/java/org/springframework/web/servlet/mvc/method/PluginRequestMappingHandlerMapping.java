@@ -7,6 +7,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.beans.factory.support.AbstractAutowireCapableBeanFactory;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.util.Assert;
@@ -39,6 +40,10 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
 
   public void removeDynamicInterceptor(HandlerInterceptor interceptor) {
     dynamicInterceptors.remove(interceptor);
+  }
+
+  public int getDynamicInterceptorCount() {
+    return dynamicInterceptors.size();
   }
 
   protected HandlerExecutionChain getHandlerExecutionChain(Object handler, HttpServletRequest request) {
@@ -148,6 +153,21 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     Assert.notNull(bean, "bean must not be null");
     beanName = Strings.isNullOrEmpty(beanName) ? bean.getClass().getName() : beanName;
     AutowireCapableBeanFactory beanFactory = this.obtainApplicationContext().getAutowireCapableBeanFactory();
+    DefaultListableBeanFactory listableBeanFactory = (DefaultListableBeanFactory) beanFactory;
+    if (listableBeanFactory.containsSingleton(beanName) || listableBeanFactory.containsBeanDefinition(beanName)) {
+      Object existing = null;
+      if (this.obtainApplicationContext().containsBean(beanName)) {
+        try {
+          existing = this.obtainApplicationContext().getBean(beanName);
+        } catch (Exception ignored) {
+        }
+      }
+      if (existing != bean) {
+        throw new IllegalStateException(String.format(
+            "Dynamic MVC bean name conflict: beanName [%s] already exists in application context",
+            beanName));
+      }
+    }
     ((AbstractAutowireCapableBeanFactory)beanFactory).registerSingleton(beanName, bean);
   }
 
@@ -160,6 +180,9 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   public void unregisterBeanFromMainContext(String beanName, Object bean) {
     Assert.notNull(bean, "bean must not be null");
     AutowireCapableBeanFactory beanFactory = this.obtainApplicationContext().getAutowireCapableBeanFactory();
-    ((AbstractAutowireCapableBeanFactory)beanFactory).destroySingleton(beanName);
+    if (this.obtainApplicationContext().containsBean(beanName)
+        && this.obtainApplicationContext().getBean(beanName) == bean) {
+      ((AbstractAutowireCapableBeanFactory)beanFactory).destroySingleton(beanName);
+    }
   }
 }

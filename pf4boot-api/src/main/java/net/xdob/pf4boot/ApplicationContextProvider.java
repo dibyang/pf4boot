@@ -29,6 +29,14 @@ public class ApplicationContextProvider {
     ctxCache.remove(ctx.getClassLoader());
   }
 
+  public static boolean containsApplicationContext(ClassLoader classLoader) {
+    return ctxCache.containsKey(classLoader);
+  }
+
+  public static int getRegisteredContextCount() {
+    return ctxCache.size();
+  }
+
   public static ApplicationContext getApplicationContext(Object probe) {
     return getApplicationContext(probe.getClass().getClassLoader());
   }

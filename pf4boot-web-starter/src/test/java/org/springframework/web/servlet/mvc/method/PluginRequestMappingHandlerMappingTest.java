@@ -42,6 +42,7 @@ public class PluginRequestMappingHandlerMappingTest {
   private TestPluginManager pluginManager;
   private PluginRequestMappingHandlerMapping mapping;
   private TestPlugin plugin;
+  private StaticWebApplicationContext webContext;
 
   @Before
   public void setUp() throws Exception {
@@ -56,7 +57,7 @@ public class PluginRequestMappingHandlerMappingTest {
     pluginManager = new TestPluginManager(applicationContext, pluginsRoot);
     plugin = pluginManager.createPlugin("web-plugin");
 
-    StaticWebApplicationContext webContext = new StaticWebApplicationContext();
+    webContext = new StaticWebApplicationContext();
     webContext.setServletContext(new MockServletContext());
     webContext.refresh();
 
@@ -72,6 +73,9 @@ public class PluginRequestMappingHandlerMappingTest {
     }
     if (pluginManager != null) {
       pluginManager.close();
+    }
+    if (webContext != null) {
+      webContext.close();
     }
     if (applicationContext != null) {
       applicationContext.close();
@@ -116,6 +120,14 @@ public class PluginRequestMappingHandlerMappingTest {
     chain = handlerFor("/plugin/ping");
     assertNotNull(chain);
     assertNull(chain.getInterceptors());
+    assertEquals(0, mapping.getDynamicInterceptorCount());
+  }
+
+  @Test(expected = IllegalStateException.class)
+  public void dynamicMvcBeanNameConflictIsRejected() {
+    webContext.getBeanFactory().registerSingleton("testController", new Object());
+
+    mapping.registerControllers(plugin);
   }
 
   private HandlerExecutionChain handlerFor(String path) throws Exception {
