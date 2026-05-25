@@ -9,14 +9,6 @@ buildscript {
         classpath 'net.researchgate:gradle-release:2.6.0'
         classpath "net.xdob.pf4boot:pf4boot-plugin:1.3.0"
     }
-    //skip Test tasks
-    gradle.taskGraph.whenReady {
-        tasks.each { task ->
-            if (task.name.contains("test")) {
-                task.enabled = false
-            }
-        }
-    }
 }
 
 
@@ -138,6 +130,10 @@ subprojects {
         platformApi("org.apache.commons:commons-lang3:$lang3_version")
         platformApi("org.slf4j:slf4j-api:${slf4j_version}")
         testImplementation("junit:junit:4.12")
+        testImplementation("com.google.guava:guava:$guava_version")
+        testImplementation("com.google.code.gson:gson:$gson_version")
+        testImplementation("org.apache.commons:commons-lang3:$lang3_version")
+        testImplementation("org.slf4j:slf4j-api:${slf4j_version}")
         annotationProcessor "org.pf4j:pf4j:${pf4j_version}"
         testAnnotationProcessor "org.pf4j:pf4j:${pf4j_version}"
     }

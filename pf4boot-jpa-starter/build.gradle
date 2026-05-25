@@ -7,4 +7,6 @@ dependencies {
     //api "net.xdob.springframework:spring-orm:$spring_version"
     //implementation("net.xdob.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}")
     compileOnly project(":pf4boot-api")
+    testImplementation project(":pf4boot-api")
+    testImplementation("net.xdob.springframework:spring-test:$spring_version")
 }

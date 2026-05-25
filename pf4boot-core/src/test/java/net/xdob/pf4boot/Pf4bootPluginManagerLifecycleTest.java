@@ -1,0 +1,231 @@
+package net.xdob.pf4boot;
+
+import net.xdob.pf4boot.annotation.PluginStarter;
+import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.pf4j.DefaultPluginDescriptor;
+import org.pf4j.DependencyResolver;
+import org.pf4j.PluginDependency;
+import org.pf4j.PluginDescriptor;
+import org.pf4j.PluginState;
+import org.pf4j.PluginWrapper;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.core.type.classreading.MetadataReaderFactory;
+import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+
+public class Pf4bootPluginManagerLifecycleTest {
+
+  private AnnotationConfigApplicationContext applicationContext;
+  private TestPluginManager pluginManager;
+  private Path pluginsRoot;
+
+  @Before
+  public void setUp() throws Exception {
+    LifecyclePlugin.events.clear();
+    FailingPlugin.events.clear();
+
+    applicationContext = new AnnotationConfigApplicationContext();
+    applicationContext.registerBean(
+        "metadataReaderFactory",
+        MetadataReaderFactory.class,
+        () -> new SimpleMetadataReaderFactory(new DefaultResourceLoader()));
+    applicationContext.refresh();
+
+    pluginsRoot = Files.createTempDirectory("pf4boot-lifecycle-test");
+    pluginManager = new TestPluginManager(applicationContext, pluginsRoot);
+  }
+
+  @After
+  public void tearDown() {
+    if (pluginManager != null) {
+      pluginManager.close();
+    }
+    if (applicationContext != null) {
+      applicationContext.close();
+    }
+  }
+
+  @Test
+  public void startStopAndRestartRunLifecycleHooks() {
+    pluginManager.addResolvedPlugin("sample", LifecyclePlugin.class);
+
+    assertPluginState("sample", PluginState.STARTED, pluginManager.startPlugin("sample"));
+    assertEquals(PluginState.STOPPED, pluginManager.stopPlugin("sample"));
+    assertEquals(PluginState.STARTED, pluginManager.restartPlugin("sample"));
+
+    assertTrue(LifecyclePlugin.events.contains("sample:initiate"));
+    assertTrue(LifecyclePlugin.events.contains("sample:start"));
+    assertTrue(LifecyclePlugin.events.contains("sample:stop"));
+    assertTrue(LifecyclePlugin.events.contains("sample:closed"));
+  }
+
+  @Test
+  public void stoppingDependencyStopsDependentPluginFirst() {
+    pluginManager.addResolvedPlugin("base", LifecyclePlugin.class);
+    pluginManager.addResolvedPlugin("dependent", LifecyclePlugin.class, "base");
+    pluginManager.rebuildDependencyResolver();
+
+    assertPluginState("dependent", PluginState.STARTED, pluginManager.startPlugin("dependent"));
+    pluginManager.stopPlugin("base");
+
+    assertEquals(PluginState.FAILED, pluginManager.getPlugin("dependent").getPluginState());
+    assertEquals(PluginState.STOPPED, pluginManager.getPlugin("base").getPluginState());
+    assertTrue(LifecyclePlugin.events.indexOf("dependent:stop")
+        < LifecyclePlugin.events.indexOf("base:stop"));
+  }
+
+  private void assertPluginState(String pluginId, PluginState expected, PluginState actual) {
+    Throwable failure = pluginManager.getPlugin(pluginId).getFailedException();
+    assertEquals(failure == null ? null : failure.toString(), expected, actual);
+  }
+
+  @Test
+  public void failedStartClosesPluginContext() {
+    pluginManager.addResolvedPlugin("failing", FailingPlugin.class);
+
+    assertEquals(PluginState.FAILED, pluginManager.startPlugin("failing"));
+
+    FailingPlugin plugin = (FailingPlugin) pluginManager.getPlugin("failing").getPlugin();
+    assertNull(plugin.getPluginContext());
+    assertTrue(FailingPlugin.events.contains("failing:start"));
+  }
+
+  @Test
+  public void reloadStopsUnloadsLoadsAndStartsPluginAgain() {
+    pluginManager.addResolvedPlugin("reloadable", LifecyclePlugin.class);
+
+    pluginManager.startPlugin("reloadable");
+    PluginState state = pluginManager.reloadPlugin("reloadable");
+
+    assertEquals(PluginState.STARTED, state);
+    assertEquals(2, LifecyclePlugin.events.stream()
+        .filter(event -> event.equals("reloadable:start"))
+        .count());
+    assertTrue(LifecyclePlugin.events.contains("reloadable:stop"));
+  }
+
+  private static class TestPluginManager extends Pf4bootPluginManagerImpl {
+
+    TestPluginManager(AnnotationConfigApplicationContext applicationContext, Path pluginsRoot) {
+      super(applicationContext, new Pf4bootProperties(), new Pf4bootPluginSupport() {
+      }, new DefaultShareBeanMgr(new DefaultAutoExportMgr()), pluginsRoot);
+    }
+
+    void addResolvedPlugin(String pluginId, Class<? extends Pf4bootPlugin> pluginClass, String... dependencies) {
+      Pf4bootPluginWrapper wrapper = createWrapper(pluginId, pluginClass, dependencies);
+      try {
+        Files.createDirectories(wrapper.getPluginPath());
+      } catch (Exception e) {
+        throw new IllegalStateException(e);
+      }
+      plugins.put(pluginId, wrapper);
+      pluginClassLoaders.put(pluginId, pluginClass.getClassLoader());
+      resolvedPlugins.add(wrapper);
+      rebuildDependencyResolver();
+    }
+
+    void rebuildDependencyResolver() {
+      dependencyResolver = new DependencyResolver(getVersionManager());
+      dependencyResolver.resolve(plugins.values().stream()
+          .map(PluginWrapper::getDescriptor)
+          .collect(Collectors.toList()));
+    }
+
+    @Override
+    protected PluginWrapper loadPluginFromPath(Path pluginPath) {
+      String pluginId = pluginPath.getFileName().toString();
+      if ("reloadable".equals(pluginId)) {
+        Pf4bootPluginWrapper wrapper = createWrapper(pluginId, LifecyclePlugin.class);
+        plugins.put(pluginId, wrapper);
+        pluginClassLoaders.put(pluginId, LifecyclePlugin.class.getClassLoader());
+        resolvedPlugins.add(wrapper);
+        rebuildDependencyResolver();
+        return wrapper;
+      }
+      return super.loadPluginFromPath(pluginPath);
+    }
+
+    private Pf4bootPluginWrapper createWrapper(
+        String pluginId,
+        Class<? extends Pf4bootPlugin> pluginClass,
+        String... dependencies) {
+      DefaultPluginDescriptor descriptor = new DefaultPluginDescriptor(
+          pluginId, pluginId, pluginClass.getName(), "1.0.0", "", "test", "Apache-2.0");
+      for (String dependency : dependencies) {
+        descriptor.addDependency(new PluginDependency(dependency));
+      }
+      ClassLoader pluginClassLoader = new TestPluginClassLoader(pluginClass.getClassLoader());
+      Pf4bootPluginWrapper wrapper = new Pf4bootPluginWrapper(
+          this, descriptor, getPluginsRoot().resolve(pluginId), pluginClassLoader);
+      wrapper.setPluginFactory(getPluginFactory());
+      wrapper.setPluginState(PluginState.RESOLVED);
+      return wrapper;
+    }
+  }
+
+  private static class TestPluginClassLoader extends ClassLoader {
+    TestPluginClassLoader(ClassLoader parent) {
+      super(parent);
+    }
+  }
+
+  @PluginStarter(LifecycleConfig.class)
+  public static class LifecyclePlugin extends Pf4bootPlugin {
+    static final List<String> events = new ArrayList<>();
+
+    public LifecyclePlugin(PluginWrapper wrapper) {
+      super(wrapper);
+    }
+
+    @Override
+    public void initiate() {
+      events.add(getPluginId() + ":initiate");
+    }
+
+    @Override
+    public void start() {
+      events.add(getPluginId() + ":start");
+    }
+
+    @Override
+    public void stop() {
+      events.add(getPluginId() + ":stop");
+    }
+
+    @Override
+    public void closed() {
+      events.add(getPluginId() + ":closed");
+    }
+  }
+
+  @PluginStarter(LifecycleConfig.class)
+  public static class FailingPlugin extends Pf4bootPlugin {
+    static final List<String> events = new ArrayList<>();
+
+    public FailingPlugin(PluginWrapper wrapper) {
+      super(wrapper);
+    }
+
+    @Override
+    public void start() {
+      events.add(getPluginId() + ":start");
+      throw new IllegalStateException("boom");
+    }
+  }
+
+  public static class LifecycleConfig {
+  }
+}
