@@ -13,8 +13,8 @@
 - `pf4boot-web-starter`: dynamic Spring MVC controller, interceptor, and resource integration.
 - `pf4boot-jpa`: JPA provider support for managed packages.
 - `pf4boot-jpa-starter`: plugin-side JPA auto-configuration.
-- `demo-app`, `demo-lib`, `plugin1`, `plugin2`: runnable examples and sample plugin dependency behavior.
-- `app-run`: runtime distribution and Linux package assembly.
+- `pf4boot-jpa-domain-starter`: starter for shared JPA domain capability plugins.
+- `samples/cross-plugin-jpa`: complex cross-plugin JPA sample with demo host, model modules, sample plugins, and the `app-run` runtime packaging project.
 
 ## Runtime Components
 

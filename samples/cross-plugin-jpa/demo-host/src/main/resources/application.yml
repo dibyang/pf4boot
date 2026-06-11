@@ -1,0 +1,43 @@
+server:
+  port: 7791
+spring:
+  mvc:
+    static-path-pattern: /**
+  flyway:
+    enabled: false
+  pf4boot:
+    runtime-mode: deployment
+    enabled: true
+    plugins-root: samples/cross-plugin-jpa/demo-host/build/sample-plugins
+    system-version: 1.0.0
+    plugin-package-verification-mode: WARN
+    plugin-compatibility-verification-mode: WARN
+    classes-directories:
+      - "build/classes/java/main"
+      - "build/resources/main"
+    lib-directories:
+      - "lib"
+      - "build/inline"
+    main:
+      allow-bean-definition-overriding: true
+  jpa:
+    open-in-view: false
+    show_sql: true
+    format_sql: true
+pf4boot:
+  plugin:
+    jpa:
+      enabled: true
+      mode: SHARED
+      domain-id: demo
+      domain:
+        id: demo
+        entity-packages:
+          - net.xdob.sample.model.userbook
+          - net.xdob.sample.model.audit
+        datasource:
+          url: jdbc:h2:file:~/h2/pf4boot_sample_cross_plugin_jpa;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+          username: sa
+          password:
+          driver-class-name: org.h2.Driver
+        ddl-auto: update

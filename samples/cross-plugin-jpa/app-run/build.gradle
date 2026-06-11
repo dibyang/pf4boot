@@ -1,0 +1,51 @@
+import org.gradle.api.tasks.bundling.Zip
+
+dependencies {
+    runtimeOnly project(":samples:cross-plugin-jpa:demo-host")
+}
+
+jar {
+    enabled = false
+}
+
+def runtimeDir = layout.buildDirectory.dir("runtime")
+
+task assembleSampleRuntime(type: Copy) {
+    group = "distribution"
+    description = "Assembles a runnable cross-plugin JPA sample layout."
+    dependsOn(
+            ":samples:cross-plugin-jpa:demo-host:jar",
+            ":samples:cross-plugin-jpa:demo-host:assembleSamplePlugins"
+    )
+
+    into runtimeDir
+
+    from(configurations.runtimeClasspath) {
+        into "lib"
+        exclude "*-sources.jar", "*-javadoc.jar", "spring-boot-devtools*.jar"
+    }
+    from("${project(':samples:cross-plugin-jpa:demo-host').buildDir}/sample-plugins") {
+        into "plugins"
+        include "*.zip"
+    }
+    from("config") {
+        into "config"
+    }
+    from("bin") {
+        into "bin"
+        fileMode = 0755
+    }
+}
+
+task sampleDistZip(type: Zip) {
+    group = "distribution"
+    description = "Builds a zip distribution for the cross-plugin JPA sample."
+    dependsOn assembleSampleRuntime
+    archiveBaseName = "pf4boot-cross-plugin-jpa-sample"
+    destinationDirectory = layout.buildDirectory.dir("distributions")
+    from(runtimeDir) {
+        into "pf4boot-cross-plugin-jpa-sample"
+    }
+}
+
+assemble.dependsOn sampleDistZip

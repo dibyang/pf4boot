@@ -10,7 +10,7 @@
 - `pf4boot-web-starter`: independently register Web MVC patches, resource resolution, and `WebPf4BootPluginSupport`.
 - `pf4boot-core`: remove unused JPA/Hibernate runtime dependencies so the core starter does not carry Hibernate indirectly through core.
 - `pf4boot-jpa` / `pf4boot-jpa-starter`: remain independent JPA capabilities that plugins opt into explicitly.
-- `demo-app`: declare the Web starter explicitly to keep the demo's dynamic controller/resource behavior.
+- `samples/cross-plugin-jpa:demo-host`: declare the Web starter explicitly to keep the sample's dynamic controller/resource behavior.
 
 ## Proposed Design
 
@@ -36,7 +36,7 @@ Minimum verification:
 - `.\gradlew.bat :pf4boot-starter:compileJava`
 - `.\gradlew.bat :pf4boot-web-starter:test`
 - `.\gradlew.bat :pf4boot-jpa-starter:test`
-- `.\gradlew.bat :demo-app:compileJava`
+- `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:compileJava`
 
 Broad verification:
 

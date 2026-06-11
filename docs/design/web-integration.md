@@ -52,6 +52,28 @@
 
 插件管理器在插件启动、停止、重启和重载后发布 `AppCacheFreeEvent`，以便刷新 Web 资源缓存。
 
+## 热替换 drain 与 mapping 摘除
+
+`PluginRequestMappingHandlerMapping` 参与热替换部署的三个阶段：
+
+- 作为 `PluginTrafficDrainer`，在 `beginDrain(pluginIds)` 后把影响链标记为 draining。
+- 作为 `PluginCleanupVerifier`，在插件 stop 后检查 controller、interceptor 和在途请求计数是否已清零。
+- 作为 `PluginHealthVerifier`，在新版本启动后输出 Web mapping 和 interceptor 数量。
+
+请求进入插件 controller 前会经过内部 drain interceptor：
+
+1. 如果 handler 属于 draining 插件，直接返回 HTTP 503，避免新请求进入即将停止的插件。
+2. 如果允许进入，则增加该插件的 in-flight 计数。
+3. 请求完成后减少 in-flight 计数。
+
+部署服务调用 `awaitDrain(pluginIds, timeoutMillis)` 时，Web 层会等待影响链 in-flight 请求归零。超时会导致本次替换失败并进入回滚。
+
+stop 阶段仍由 `WebPf4BootPluginSupport.stopPlugin` 负责注销 controller 和 interceptor。清理验证阶段只判断是否有残留：
+
+- `WEB_MAPPING_NOT_CLEANED`：停止后仍有插件 handler mapping。
+- `WEB_INTERCEPTOR_NOT_CLEANED`：停止后仍有插件 interceptor。
+- `WEB_IN_FLIGHT_NOT_DRAINED`：停止后仍有在途请求计数。
+
 ## 兼容性
 
 动态 MVC 注册依赖 Spring MVC 内部行为和 Bean 名称。`requestMappingHandlerMapping`、handler mapping 替换、interceptor 顺序或 resource resolver 顺序的变更，都可能影响宿主和插件路由。
@@ -61,8 +83,8 @@
 Web 变更运行：
 
 - `.\gradlew.bat :pf4boot-web-starter:compileJava`
+- `.\gradlew.bat :pf4boot-web-starter:test`
 - `.\gradlew.bat :pf4boot-starter:compileJava`
-- `.\gradlew.bat :plugin1:build`
-- `.\gradlew.bat :plugin2:build`
+- `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
 
-手动检查应包括启动 demo 应用、启动/停止插件、访问插件 controller 路由，并确认停止后路由消失。
+手动检查应包括启动 sample host、启动/停止插件、访问插件 controller 路由，并确认停止后路由消失。

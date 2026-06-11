@@ -1,0 +1,11 @@
+dependencies {
+    implementation project(":pf4boot-api")
+    implementation("net.xdob.springframework.boot:spring-boot-actuator:${spring_boot_version}") {
+        exclude group: 'org.slf4j'
+    }
+    implementation("net.xdob.springframework.boot:spring-boot-autoconfigure:${spring_boot_version}") {
+        exclude group: 'org.slf4j'
+    }
+    implementation("io.micrometer:micrometer-core:${micrometer_version}")
+    testImplementation project(":pf4boot-core")
+}

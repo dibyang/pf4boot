@@ -4,7 +4,6 @@ import java.util.stream.StreamSupport;
 
 import javax.sql.DataSource;
 
-import org.springframework.boot.jdbc.EmbeddedDatabaseConnection;
 import org.springframework.boot.jdbc.SchemaManagement;
 import org.springframework.boot.jdbc.SchemaManagementProvider;
 
@@ -23,14 +22,7 @@ class HibernateDefaultDdlAutoProvider implements SchemaManagementProvider {
   }
 
   String getDefaultDdlAuto(DataSource dataSource) {
-    if (!EmbeddedDatabaseConnection.isEmbedded(dataSource)) {
-      return "none";
-    }
-    SchemaManagement schemaManagement = getSchemaManagement(dataSource);
-    if (SchemaManagement.MANAGED.equals(schemaManagement)) {
-      return "none";
-    }
-    return "create-drop";
+    return "none";
   }
 
   @Override
@@ -41,4 +33,3 @@ class HibernateDefaultDdlAutoProvider implements SchemaManagementProvider {
   }
 
 }
-

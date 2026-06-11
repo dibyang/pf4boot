@@ -26,12 +26,15 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class DefaultScheduledMgr implements ScheduledMgr {
 	static final Logger logger = LoggerFactory.getLogger(DefaultScheduledMgr.class);
 	private final Set<Class<?>> nonAnnotatedClasses = Collections.newSetFromMap(new ConcurrentHashMap<>(64));
 
 	private final Map<String, PluginScheduledTasks> scheduledTasks = new HashMap<>(16);
+	private final Set<String> drainingPluginIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
+	private final Map<String, AtomicInteger> runningTasks = new ConcurrentHashMap<>();
 	//private final ScheduledTaskRegistrar registrar;
 
 	private StringValueResolver embeddedValueResolver;
@@ -114,7 +117,7 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 	private void processScheduled(PluginScheduledTasks pluginScheduledTasks, Scheduled scheduled, Method method, Object bean) {
 		try {
 			String pluginId = pluginScheduledTasks.getPluginId();
-			ScheduledMethodRunnable runnable = createRunnable(bean, method);
+			Runnable runnable = new DrainingScheduledRunnable(pluginId, createRunnable(bean, method));
 			boolean processedSchedule = false;
 			String errorMessage =
 					"Exactly one of the 'cron', 'fixedDelay(String)', or 'fixedRate(String)' attributes is required";
@@ -264,10 +267,76 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 		}
 	}
 
+	public int getRunningTaskCount(String pluginId) {
+		AtomicInteger count = runningTasks.get(pluginId);
+		return count == null ? 0 : count.get();
+	}
+
+	@Override
+	public void beginDrain(Collection<String> pluginIds) {
+		if (pluginIds != null) {
+			drainingPluginIds.addAll(pluginIds);
+		}
+	}
+
+	@Override
+	public boolean awaitDrain(Collection<String> pluginIds, long timeoutMillis) throws InterruptedException {
+		long deadline = System.currentTimeMillis() + Math.max(timeoutMillis, 0);
+		while (true) {
+			int running = 0;
+			if (pluginIds != null) {
+				for (String pluginId : pluginIds) {
+					running += getRunningTaskCount(pluginId);
+				}
+			}
+			if (running == 0) {
+				return true;
+			}
+			if (System.currentTimeMillis() >= deadline) {
+				return false;
+			}
+			TimeUnit.MILLISECONDS.sleep(20);
+		}
+	}
+
+	@Override
+	public void endDrain(Collection<String> pluginIds) {
+		if (pluginIds != null) {
+			drainingPluginIds.removeAll(pluginIds);
+		}
+	}
+
 	protected ScheduledMethodRunnable createRunnable(Object target, Method method) {
 		Assert.isTrue(method.getParameterCount() == 0, "Only no-arg methods may be annotated with @Scheduled");
 		Method invocableMethod = AopUtils.selectInvocableMethod(method, target.getClass());
 		return new ScheduledMethodRunnable(target, invocableMethod);
+	}
+
+	private class DrainingScheduledRunnable implements Runnable {
+		private final String pluginId;
+		private final Runnable delegate;
+
+		private DrainingScheduledRunnable(String pluginId, Runnable delegate) {
+			this.pluginId = pluginId;
+			this.delegate = delegate;
+		}
+
+		@Override
+		public void run() {
+			if (drainingPluginIds.contains(pluginId)) {
+				logger.debug("skip scheduled task for draining plugin {}", pluginId);
+				return;
+			}
+			AtomicInteger count = runningTasks.computeIfAbsent(pluginId, key -> new AtomicInteger());
+			count.incrementAndGet();
+			try {
+				delegate.run();
+			} finally {
+				if (count.decrementAndGet() < 0) {
+					count.set(0);
+				}
+			}
+		}
 	}
 
 	private static long convertToMillis(long value, TimeUnit timeUnit) {

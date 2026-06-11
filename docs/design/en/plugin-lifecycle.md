@@ -74,6 +74,27 @@ If startup fails after context creation, `plugin.closePluginContext()` is called
 - `reloadPlugins(restartStartedOnly)` unloads all loaded plugins, reloads from plugin roots, and either restarts previously started plugins or starts all eligible plugins.
 - `deletePlugin` stops and unloads the plugin, invokes plugin delete hooks, then delegates path deletion to the active plugin repository.
 
+## Lifecycle Operations And Deployment Orchestration
+
+`reloadPlugin`, `restartPlugin`, and `upgradePlugin` are low-level lifecycle primitives. They are useful for development, operational fallback, or local management operations, but they are not the safe hot replacement deployment flow.
+
+Safe hot replacement is owned by `PluginDeploymentService`:
+
+- `planReplacement(pluginId, stagedPluginPath)`: generates the deployment plan, impact scope, precheck results, and rollback snapshot without mutating runtime state.
+- `replace(pluginId, stagedPluginPath)`: runs precheck, drain, impact-chain stop, cleanup validation, staged package load, impact-chain start, health checks, and rollback on failure.
+
+The deployment orchestration layer reuses existing lifecycle ordering and does not change the `Pf4bootPluginManagerImpl` start/stop/reload/delete contracts. The difference is that deployment treats one replacement as an auditable state machine:
+
+1. Calculate the impact chain from the PF4J dependency graph.
+2. Drain the impact chain, reject new requests and scheduled executions, and wait for in-flight work to reach zero.
+3. Stop plugins in dependents -> target order and run module cleanup validation.
+4. Load the staged target package and reload affected dependents when needed.
+5. Start plugins in target -> dependents order.
+6. Run module health verifiers and plugin-local `PluginHealthProbe` beans.
+7. Restore old packages and original started state from `RollbackSnapshot` on any failure; rollback failure moves to `MANUAL_INTERVENTION`.
+
+Release-oriented hot replacement should therefore use `PluginDeploymentService.replace(...)`; do not expose `reloadPlugin` as the safe hot replacement capability.
+
 ## Compatibility
 
 Lifecycle ordering is a contract. Changes can affect web mappings, exported beans, scheduled tasks, JPA resources, and external plugin code that listens for events.
@@ -83,8 +104,8 @@ Lifecycle ordering is a contract. Changes can affect web mappings, exported bean
 For lifecycle changes, run at least:
 
 - `.\gradlew.bat :pf4boot-core:compileJava`
+- `.\gradlew.bat :pf4boot-core:test`
 - `.\gradlew.bat :pf4boot-starter:compileJava`
-- `.\gradlew.bat :plugin1:build`
-- `.\gradlew.bat :plugin2:build`
+- `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
 
 Manual verification should include start, stop, restart, and reload through `PluginManagerController` when possible.

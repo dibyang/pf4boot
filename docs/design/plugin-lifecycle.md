@@ -74,6 +74,27 @@
 - `reloadPlugins(restartStartedOnly)` 会卸载所有已加载插件，从插件根目录重新加载，并按参数决定只重启原先已启动插件或启动所有可启动插件。
 - `deletePlugin` 会停止并卸载插件，执行插件删除 hook，然后委托当前插件仓库删除路径。
 
+## 生命周期操作与部署编排
+
+`reloadPlugin`、`restartPlugin` 和 `upgradePlugin` 是底层生命周期原语。它们适合开发、运维兜底或局部管理操作，但不等同于安全热替换部署。
+
+安全热替换由 `PluginDeploymentService` 承载，入口包括：
+
+- `planReplacement(pluginId, stagedPluginPath)`：只生成部署计划、影响范围、预检结果和回滚快照，不改变运行态。
+- `replace(pluginId, stagedPluginPath)`：执行预检、drain、停止影响链、清理验证、加载 staged 包、启动影响链、健康检查和失败回滚。
+
+部署编排层复用现有生命周期顺序，不改变 `Pf4bootPluginManagerImpl` 的 start/stop/reload/delete 契约。区别在于部署层会把一次替换当成可审计状态机处理：
+
+1. 根据 PF4J 依赖图计算影响链。
+2. 先 drain 影响链，拒绝新请求和新定时任务，等待在途工作归零。
+3. 按 dependents -> target 停止插件，并执行模块级清理验证。
+4. 加载 staged 目标包，必要时重新加载受影响 dependents。
+5. 按 target -> dependents 启动插件。
+6. 执行模块级 health verifier 和插件本地 `PluginHealthProbe`。
+7. 任一阶段失败时按 `RollbackSnapshot` 恢复旧包和原启动状态；回滚失败进入 `MANUAL_INTERVENTION`。
+
+因此，面向发布的热替换应使用 `PluginDeploymentService.replace(...)`，不要直接把 `reloadPlugin` 暴露为“安全热替换”能力。
+
 ## 兼容性
 
 生命周期顺序本身是契约。顺序变化可能影响 Web 映射、导出 Bean、定时任务、JPA 资源以及监听生命周期事件的外部插件代码。
@@ -83,8 +104,8 @@
 生命周期变更至少运行：
 
 - `.\gradlew.bat :pf4boot-core:compileJava`
+- `.\gradlew.bat :pf4boot-core:test`
 - `.\gradlew.bat :pf4boot-starter:compileJava`
-- `.\gradlew.bat :plugin1:build`
-- `.\gradlew.bat :plugin2:build`
+- `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
 
 可行时通过 `PluginManagerController` 手动验证启动、停止、重启和重载。

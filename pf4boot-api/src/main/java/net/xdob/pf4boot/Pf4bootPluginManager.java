@@ -62,6 +62,16 @@ public interface Pf4bootPluginManager extends PluginManager {
 
   PluginState reloadPlugin(String pluginId);
 
+  /**
+   * 使用新插件包升级指定插件，失败时尝试从回滚包恢复。
+   *
+   * @param pluginId 插件 ID
+   * @param newPluginPath 新插件包路径
+   * @param rollbackPluginPath 上一版本插件包路径
+   * @return 升级后插件状态
+   */
+  PluginState upgradePlugin(String pluginId, Path newPluginPath, Path rollbackPluginPath);
+
   void setExactVersionAllowed(boolean exactVersionAllowed);
 
   PluginRepository getPluginRepository();

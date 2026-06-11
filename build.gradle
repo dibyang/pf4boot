@@ -75,10 +75,13 @@ subprojects {
     }
 
     def publishable = ![
-            'demo-app',
-            'demo-lib',
-            'plugin1',
-            'plugin2'
+            'app-run',
+            'demo-host',
+            'model-user-book',
+            'model-workflow-audit',
+            'plugin-demo-jpa-domain',
+            'plugin-user-book-service',
+            'plugin-workflow'
     ].contains(project.name)
 
     apply plugin: 'java'

@@ -1,0 +1,10 @@
+dependencies {
+    implementation("net.xdob.springframework.boot:spring-boot-starter-data-jpa:${spring_boot_version}"){
+        exclude group: 'org.slf4j'
+    }
+    implementation project(":pf4boot-jpa")
+    compileOnly project(":pf4boot-api")
+    testImplementation project(":pf4boot-api")
+    testImplementation("net.xdob.springframework:spring-test:$spring_version")
+    testImplementation("com.h2database:h2:2.2.224")
+}

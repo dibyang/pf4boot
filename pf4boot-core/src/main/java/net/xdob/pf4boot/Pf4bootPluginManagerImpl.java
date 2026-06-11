@@ -14,7 +14,9 @@ import net.xdob.pf4boot.util.AutoCloseableLock;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -78,19 +80,27 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 	private final AtomicBoolean starting = new AtomicBoolean(false);
   private final AtomicBoolean stopping = new AtomicBoolean(false);
 
-	private final Pf4bootPluginSupport pluginSupport;
+  private final Pf4bootPluginSupport pluginSupport;
   private ScheduledExecutorService scheduled;
   private ScheduledFuture<?> autoStartFuture;
 	private final ShareBeanMgr shareBeanMgr;
+  private final List<PluginPackageVerifier> pluginPackageVerifiers;
 
   public Pf4bootPluginManagerImpl(ApplicationContext applicationContext, Pf4bootProperties properties,
 																	Pf4bootPluginSupport pluginSupport, ShareBeanMgr shareBeanMgr, Path... pluginsRoots) {
+    this(applicationContext, properties, pluginSupport, shareBeanMgr, Collections.emptyList(), pluginsRoots);
+  }
+
+  public Pf4bootPluginManagerImpl(ApplicationContext applicationContext, Pf4bootProperties properties,
+																	Pf4bootPluginSupport pluginSupport, ShareBeanMgr shareBeanMgr,
+                                  Collection<PluginPackageVerifier> pluginPackageVerifiers, Path... pluginsRoots) {
     super(pluginsRoots);
     this.applicationContext = (ConfigurableApplicationContext)applicationContext;
 
     this.properties = properties;
     this.pluginSupport = pluginSupport;
 		this.shareBeanMgr = shareBeanMgr;
+    this.pluginPackageVerifiers = createPluginPackageVerifiers(properties, pluginPackageVerifiers);
 		this.rootContext = new AnnotationConfigApplicationContext();
 		this.rootContext.refresh();
 
@@ -107,6 +117,17 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 		this.doInitialize();
 
+  }
+
+  private List<PluginPackageVerifier> createPluginPackageVerifiers(
+      Pf4bootProperties properties,
+      Collection<PluginPackageVerifier> customVerifiers) {
+    List<PluginPackageVerifier> verifiers = new ArrayList<>();
+    verifiers.add(new DefaultPluginPackageVerifier(properties));
+    if (customVerifiers != null) {
+      verifiers.addAll(customVerifiers);
+    }
+    return Collections.unmodifiableList(verifiers);
   }
 
 
@@ -395,6 +416,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     LOG.info("Finding plugin descriptor for plugin '{}'", pluginPath);
     PluginDescriptor pluginDescriptor = pluginDescriptorFinder.find(pluginPath);
     validatePluginDescriptor(pluginDescriptor);
+    verifyPluginPackage(pluginPath, pluginDescriptor);
+    verifyPluginCompatibility(pluginPath, pluginDescriptor);
 
     // Check there are no loaded plugins with the retrieved id
     pluginId = pluginDescriptor.getPluginId();
@@ -451,6 +474,42 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     getPluginClassLoaders().put(pluginId, pluginClassLoader);
 
     return pluginWrapper;
+  }
+
+  private void verifyPluginPackage(Path pluginPath, PluginDescriptor pluginDescriptor) {
+    for (PluginPackageVerifier verifier : pluginPackageVerifiers) {
+      PluginPackageVerificationResult result = verifier.verify(pluginPath, pluginDescriptor);
+      if (result == null) {
+        throw new PluginRuntimeException("Plugin package verifier returned null: " + verifier.getClass().getName());
+      }
+      if (!result.isValid()) {
+        throw new PluginRuntimeException(result.getMessage());
+      }
+      if (result.isWarning()) {
+        LOG.warn("[PF4BOOT] {}", result.getMessage());
+      }
+    }
+  }
+
+  private void verifyPluginCompatibility(Path pluginPath, PluginDescriptor pluginDescriptor) {
+    PluginPackageVerificationMode mode = properties.getPluginCompatibilityVerificationMode();
+    if (mode == null || PluginPackageVerificationMode.DISABLED.equals(mode)) {
+      return;
+    }
+    String requires = pluginDescriptor.getRequires();
+    if (Strings.isNullOrEmpty(requires)) {
+      return;
+    }
+    if (versionManager.checkVersionConstraint(getSystemVersion(), requires)) {
+      return;
+    }
+    String message = String.format(
+        "Plugin '%s' requires system version '%s', current system version is '%s': %s",
+        pluginDescriptor.getPluginId(), requires, getSystemVersion(), pluginPath);
+    if (PluginPackageVerificationMode.ENFORCE.equals(mode)) {
+      throw new PluginRuntimeException(message);
+    }
+    LOG.warn("[PF4BOOT] {}", message);
   }
 
   public PluginRepository getPluginRepository() {
@@ -698,10 +757,22 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     beanName = Strings.isNullOrEmpty(beanName) ? bean.getClass().getName() : beanName;
     ConfigurableApplicationContext context = getContext(group, scope);
     prepareDynamicBeanRegistration(context, scope, group, beanName);
-		context.getBeanFactory().registerSingleton(beanName, bean);
+    DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getBeanFactory();
+    registerDynamicBeanDefinition(beanFactory, beanName, bean);
+		beanFactory.registerSingleton(beanName, bean);
 		LOG.info("[PF4BOOT] register bean {} [{}] to {} context [{}]", bean, beanName, scope, context.getId());
     BeanRegisterEvent registerBeanEvent = new BeanRegisterEvent(scope, context, beanName, bean);
     publishEvent(registerBeanEvent);
+  }
+
+  private void registerDynamicBeanDefinition(
+      DefaultListableBeanFactory beanFactory,
+      String beanName,
+      Object bean) {
+    RootBeanDefinition beanDefinition = new RootBeanDefinition(bean.getClass());
+    beanDefinition.setInstanceSupplier(() -> bean);
+    beanDefinition.setRole(BeanDefinition.ROLE_APPLICATION);
+    beanFactory.registerBeanDefinition(beanName, beanDefinition);
   }
 
   private void prepareDynamicBeanRegistration(
@@ -823,6 +894,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
    */
   protected void doStartPlugin(PluginWrapper pluginWrapper, boolean autoStartPlugin) {
 
+    long startTs = System.currentTimeMillis();
     PluginDescriptor pluginDescriptor = pluginWrapper.getDescriptor();
     PluginState pluginState = pluginWrapper.getPluginState();
     if (pluginState.isStarted()) {
@@ -910,6 +982,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       //插件启动后置处理
 			pluginSupport.startedPlugin(plugin);
       pluginWrapper.setPluginState(PluginState.STARTED);
+      ((Pf4bootPluginWrapper)pluginWrapper).getLastStartDurationMillis()
+          .set(System.currentTimeMillis() - startTs);
 			if (!startedPlugins.contains(pluginWrapper)) {
 				startedPlugins.add(pluginWrapper);
 			}
@@ -1097,6 +1171,61 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       PluginState state = this.startPlugin(pluginId);
       notifyAppCacheFree();
       return state;
+    }
+  }
+
+  @Override
+  public PluginState upgradePlugin(String pluginId, Path newPluginPath, Path rollbackPluginPath) {
+    try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkPluginId(pluginId);
+      Assert.notNull(newPluginPath, "newPluginPath must not be null");
+
+      PluginWrapper currentPlugin = getPlugin(pluginId);
+      boolean restartAfterUpgrade = currentPlugin != null && currentPlugin.getPluginState().isStarted();
+      Path fallbackPath = rollbackPluginPath != null
+          ? rollbackPluginPath
+          : (currentPlugin == null ? null : currentPlugin.getPluginPath());
+
+      try {
+        if (currentPlugin != null) {
+          this.stopPlugin(pluginId);
+          unloadPlugin(pluginId);
+        }
+        String loadedPluginId = loadPlugin(newPluginPath);
+        PluginState state = restartAfterUpgrade ? this.startPlugin(loadedPluginId) : getPlugin(loadedPluginId).getPluginState();
+        notifyAppCacheFree();
+        return state;
+      } catch (Throwable upgradeFailure) {
+        rollbackPlugin(pluginId, fallbackPath, restartAfterUpgrade, upgradeFailure);
+        throw new PluginRuntimeException(upgradeFailure,
+            "Upgrade plugin '%s' failed and rollback path '%s' was restored", pluginId, fallbackPath);
+      }
+    }
+  }
+
+  private void rollbackPlugin(
+      String pluginId,
+      Path rollbackPluginPath,
+      boolean restartAfterRollback,
+      Throwable upgradeFailure) {
+    if (rollbackPluginPath == null) {
+      throw new PluginRuntimeException(upgradeFailure,
+          "Upgrade plugin '%s' failed and rollback path is not available", pluginId);
+    }
+    try {
+      PluginWrapper partialPlugin = getPlugin(pluginId);
+      if (partialPlugin != null) {
+        unloadPlugin(pluginId);
+      }
+      String restoredPluginId = loadPlugin(rollbackPluginPath);
+      if (restartAfterRollback) {
+        startPlugin(restoredPluginId);
+      }
+      notifyAppCacheFree();
+      LOG.warn("[PF4BOOT] rollback plugin {} from {}", pluginId, rollbackPluginPath);
+    } catch (Throwable rollbackFailure) {
+      throw new PluginRuntimeException(rollbackFailure,
+          "Upgrade plugin '%s' failed and rollback from '%s' also failed", pluginId, rollbackPluginPath);
     }
   }
   

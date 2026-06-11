@@ -2,6 +2,7 @@ package net.xdob.pf4boot.spring.boot;
 
 import org.pf4j.PluginLoader;
 import org.pf4j.RuntimeMode;
+import net.xdob.pf4boot.PluginPackageVerificationMode;
 import net.xdob.pf4boot.modal.DynamicBeanConflictPolicy;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.ApplicationContext;
@@ -24,9 +25,25 @@ public class Pf4bootProperties {
 
   private boolean pluginAdminEnabled = true;
   /**
+   * Plugin package verification mode before class loader creation.
+   */
+  private PluginPackageVerificationMode pluginPackageVerificationMode = PluginPackageVerificationMode.DISABLED;
+  /**
+   * Plugin compatibility verification mode before class loader creation.
+   */
+  private PluginPackageVerificationMode pluginCompatibilityVerificationMode = PluginPackageVerificationMode.DISABLED;
+  /**
+   * Sidecar checksum file extension used by the default verifier.
+   */
+  private String pluginPackageChecksumExtension = ".sha256";
+  /**
    * Strategy for dynamically registered bean name conflicts.
    */
   private DynamicBeanConflictPolicy dynamicBeanConflictPolicy = DynamicBeanConflictPolicy.REJECT;
+  /**
+   * Maximum time to wait for plugin draining before replacement stops plugins.
+   */
+  private long pluginDrainTimeoutMillis = 30000;
   /**
    * Auto start plugin when main app is ready
    */
@@ -91,6 +108,37 @@ public class Pf4bootProperties {
     this.pluginAdminEnabled = pluginAdminEnabled;
   }
 
+  public PluginPackageVerificationMode getPluginPackageVerificationMode() {
+    return pluginPackageVerificationMode;
+  }
+
+  public void setPluginPackageVerificationMode(PluginPackageVerificationMode pluginPackageVerificationMode) {
+    this.pluginPackageVerificationMode = pluginPackageVerificationMode == null
+        ? PluginPackageVerificationMode.DISABLED
+        : pluginPackageVerificationMode;
+  }
+
+  public PluginPackageVerificationMode getPluginCompatibilityVerificationMode() {
+    return pluginCompatibilityVerificationMode;
+  }
+
+  public void setPluginCompatibilityVerificationMode(PluginPackageVerificationMode pluginCompatibilityVerificationMode) {
+    this.pluginCompatibilityVerificationMode = pluginCompatibilityVerificationMode == null
+        ? PluginPackageVerificationMode.DISABLED
+        : pluginCompatibilityVerificationMode;
+  }
+
+  public String getPluginPackageChecksumExtension() {
+    return pluginPackageChecksumExtension;
+  }
+
+  public void setPluginPackageChecksumExtension(String pluginPackageChecksumExtension) {
+    this.pluginPackageChecksumExtension = pluginPackageChecksumExtension == null
+        || pluginPackageChecksumExtension.trim().isEmpty()
+        ? ".sha256"
+        : pluginPackageChecksumExtension;
+  }
+
   public DynamicBeanConflictPolicy getDynamicBeanConflictPolicy() {
     return dynamicBeanConflictPolicy;
   }
@@ -99,6 +147,14 @@ public class Pf4bootProperties {
     this.dynamicBeanConflictPolicy = dynamicBeanConflictPolicy == null
         ? DynamicBeanConflictPolicy.REJECT
         : dynamicBeanConflictPolicy;
+  }
+
+  public long getPluginDrainTimeoutMillis() {
+    return pluginDrainTimeoutMillis;
+  }
+
+  public void setPluginDrainTimeoutMillis(long pluginDrainTimeoutMillis) {
+    this.pluginDrainTimeoutMillis = pluginDrainTimeoutMillis < 0 ? 0 : pluginDrainTimeoutMillis;
   }
 
   public boolean isAutoStartPlugin() {

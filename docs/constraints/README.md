@@ -16,8 +16,8 @@ These constraints apply before design and implementation work.
 - Put Spring Boot auto-configuration in `pf4boot-starter`, `pf4boot-web-starter`, or `pf4boot-jpa-starter` according to the integration area.
 - Keep servlet MVC and plugin resource handling in `pf4boot-web-*` modules.
 - Keep JPA and Hibernate integration in `pf4boot-jpa*` modules.
-- Keep demo-only behavior in `demo-app`, `demo-lib`, `plugin1`, or `plugin2`.
-- Keep Linux package assembly in `app-run`.
+- Keep demo-only behavior in `samples/*` modules.
+- The former root demo modules have been removed; do not add new demo-only behavior back to the root module list unless a design document explicitly reintroduces it.
 
 ## Plugin Packaging
 

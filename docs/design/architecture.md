@@ -13,8 +13,8 @@
 - `pf4boot-web-starter`：动态 Spring MVC controller、interceptor 和资源集成。
 - `pf4boot-jpa`：为 Hibernate 管理包提供 JPA provider 支持。
 - `pf4boot-jpa-starter`：插件侧 JPA 自动配置。
-- `demo-app`、`demo-lib`、`plugin1`、`plugin2`：可运行示例和插件依赖示例。
-- `app-run`：运行时发行包和 Linux 包装配。
+- `pf4boot-jpa-domain-starter`：共享 JPA domain 能力插件 starter。
+- `samples/cross-plugin-jpa`：跨插件 JPA 复杂示例，包含 demo host、model 模块、示例插件和 `app-run` 运行时打包项目。
 
 ## 运行时组件
 

@@ -1,0 +1,3 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+net.xdob.pf4boot.jpa.starter.JpaDeploymentAutoConfiguration,\
+net.xdob.pf4boot.jpa.starter.SharedJpaAutoConfiguration

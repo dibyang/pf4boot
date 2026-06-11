@@ -6,6 +6,11 @@ import net.xdob.pf4boot.annotation.ExportBeans;
 import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.internal.SpringExtensionFactory;
 import net.xdob.pf4boot.AutoExportMgr;
+import net.xdob.pf4boot.deployment.DeploymentCheckResult;
+import net.xdob.pf4boot.deployment.PluginCleanupVerifier;
+import net.xdob.pf4boot.deployment.PluginHealthContext;
+import net.xdob.pf4boot.deployment.PluginHealthVerifier;
+import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import net.xdob.pf4boot.modal.SharingBean;
 import net.xdob.pf4boot.modal.SharingBeans;
 import net.xdob.pf4boot.modal.SharingScope;
@@ -20,6 +25,8 @@ import org.springframework.context.ConfigurableApplicationContext;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,7 +43,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * 2. 插件停止时按记录注销，不重新扫描插件 Context。
  * 3. 避免插件 Context 已经变化或 Bean 已销毁时，重新扫描导致注销错乱。
  */
-public class DefaultShareBeanMgr implements ShareBeanMgr {
+public class DefaultShareBeanMgr
+    implements ShareBeanMgr, PluginTrafficDrainer, PluginCleanupVerifier, PluginHealthVerifier {
   static final Logger logger = LoggerFactory.getLogger(DefaultShareBeanMgr.class);
 
   private final ScheduledMgr scheduledMgr = new DefaultScheduledMgr();
@@ -48,6 +56,7 @@ public class DefaultShareBeanMgr implements ShareBeanMgr {
    * key: pluginId
    */
   private final Map<String, SharingBeans> pluginSharingBeans = new ConcurrentHashMap<>();
+  private final Map<String, Set<String>> pluginExtensionBeans = new ConcurrentHashMap<>();
 
   public DefaultShareBeanMgr(AutoExportMgr autoExportMgr) {
     this.autoExportMgr = autoExportMgr;
@@ -68,6 +77,18 @@ public class DefaultShareBeanMgr implements ShareBeanMgr {
       return ((DefaultScheduledMgr) scheduledMgr).getScheduledTaskCount(pluginId);
     }
     return 0;
+  }
+
+  public int getRunningScheduledTaskCount(String pluginId) {
+    if (scheduledMgr instanceof DefaultScheduledMgr) {
+      return ((DefaultScheduledMgr) scheduledMgr).getRunningTaskCount(pluginId);
+    }
+    return 0;
+  }
+
+  public int getRegisteredExtensionBeanCount(String pluginId) {
+    Set<String> beanNames = pluginExtensionBeans.get(pluginId);
+    return beanNames == null ? 0 : beanNames.size();
   }
 
   @Override
@@ -148,6 +169,7 @@ public class DefaultShareBeanMgr implements ShareBeanMgr {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     Set<String> extensionClassNames = pluginManager.getExtensionClassNames(wrapper.getPluginId());
     String group = pf4bootPlugin.getGroup();
+    Set<String> registeredBeanNames = ConcurrentHashMap.newKeySet();
 
     for (String extensionClassName : extensionClassNames) {
       try {
@@ -161,9 +183,13 @@ public class DefaultShareBeanMgr implements ShareBeanMgr {
         String beanName = extensionFactory.getExtensionBeanName(extensionClass);
 
         pluginManager.registerBeanToPlatformContext(group, beanName, bean);
+        registeredBeanNames.add(beanName);
       } catch (ClassNotFoundException e) {
         throw new IllegalArgumentException(e.getMessage(), e);
       }
+    }
+    if (!registeredBeanNames.isEmpty()) {
+      pluginExtensionBeans.put(wrapper.getPluginId(), registeredBeanNames);
     }
   }
 
@@ -330,9 +356,17 @@ public class DefaultShareBeanMgr implements ShareBeanMgr {
 
         String beanName = extensionFactory.getExtensionBeanName(extensionClass);
         pluginManager.unregisterBeanFromPlatformContext(group, beanName);
+        Set<String> beanNames = pluginExtensionBeans.get(wrapper.getPluginId());
+        if (beanNames != null) {
+          beanNames.remove(beanName);
+        }
       } catch (Exception e) {
         logger.warn("unregister extension <{}> to platform [{}] failed", extensionClassName, group, e);
       }
+    }
+    Set<String> beanNames = pluginExtensionBeans.get(wrapper.getPluginId());
+    if (beanNames == null || beanNames.isEmpty()) {
+      pluginExtensionBeans.remove(wrapper.getPluginId());
     }
   }
 
@@ -385,5 +419,72 @@ public class DefaultShareBeanMgr implements ShareBeanMgr {
     } catch (BeansException e) {
       logger.warn("unregister export bean {} from root failed", bean.getBeanName(), e);
     }
+  }
+
+  @Override
+  public void beginDrain(Collection<String> pluginIds) {
+    scheduledMgr.beginDrain(pluginIds);
+  }
+
+  @Override
+  public boolean awaitDrain(Collection<String> pluginIds, long timeoutMillis) throws InterruptedException {
+    return scheduledMgr.awaitDrain(pluginIds, timeoutMillis);
+  }
+
+  @Override
+  public void endDrain(Collection<String> pluginIds) {
+    scheduledMgr.endDrain(pluginIds);
+  }
+
+  @Override
+  public List<DeploymentCheckResult> verifyStoppedPlugin(String pluginId, ClassLoader pluginClassLoader) {
+    List<DeploymentCheckResult> results = new ArrayList<>();
+    int sharingCount = getRegisteredSharingBeanCount(pluginId);
+    int extensionCount = getRegisteredExtensionBeanCount(pluginId);
+    int scheduledCount = getScheduledTaskCount(pluginId);
+    int runningTaskCount = getRunningScheduledTaskCount(pluginId);
+    if (sharingCount > 0) {
+      results.add(DeploymentCheckResult.error(
+          "SHARING_BEAN_NOT_CLEANED",
+          "Plugin sharing beans remain after stop: " + sharingCount));
+    }
+    if (extensionCount > 0) {
+      results.add(DeploymentCheckResult.error(
+          "EXTENSION_BEAN_NOT_CLEANED",
+          "Plugin extension beans remain after stop: " + extensionCount));
+    }
+    if (scheduledCount > 0) {
+      results.add(DeploymentCheckResult.error(
+          "SCHEDULED_TASK_NOT_CLEANED",
+          "Plugin scheduled tasks remain after stop: " + scheduledCount));
+    }
+    if (runningTaskCount > 0) {
+      results.add(DeploymentCheckResult.error(
+          "SCHEDULED_TASK_STILL_RUNNING",
+          "Plugin scheduled tasks are still running after stop: " + runningTaskCount));
+    }
+    if (results.isEmpty()) {
+      return Collections.singletonList(
+          DeploymentCheckResult.info("CORE_CLEANUP_VERIFIED", "Plugin shared resources are cleaned"));
+    }
+    return results;
+  }
+
+  @Override
+  public List<DeploymentCheckResult> verifyStartedPlugin(
+      PluginHealthContext context,
+      ClassLoader pluginClassLoader) {
+    List<DeploymentCheckResult> results = new ArrayList<>();
+    String pluginId = context.getPluginId();
+    results.add(DeploymentCheckResult.info(
+        "SHARING_BEAN_HEALTH",
+        "Plugin sharing bean count: " + getRegisteredSharingBeanCount(pluginId)));
+    results.add(DeploymentCheckResult.info(
+        "EXTENSION_BEAN_HEALTH",
+        "Plugin extension bean count: " + getRegisteredExtensionBeanCount(pluginId)));
+    results.add(DeploymentCheckResult.info(
+        "SCHEDULED_TASK_HEALTH",
+        "Plugin scheduled task count: " + getScheduledTaskCount(pluginId)));
+    return results;
   }
 }

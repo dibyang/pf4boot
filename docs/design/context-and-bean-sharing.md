@@ -67,6 +67,25 @@
 
 `ApplicationContextProvider` 将插件上下文 classloader 映射到插件 Spring 上下文。管理器在 `PreStartPluginEvent` 后注册，在停止期间注销。这让只有 class 或 classloader 的代码也能找到自己的插件本地上下文。
 
+## 热替换清理验证
+
+热替换部署在 stop 之后、unload 之前调用 `PluginCleanupVerifier`。`DefaultShareBeanMgr` 作为 core 模块的 verifier，验证以下资源已经释放：
+
+- root、application、platform 中由该插件导出的共享 Bean。
+- platform 上下文中的 PF4J extension Bean。
+- 插件定时任务和仍在运行的定时任务。
+
+同一个对象还实现 `PluginTrafficDrainer`：
+
+- `beginDrain(pluginIds)` 将影响链交给定时任务管理器进入 draining 状态。
+- draining 期间插件定时任务不再开始新的执行。
+- `awaitDrain(pluginIds, timeoutMillis)` 等待已经运行的任务结束；超时返回失败并触发部署回滚。
+- `endDrain(pluginIds)` 在成功或失败收尾时释放 draining 标记。
+
+健康检查阶段，`DefaultShareBeanMgr` 还实现 `PluginHealthVerifier`，把共享 Bean、extension Bean 和定时任务数量纳入部署记录。数量类结果默认用于观测，不作为错误；清理阶段发现残留才会阻断部署。
+
+这个设计让热替换不需要在部署服务里理解每一种共享资源，只通过 `PluginTrafficDrainer`、`PluginCleanupVerifier` 和 `PluginHealthVerifier` 三个扩展点组合各模块自己的清理能力。
+
 ## 兼容性
 
 导出注解、共享作用域、Bean 名称、注销顺序和事件发布规则的变更，都可能破坏插件间集成。优先做增量变更，并记录任何可见性规则变化。
@@ -77,7 +96,7 @@
 
 - `.\gradlew.bat :pf4boot-api:compileJava`
 - `.\gradlew.bat :pf4boot-core:compileJava`
-- `.\gradlew.bat :plugin1:build`
-- `.\gradlew.bat :plugin2:build`
+- `.\gradlew.bat :pf4boot-core:test`
+- `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
 
 手动检查应确认导出 Bean 在插件停止后消失，并在插件重启后重新出现。

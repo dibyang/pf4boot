@@ -2,6 +2,11 @@ package org.springframework.web.servlet.mvc.method;
 
 import com.google.common.base.Strings;
 import net.xdob.pf4boot.Pf4bootPlugin;
+import net.xdob.pf4boot.deployment.DeploymentCheckResult;
+import net.xdob.pf4boot.deployment.PluginCleanupVerifier;
+import net.xdob.pf4boot.deployment.PluginHealthContext;
+import net.xdob.pf4boot.deployment.PluginHealthVerifier;
+import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,10 +23,14 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * PluginRequestMappingHandlerMapping
@@ -29,10 +38,19 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @author yangzj
  * @version 1.0
  */
-public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMapping {
+public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMapping
+    implements PluginTrafficDrainer, PluginCleanupVerifier, PluginHealthVerifier {
   static final Logger LOG = LoggerFactory.getLogger(PluginRequestMappingHandlerMapping.class);
+  private static final String IN_FLIGHT_PLUGIN_ATTRIBUTE =
+      PluginRequestMappingHandlerMapping.class.getName() + ".pluginId";
 
   private final List<HandlerInterceptor> dynamicInterceptors = new CopyOnWriteArrayList<>();
+  private final Map<Object, String> pluginIdsByHandler =
+      Collections.synchronizedMap(new IdentityHashMap<>());
+  private final Map<HandlerInterceptor, String> pluginIdsByInterceptor =
+      Collections.synchronizedMap(new IdentityHashMap<>());
+  private final Set<String> drainingPluginIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
+  private final Map<String, AtomicInteger> inFlightRequests = new ConcurrentHashMap<>();
 
   public void addDynamicInterceptor(HandlerInterceptor interceptor) {
     dynamicInterceptors.add(interceptor);
@@ -48,24 +66,34 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
 
   protected HandlerExecutionChain getHandlerExecutionChain(Object handler, HttpServletRequest request) {
     HandlerExecutionChain chain = super.getHandlerExecutionChain(handler, request);
+    if (chain == null) {
+      return null;
+    }
+    String pluginId = pluginIdForHandler(handler);
     // 添加动态拦截器到执行链的最前面
     if (!dynamicInterceptors.isEmpty()) {
       for (HandlerInterceptor dynamicInterceptor : dynamicInterceptors) {
         chain.addInterceptor(0, dynamicInterceptor);
       }
     }
+    if (pluginId != null) {
+      chain.addInterceptor(0, new PluginDrainInterceptor(pluginId));
+    }
     return chain;
   }
 
 
   public void registerInterceptors(Pf4bootPlugin pf4BootPlugin) {
-    getInterceptorBeans(pf4BootPlugin).forEach(this::registerInterceptor);
+    getInterceptorBeans(pf4BootPlugin)
+        .forEach((beanName, interceptor) ->
+            registerInterceptor(pf4BootPlugin.getPluginId(), beanName, interceptor));
   }
 
-  private void registerInterceptor(String beanName, final HandlerInterceptor interceptor) {
+  private void registerInterceptor(String pluginId, String beanName, final HandlerInterceptor interceptor) {
     unregisterInterceptor(beanName, interceptor);
     registerBeanToMainContext(beanName, interceptor);
     dynamicInterceptors.add(interceptor);
+    pluginIdsByInterceptor.put(interceptor, pluginId);
     logger.info("register interceptor=" + interceptor);
   }
 
@@ -80,6 +108,7 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
 
   private void unregisterInterceptor(String beanName, final HandlerInterceptor interceptor) {
     if(dynamicInterceptors.removeIf(e -> e == interceptor)) {
+      pluginIdsByInterceptor.remove(interceptor);
       unregisterBeanFromMainContext(beanName, interceptor);
       logger.info("unregister interceptor=" + interceptor);
     }
@@ -100,16 +129,19 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
 
 
   public void registerControllers(Pf4bootPlugin pf4BootPlugin) {
-    getControllerBeans(pf4BootPlugin).forEach(this::registerController);
+    getControllerBeans(pf4BootPlugin)
+        .forEach((beanName, controller) ->
+            registerController(pf4BootPlugin.getPluginId(), beanName, controller));
     this.handlerMethodsInitialized(getHandlerMethods());
   }
 
-  private void registerController(String beanName, Object controller) {
+  private void registerController(String pluginId, String beanName, Object controller) {
     //this.logger.info("register controller=" + controller);
     // unregister RequestMapping if already registered
     unregisterController(beanName, controller);
 
     registerBeanToMainContext(beanName, controller);
+    pluginIdsByHandler.put(controller, pluginId);
     detectHandlerMethods(controller);
   }
 
@@ -146,6 +178,7 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
       }
     });
     mappings.forEach(this::unregisterMapping);
+    pluginIdsByHandler.remove(controller);
     unregisterBeanFromMainContext(beanName, controller);
   }
 
@@ -183,6 +216,164 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     if (this.obtainApplicationContext().containsBean(beanName)
         && this.obtainApplicationContext().getBean(beanName) == bean) {
       ((AbstractAutowireCapableBeanFactory)beanFactory).destroySingleton(beanName);
+    }
+  }
+
+  @Override
+  public void beginDrain(Collection<String> pluginIds) {
+    if (pluginIds == null) {
+      return;
+    }
+    drainingPluginIds.addAll(pluginIds);
+  }
+
+  @Override
+  public boolean awaitDrain(Collection<String> pluginIds, long timeoutMillis) throws InterruptedException {
+    long deadline = System.currentTimeMillis() + Math.max(timeoutMillis, 0);
+    while (true) {
+      if (inFlightRequestCount(pluginIds) == 0) {
+        return true;
+      }
+      if (System.currentTimeMillis() >= deadline) {
+        return false;
+      }
+      TimeUnit.MILLISECONDS.sleep(20);
+    }
+  }
+
+  @Override
+  public void endDrain(Collection<String> pluginIds) {
+    if (pluginIds == null) {
+      return;
+    }
+    drainingPluginIds.removeAll(pluginIds);
+  }
+
+  @Override
+  public List<DeploymentCheckResult> verifyStoppedPlugin(String pluginId, ClassLoader pluginClassLoader) {
+    List<DeploymentCheckResult> results = new ArrayList<>();
+    int handlerCount = getRegisteredHandlerCount(pluginId);
+    int interceptorCount = getRegisteredInterceptorCount(pluginId);
+    int inFlightCount = getInFlightRequestCount(pluginId);
+    if (handlerCount > 0) {
+      results.add(DeploymentCheckResult.error(
+          "WEB_MAPPING_NOT_CLEANED",
+          "Plugin web mappings remain after stop: " + handlerCount));
+    }
+    if (interceptorCount > 0) {
+      results.add(DeploymentCheckResult.error(
+          "WEB_INTERCEPTOR_NOT_CLEANED",
+          "Plugin web interceptors remain after stop: " + interceptorCount));
+    }
+    if (inFlightCount > 0) {
+      results.add(DeploymentCheckResult.error(
+          "WEB_IN_FLIGHT_NOT_DRAINED",
+          "Plugin in-flight requests remain after stop: " + inFlightCount));
+    }
+    if (results.isEmpty()) {
+      results.add(DeploymentCheckResult.info("WEB_CLEANUP_VERIFIED", "Plugin web resources are cleaned"));
+    }
+    return results;
+  }
+
+  @Override
+  public List<DeploymentCheckResult> verifyStartedPlugin(
+      PluginHealthContext context,
+      ClassLoader pluginClassLoader) {
+    List<DeploymentCheckResult> results = new ArrayList<>();
+    results.add(DeploymentCheckResult.info(
+        "WEB_MAPPING_HEALTH",
+        "Plugin web mapping count: " + getRegisteredHandlerCount(context.getPluginId())));
+    results.add(DeploymentCheckResult.info(
+        "WEB_INTERCEPTOR_HEALTH",
+        "Plugin web interceptor count: " + getRegisteredInterceptorCount(context.getPluginId())));
+    return results;
+  }
+
+  public boolean isDraining(String pluginId) {
+    return drainingPluginIds.contains(pluginId);
+  }
+
+  public int getInFlightRequestCount(String pluginId) {
+    AtomicInteger count = inFlightRequests.get(pluginId);
+    return count == null ? 0 : count.get();
+  }
+
+  public int getRegisteredHandlerCount(String pluginId) {
+    int count = 0;
+    synchronized (pluginIdsByHandler) {
+      for (String registeredPluginId : pluginIdsByHandler.values()) {
+        if (Objects.equals(pluginId, registeredPluginId)) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  public int getRegisteredInterceptorCount(String pluginId) {
+    int count = 0;
+    synchronized (pluginIdsByInterceptor) {
+      for (String registeredPluginId : pluginIdsByInterceptor.values()) {
+        if (Objects.equals(pluginId, registeredPluginId)) {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  private int inFlightRequestCount(Collection<String> pluginIds) {
+    int count = 0;
+    for (String pluginId : pluginIds) {
+      count += getInFlightRequestCount(pluginId);
+    }
+    return count;
+  }
+
+  private String pluginIdForHandler(Object handler) {
+    if (handler instanceof HandlerMethod) {
+      Object bean = ((HandlerMethod) handler).getBean();
+      return pluginIdsByHandler.get(bean);
+    }
+    return pluginIdsByHandler.get(handler);
+  }
+
+  private class PluginDrainInterceptor implements HandlerInterceptor {
+
+    private final String pluginId;
+
+    private PluginDrainInterceptor(String pluginId) {
+      this.pluginId = pluginId;
+    }
+
+    @Override
+    public boolean preHandle(
+        HttpServletRequest request,
+        HttpServletResponse response,
+        Object handler) throws Exception {
+      if (drainingPluginIds.contains(pluginId)) {
+        response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Plugin is draining: " + pluginId);
+        return false;
+      }
+      inFlightRequests.computeIfAbsent(pluginId, key -> new AtomicInteger()).incrementAndGet();
+      request.setAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE, pluginId);
+      return true;
+    }
+
+    @Override
+    public void afterCompletion(
+        HttpServletRequest request,
+        HttpServletResponse response,
+        Object handler,
+        Exception ex) {
+      Object value = request.getAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
+      if (Objects.equals(pluginId, value)) {
+        AtomicInteger count = inFlightRequests.get(pluginId);
+        if (count != null && count.decrementAndGet() < 0) {
+          count.set(0);
+        }
+      }
     }
   }
 }

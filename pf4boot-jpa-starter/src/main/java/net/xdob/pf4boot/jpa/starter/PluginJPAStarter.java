@@ -3,6 +3,7 @@ package net.xdob.pf4boot.jpa.starter;
 import com.google.common.collect.Sets;
 import net.xdob.pf4boot.PluginApplication;
 import net.xdob.pf4boot.annotation.SpringBootPlugin;
+import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.pf4j.Plugin;
 import org.slf4j.Logger;
@@ -10,10 +11,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.SearchStrategy;
+import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
+import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.domain.EntityScanPackages;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernatePropertiesCustomizer;
@@ -22,6 +27,10 @@ import org.springframework.boot.autoconfigure.orm.jpa.JpaProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.orm.jpa.EntityManagerFactoryBuilder;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.EnvironmentAware;
+import org.springframework.core.env.Environment;
 import org.springframework.orm.jpa.JpaTransactionManager;
 import org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -49,7 +58,9 @@ import java.util.function.Supplier;
  *
  *    pf4boot.plugin.jpa.enabled=true
  *
- * 3. 如果插件需要指定实体扫描包，可以使用 Spring Boot 原生的 @EntityScan，
+ * 3. 默认 mode=LOCAL，保持插件本地 EntityManagerFactory/TransactionManager。
+ * 4. mode=SHARED 时只校验领域能力插件导出的 EMF/TM，不创建本地 EMF/TM。
+ * 5. 如果插件需要指定实体扫描包，可以使用 Spring Boot 原生的 @EntityScan，
  *    或者依赖插件主类所在包作为默认扫描根包。
  *
  * @author yangzj
@@ -65,31 +76,36 @@ import java.util.function.Supplier;
     name = "enabled",
     havingValue = "true"
 )
-@EnableConfigurationProperties({JpaProperties.class, HibernateProperties.class})
-@SpringBootPlugin
-public class PluginJPAStarter implements BeanFactoryAware {
+@EnableConfigurationProperties({JpaProperties.class, HibernateProperties.class, Pf4bootJpaProperties.class})
+@SpringBootPlugin(exclude = {
+    JpaRepositoriesAutoConfiguration.class,
+    DataSourceAutoConfiguration.class
+})
+@Import(SharedJpaAutoConfiguration.class)
+public class PluginJPAStarter implements BeanFactoryAware, EnvironmentAware, InitializingBean {
   static final Logger LOG = LoggerFactory.getLogger(PluginJPAStarter.class);
 
-  private final DataSource dataSource;
   private final JpaProperties properties;
   private final HibernateProperties hibernateProperties;
   private final List<HibernatePropertiesCustomizer> hibernatePropertiesCustomizers;
+  private final Pf4bootJpaProperties pf4bootJpaProperties;
 
   private BeanFactory beanFactory;
+  private Environment environment;
 
   public PluginJPAStarter(
-      DataSource dataSource,
       JpaProperties properties,
       HibernateProperties hibernateProperties,
-      List<HibernatePropertiesCustomizer> hibernatePropertiesCustomizers) {
-    this.dataSource = dataSource;
+      List<HibernatePropertiesCustomizer> hibernatePropertiesCustomizers,
+      Pf4bootJpaProperties pf4bootJpaProperties) {
     this.properties = properties;
     this.hibernateProperties = hibernateProperties;
     this.hibernatePropertiesCustomizers = hibernatePropertiesCustomizers;
+    this.pf4bootJpaProperties = pf4bootJpaProperties;
   }
 
-  public DataSource getDataSource() {
-    return dataSource;
+  public Pf4bootJpaProperties getPf4bootJpaProperties() {
+    return pf4bootJpaProperties;
   }
 
   protected Map<String, Object> getVendorProperties() {
@@ -112,9 +128,11 @@ public class PluginJPAStarter implements BeanFactoryAware {
   }
 
   @Bean
-  @ConditionalOnMissingBean(EntityManagerFactory.class)
+  @Conditional(LocalJpaModeCondition.class)
+  @ConditionalOnMissingBean(value = EntityManagerFactory.class, search = SearchStrategy.CURRENT)
   public LocalContainerEntityManagerFactoryBean entityManagerFactory(
-      EntityManagerFactoryBuilder factoryBuilder) {
+      EntityManagerFactoryBuilder factoryBuilder,
+      DataSource dataSource) {
 
     Map<String, Object> vendorProperties = getVendorProperties();
     String[] packagesToScan = getPackagesToScan();
@@ -122,7 +140,7 @@ public class PluginJPAStarter implements BeanFactoryAware {
     LOG.info("[PF4BOOT-JPA] create plugin EntityManagerFactory, packages={}", (Object) packagesToScan);
 
     return factoryBuilder
-        .dataSource(this.dataSource)
+        .dataSource(dataSource)
         .mappingResources(getMappingResources())
         .properties(vendorProperties)
         .packages(packagesToScan)
@@ -130,7 +148,8 @@ public class PluginJPAStarter implements BeanFactoryAware {
   }
 
   @Bean
-  @ConditionalOnMissingBean(TransactionManager.class)
+  @Conditional(LocalJpaModeCondition.class)
+  @ConditionalOnMissingBean(value = TransactionManager.class, search = SearchStrategy.CURRENT)
   public PlatformTransactionManager transactionManager(EntityManagerFactory entityManagerFactory) {
     return new JpaTransactionManager(entityManagerFactory);
   }
@@ -213,5 +232,110 @@ public class PluginJPAStarter implements BeanFactoryAware {
   @Override
   public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
     this.beanFactory = beanFactory;
+  }
+
+  @Override
+  public void setEnvironment(Environment environment) {
+    this.environment = environment;
+  }
+
+  @Override
+  public void afterPropertiesSet() {
+    JpaPluginBinding binding = JpaPluginBindingResolver.resolve(this.environment, this.beanFactory);
+    if (binding == null) {
+      binding = fallbackBinding();
+    }
+    if (!binding.isShared()) {
+      return;
+    }
+
+    String domainId = binding.getDomainId();
+    if (!StringUtils.hasText(domainId)) {
+      throw new IllegalStateException(
+          "[PJF-006] Shared JPA binding for plugin '" + binding.getPluginId()
+              + "' requires domain-id.");
+    }
+
+    validateDomainBinding(binding.getPluginId(), binding.primaryDomain());
+    for (JpaDomainBinding additionalDomain : binding.getAdditionalDomains()) {
+      validateDomainBinding(binding.getPluginId(), additionalDomain);
+    }
+  }
+
+  private void validateDomainBinding(String pluginId, JpaDomainBinding domainBinding) {
+    String domainId = domainBinding.getDomainId();
+    if (!StringUtils.hasText(domainId)) {
+      throw new IllegalStateException(
+          "[PJF-006] Shared JPA binding for plugin '" + pluginId
+              + "' requires domain-id.");
+    }
+
+    String entityManagerFactoryRef = domainBinding.resolveEntityManagerFactoryRef();
+    String transactionManagerRef = domainBinding.resolveTransactionManagerRef();
+    JpaDomainDescriptor descriptor = getDomainDescriptor(pluginId, domainBinding);
+    if (!entityManagerFactoryRef.equals(descriptor.getEntityManagerFactoryBeanName())) {
+      throw new IllegalStateException(
+          "[PJF-007] Shared JPA domain '" + domainId + "' descriptor entityManagerFactory '"
+              + descriptor.getEntityManagerFactoryBeanName() + "' does not match binding '"
+              + entityManagerFactoryRef + "'.");
+    }
+    if (!transactionManagerRef.equals(descriptor.getTransactionManagerBeanName())) {
+      throw new IllegalStateException(
+          "[PJF-007] Shared JPA domain '" + domainId + "' descriptor transactionManager '"
+              + descriptor.getTransactionManagerBeanName() + "' does not match binding '"
+              + transactionManagerRef + "'.");
+    }
+
+    getRequiredBean(
+        entityManagerFactoryRef,
+        EntityManagerFactory.class,
+        "[PJF-002] Shared JPA domain '" + domainId + "' requires EntityManagerFactory bean '" +
+            entityManagerFactoryRef + "'.");
+    getRequiredBean(
+        transactionManagerRef,
+        TransactionManager.class,
+        "[PJF-003] Shared JPA domain '" + domainId + "' requires TransactionManager bean '" +
+            transactionManagerRef + "'.");
+
+    LOG.info(
+        "[PF4BOOT-JPA] bind shared JPA domain {}, plugin={}, provider={}, entityManagerFactory={}, transactionManager={}",
+        domainId, pluginId, descriptor.getProviderPluginId(),
+        entityManagerFactoryRef, transactionManagerRef);
+  }
+
+  private JpaDomainDescriptor getDomainDescriptor(String pluginId, JpaDomainBinding domainBinding) {
+    String descriptorName = domainBinding.resolveDescriptorRef();
+    JpaDomainDescriptor descriptor = getRequiredBean(
+        descriptorName,
+        JpaDomainDescriptor.class,
+        "[PJF-007] Shared JPA domain '" + domainBinding.getDomainId()
+            + "' requires ready descriptor bean '" + descriptorName
+            + "' for consumer plugin '" + pluginId + "'.");
+    if (!descriptor.isReady()) {
+      throw new IllegalStateException(
+          "[PJF-007] Shared JPA domain '" + domainBinding.getDomainId()
+              + "' descriptor is not ready for consumer plugin '" + pluginId + "'.");
+    }
+    return descriptor;
+  }
+
+  private JpaPluginBinding fallbackBinding() {
+    return new JpaPluginBinding(
+        null,
+        this.pf4bootJpaProperties.getMode(),
+        this.pf4bootJpaProperties.getDomainId(),
+        this.pf4bootJpaProperties.getEntityManagerFactoryRef(),
+        this.pf4bootJpaProperties.getTransactionManagerRef(),
+        this.pf4bootJpaProperties.getDescriptorRef(),
+        JpaPluginBindingResolver.additionalDomains(this.pf4bootJpaProperties.getAdditionalDomains()),
+        false);
+  }
+
+  private <T> T getRequiredBean(String beanName, Class<T> type, String message) {
+    try {
+      return this.beanFactory.getBean(beanName, type);
+    } catch (BeansException e) {
+      throw new IllegalStateException(message, e);
+    }
   }
 }

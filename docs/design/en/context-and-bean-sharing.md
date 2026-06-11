@@ -67,6 +67,25 @@ Spring parent event propagation is not relied on for the plugin context graph; p
 
 `ApplicationContextProvider` maps a plugin context class loader to that plugin's Spring context. The manager registers it after `PreStartPluginEvent` and unregisters it during stop. This enables code that only has a class or class loader to locate its plugin-local context.
 
+## Hot Replacement Cleanup Validation
+
+Hot replacement deployment calls `PluginCleanupVerifier` after stop and before unload. `DefaultShareBeanMgr` acts as the core module verifier and checks that these resources have been released:
+
+- shared beans exported by the plugin into root, application, or platform contexts;
+- PF4J extension beans in the platform context;
+- plugin scheduled tasks and scheduled tasks that are still running.
+
+The same object also implements `PluginTrafficDrainer`:
+
+- `beginDrain(pluginIds)` marks the impact chain as draining in the scheduled task manager.
+- While draining, plugin scheduled tasks no longer start new executions.
+- `awaitDrain(pluginIds, timeoutMillis)` waits for already running tasks to finish; timeout returns failure and triggers deployment rollback.
+- `endDrain(pluginIds)` clears draining markers during success or failure cleanup.
+
+During health checks, `DefaultShareBeanMgr` also implements `PluginHealthVerifier` and contributes shared bean, extension bean, and scheduled task counts to the deployment record. Count results are observational by default; residue found during cleanup validation is what blocks deployment.
+
+This design keeps the deployment service from understanding every shared resource type. Instead, each module contributes cleanup through `PluginTrafficDrainer`, `PluginCleanupVerifier`, and `PluginHealthVerifier`.
+
 ## Compatibility
 
 Changes to export annotations, sharing scopes, bean names, unregister order, or event publication can break plugin-to-plugin integration. Prefer additive changes and document any altered visibility rule.
@@ -77,7 +96,7 @@ For sharing changes, run:
 
 - `.\gradlew.bat :pf4boot-api:compileJava`
 - `.\gradlew.bat :pf4boot-core:compileJava`
-- `.\gradlew.bat :plugin1:build`
-- `.\gradlew.bat :plugin2:build`
+- `.\gradlew.bat :pf4boot-core:test`
+- `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
 
 Manual checks should confirm exported beans disappear after plugin stop and reappear after restart.

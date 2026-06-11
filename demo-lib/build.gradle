@@ -1,6 +1,0 @@
-
-dependencies {
-    implementation project(":pf4boot-web-support")
-    api project(":pf4boot-jpa")
-    implementation project(":pf4boot-jpa-starter")
-}

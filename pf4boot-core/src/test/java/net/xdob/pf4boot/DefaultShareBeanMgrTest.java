@@ -70,6 +70,9 @@ public class DefaultShareBeanMgrTest {
     assertTrue(applicationContext.containsBean("appService"));
     assertTrue(pluginManager.getPlatformContext(PluginStarter.DEFAULT).containsBean("platformService"));
     assertTrue(groupedPlatform.containsBean("groupService"));
+    assertTrue(pluginManager.getPlatformContext(PluginStarter.DEFAULT).getBeanFactory()
+        .containsBeanDefinition("platformService"));
+    assertTrue(groupedPlatform.getBeanFactory().containsBeanDefinition("groupService"));
     assertTrue(pluginManager.shareBeanMgr.getRegisteredSharingBeanCount("sharing") >= 4);
     assertEquals(1, pluginManager.shareBeanMgr.getScheduledTaskCount("sharing"));
 
@@ -79,6 +82,9 @@ public class DefaultShareBeanMgrTest {
     assertFalse(applicationContext.containsBean("appService"));
     assertFalse(pluginManager.getPlatformContext(PluginStarter.DEFAULT).containsBean("platformService"));
     assertFalse(groupedPlatform.containsBean("groupService"));
+    assertFalse(pluginManager.getPlatformContext(PluginStarter.DEFAULT).getBeanFactory()
+        .containsBeanDefinition("platformService"));
+    assertFalse(groupedPlatform.getBeanFactory().containsBeanDefinition("groupService"));
     assertEquals(0, pluginManager.shareBeanMgr.getRegisteredSharingBeanCount("sharing"));
     assertEquals(0, pluginManager.shareBeanMgr.getScheduledTaskCount("sharing"));
   }

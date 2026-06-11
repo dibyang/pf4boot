@@ -9,6 +9,7 @@ import org.pf4j.DefaultPluginDescriptor;
 import org.pf4j.DependencyResolver;
 import org.pf4j.PluginDependency;
 import org.pf4j.PluginDescriptor;
+import org.pf4j.PluginDescriptorFinder;
 import org.pf4j.PluginState;
 import org.pf4j.PluginWrapper;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -21,6 +22,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -151,11 +153,88 @@ public class Pf4bootPluginManagerLifecycleTest {
         .count());
   }
 
+  @Test
+  public void loadPluginVerifiesPackageBeforeCreatingClassLoader() throws Exception {
+    Path pluginPath = pluginsRoot.resolve("verified");
+    Files.createDirectories(pluginPath);
+    List<String> events = new ArrayList<>();
+    TestPluginManager manager = new TestPluginManager(applicationContext, pluginsRoot,
+        (path, descriptor) -> {
+          events.add("verify:" + descriptor.getPluginId());
+          return PluginPackageVerificationResult.fail("blocked");
+        });
+
+    try {
+      manager.loadPluginFromPath(pluginPath);
+    } catch (RuntimeException expected) {
+      events.add("blocked");
+    } finally {
+      manager.close();
+    }
+
+    assertEquals("verify:verified", events.get(0));
+    assertTrue(events.contains("blocked"));
+  }
+
+  @Test
+  public void upgradeRestoresRollbackPluginWhenNewPackageFails() throws Exception {
+    pluginManager.addResolvedPlugin("upgradable", LifecyclePlugin.class);
+    pluginManager.startPlugin("upgradable");
+    Path brokenPath = pluginsRoot.resolve("broken-upgrade");
+    Path rollbackPath = pluginsRoot.resolve("rollback-upgradable");
+    Files.createDirectories(brokenPath);
+    Files.createDirectories(rollbackPath);
+
+    try {
+      pluginManager.upgradePlugin("upgradable", brokenPath, rollbackPath);
+    } catch (RuntimeException expected) {
+    }
+
+    assertEquals(PluginState.STARTED, pluginManager.getPlugin("upgradable").getPluginState());
+    assertTrue(LifecyclePlugin.events.contains("upgradable:stop"));
+    assertEquals(2, LifecyclePlugin.events.stream()
+        .filter(event -> event.equals("upgradable:start"))
+        .count());
+  }
+
+  @Test
+  public void enforceCompatibilityBlocksUnsupportedSystemVersion() throws Exception {
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCompatibilityVerificationMode(PluginPackageVerificationMode.ENFORCE);
+    TestPluginManager manager = new TestPluginManager(applicationContext, pluginsRoot, properties);
+    manager.setSystemVersion("1.0.0");
+    Path pluginPath = pluginsRoot.resolve("requires-newer");
+    Files.createDirectories(pluginPath);
+
+    try {
+      manager.loadPluginFromPath(pluginPath);
+    } catch (RuntimeException expected) {
+      return;
+    } finally {
+      manager.close();
+    }
+
+    throw new AssertionError("unsupported plugin should be blocked before class loader creation");
+  }
+
   private static class TestPluginManager extends Pf4bootPluginManagerImpl {
 
     TestPluginManager(AnnotationConfigApplicationContext applicationContext, Path pluginsRoot) {
       super(applicationContext, new Pf4bootProperties(), new Pf4bootPluginSupport() {
       }, new DefaultShareBeanMgr(new DefaultAutoExportMgr()), pluginsRoot);
+    }
+
+    TestPluginManager(AnnotationConfigApplicationContext applicationContext, Path pluginsRoot,
+        Pf4bootProperties properties) {
+      super(applicationContext, properties, new Pf4bootPluginSupport() {
+      }, new DefaultShareBeanMgr(new DefaultAutoExportMgr()), pluginsRoot);
+    }
+
+    TestPluginManager(AnnotationConfigApplicationContext applicationContext, Path pluginsRoot,
+        PluginPackageVerifier pluginPackageVerifier) {
+      super(applicationContext, new Pf4bootProperties(), new Pf4bootPluginSupport() {
+      }, new DefaultShareBeanMgr(new DefaultAutoExportMgr()),
+          Collections.singletonList(pluginPackageVerifier), pluginsRoot);
     }
 
     void addResolvedPlugin(String pluginId, Class<? extends Pf4bootPlugin> pluginClass, String... dependencies) {
@@ -189,7 +268,36 @@ public class Pf4bootPluginManagerLifecycleTest {
         rebuildDependencyResolver();
         return wrapper;
       }
+      if ("broken-upgrade".equals(pluginId)) {
+        throw new IllegalStateException("broken upgrade");
+      }
+      if ("rollback-upgradable".equals(pluginId)) {
+        Pf4bootPluginWrapper wrapper = createWrapper("upgradable", LifecyclePlugin.class);
+        plugins.put("upgradable", wrapper);
+        pluginClassLoaders.put("upgradable", wrapper.getPluginClassLoader());
+        resolvedPlugins.add(wrapper);
+        rebuildDependencyResolver();
+        return wrapper;
+      }
       return super.loadPluginFromPath(pluginPath);
+    }
+
+    @Override
+    protected PluginDescriptorFinder createPluginDescriptorFinder() {
+      return new PluginDescriptorFinder() {
+        @Override
+        public boolean isApplicable(Path pluginPath) {
+          return true;
+        }
+
+        @Override
+        public PluginDescriptor find(Path pluginPath) {
+          String requires = "requires-newer".equals(pluginPath.getFileName().toString()) ? ">=2.0.0" : "";
+          return new DefaultPluginDescriptor(pluginPath.getFileName().toString(),
+              pluginPath.getFileName().toString(), LifecyclePlugin.class.getName(),
+              "1.0.0", requires, "test", "Apache-2.0");
+        }
+      };
     }
 
     private Pf4bootPluginWrapper createWrapper(

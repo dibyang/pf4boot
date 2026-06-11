@@ -57,18 +57,47 @@ Dependency scopes used by sample plugins:
 
 - `compileOnlyApi`: host-provided APIs such as `pf4boot-api`, `pf4boot-web-support`, `pf4boot-jpa`, and shared demo library APIs.
 - `bundle`: dependencies packaged into the plugin zip, such as `pf4boot-jpa-starter`.
-- `plugin project(":plugin1")`: plugin-to-plugin dependency used by `plugin2`.
+- `plugin project(":samples:cross-plugin-jpa:plugin-user-book-service")`: plugin-to-plugin dependency used by the sample workflow plugin.
 
-Publishing is disabled for `demo-app`, `demo-lib`, `plugin1`, and `plugin2`.
+Publishing is disabled for the sample host, model, and plugin modules under `samples/cross-plugin-jpa`.
 
 ## Runtime Assembly
 
-`app-run` assembles the demo application:
+The old root-level `app-run` demo assembly module has been removed. The current runnable sample is handled by modules under `samples/cross-plugin-jpa`:
 
-- runtime libraries from `runtimeClasspath` and `platformClasspath` into `lib`;
-- plugin zip artifacts from `pluginClasspath` into `plugins`;
-- service, config, startup, shutdown, and package script resources;
-- RPM package tasks through the Nebula ospackage plugin.
+- `demo-host:assembleSamplePlugins` collects sample plugin zips into the demo host `build/sample-plugins` directory;
+- `demo-host:runSampleHost` starts the host and loads plugins from the sample plugin directory;
+- `app-run:assembleSampleRuntime` assembles a runnable layout with `lib`, `plugins`, `config`, and `bin`;
+- `app-run:sampleDistZip` creates the sample distribution zip;
+- Linux distribution assembly is no longer maintained by a root demo module.
+
+## Hot Replacement Package Paths
+
+Phase-one hot replacement does not change the public plugin repository contract and does not require migration of `plugin-cache`, `plugins.link`, or the sample runtime layout. `PluginDeploymentService` receives a prepared `stagedPluginPath` and reads the staged package descriptor during precheck.
+
+Current package-handling boundary:
+
+- The staged package must already be fully written before `replace(...)` is called, and it must be parseable by the current `PluginDescriptorFinder`.
+- The staged package plugin id must match the target plugin id.
+- Old package paths for the impact chain are captured from current `PluginWrapper.getPluginPath()` into `RollbackSnapshot`.
+- On replacement failure, the deployment service reloads old package paths and restores the original started state.
+- `staged/backup/failed` are internal deployment-service concepts in phase one, not a new public plugin repository format.
+
+Recommended runtime layout:
+
+```text
+plugins/
+  active/
+  staged/
+  backup/
+  failed/
+```
+
+Constraints:
+
+- Operations flows are responsible for placing candidate packages in `staged/` and completing validation, permissions, and atomic write before execution.
+- After success, staged packages may be cleaned according to operations policy. Failed candidates should move to `failed/` together with the deployment record.
+- If directory switching becomes framework-owned later, extend the deployment service package activation step first instead of changing the loader's default repository scan order.
 
 ## Compatibility
 
@@ -79,8 +108,9 @@ Changes to repository order, duplicate version handling, loader applicability, n
 For loading and packaging changes, run:
 
 - `.\gradlew.bat :pf4boot-core:compileJava`
-- `.\gradlew.bat :plugin1:build`
-- `.\gradlew.bat :plugin2:build`
-- `.\gradlew.bat :app-run:buildOSPacks` when Linux package assembly changes
+- `.\gradlew.bat :pf4boot-core:test`
+- `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
+- `.\gradlew.bat :samples:cross-plugin-jpa:app-run:sampleDistZip`
+- `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:runSampleHost`
 
-Manual checks should cover loading from `plugins.link`, a plugin zip, and the demo runtime `plugins` directory when possible.
+Manual checks should cover loading from `plugins.link`, a plugin zip, and the sample host plugin directory when possible.

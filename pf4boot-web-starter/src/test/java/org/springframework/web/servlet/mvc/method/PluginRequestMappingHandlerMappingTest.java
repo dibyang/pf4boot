@@ -20,6 +20,7 @@ import org.springframework.core.io.DefaultResourceLoader;
 import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.mock.web.MockServletContext;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,8 +34,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 public class PluginRequestMappingHandlerMappingTest {
 
@@ -113,14 +116,66 @@ public class PluginRequestMappingHandlerMappingTest {
 
     HandlerExecutionChain chain = handlerFor("/plugin/ping");
     assertNotNull(chain);
-    assertEquals(1, chain.getInterceptors().length);
+    assertEquals(2, chain.getInterceptors().length);
 
     mapping.unregisterInterceptors(plugin);
 
     chain = handlerFor("/plugin/ping");
     assertNotNull(chain);
-    assertNull(chain.getInterceptors());
+    assertEquals(1, chain.getInterceptors().length);
     assertEquals(0, mapping.getDynamicInterceptorCount());
+  }
+
+  @Test
+  public void drainingPluginRejectsNewRequests() throws Exception {
+    mapping.registerControllers(plugin);
+    mapping.beginDrain(java.util.Collections.singletonList("web-plugin"));
+
+    MockHttpServletRequest request = request("/plugin/ping");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    HandlerExecutionChain chain = mapping.getHandler(request);
+
+    assertNotNull(chain);
+    assertFalse(chain.getInterceptors()[0].preHandle(request, response, chain.getHandler()));
+    assertEquals(503, response.getStatus());
+    assertEquals(0, mapping.getInFlightRequestCount("web-plugin"));
+  }
+
+  @Test
+  public void awaitDrainWaitsForInFlightRequests() throws Exception {
+    mapping.registerControllers(plugin);
+
+    MockHttpServletRequest request = request("/plugin/ping");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    HandlerExecutionChain chain = mapping.getHandler(request);
+
+    assertNotNull(chain);
+    assertTrue(chain.getInterceptors()[0].preHandle(request, response, chain.getHandler()));
+    assertEquals(1, mapping.getInFlightRequestCount("web-plugin"));
+
+    mapping.beginDrain(java.util.Collections.singletonList("web-plugin"));
+    assertFalse(mapping.awaitDrain(java.util.Collections.singletonList("web-plugin"), 30));
+
+    chain.getInterceptors()[0].afterCompletion(request, response, chain.getHandler(), null);
+
+    assertTrue(mapping.awaitDrain(java.util.Collections.singletonList("web-plugin"), 30));
+    assertEquals(0, mapping.getInFlightRequestCount("web-plugin"));
+  }
+
+  @Test
+  public void cleanupVerifierReportsNoWebResidueAfterUnregister() {
+    mapping.registerControllers(plugin);
+    mapping.registerInterceptors(plugin);
+
+    assertEquals(1, mapping.getRegisteredHandlerCount("web-plugin"));
+    assertEquals(1, mapping.getRegisteredInterceptorCount("web-plugin"));
+
+    mapping.unregisterControllers(plugin);
+    mapping.unregisterInterceptors(plugin);
+
+    assertTrue(mapping.verifyStoppedPlugin("web-plugin", plugin.getWrapper().getPluginClassLoader())
+        .stream()
+        .noneMatch(result -> result.isError()));
   }
 
   @Test(expected = IllegalStateException.class)
@@ -131,9 +186,13 @@ public class PluginRequestMappingHandlerMappingTest {
   }
 
   private HandlerExecutionChain handlerFor(String path) throws Exception {
+    return mapping.getHandler(request(path));
+  }
+
+  private MockHttpServletRequest request(String path) {
     MockHttpServletRequest request = new MockHttpServletRequest("GET", path);
     request.setServletPath(path);
-    return mapping.getHandler(request);
+    return request;
   }
 
   private static class TestPluginManager extends Pf4bootPluginManagerImpl {

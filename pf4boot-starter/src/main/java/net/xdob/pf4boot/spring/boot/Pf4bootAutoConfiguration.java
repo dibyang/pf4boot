@@ -2,6 +2,13 @@ package net.xdob.pf4boot.spring.boot;
 
 
 import net.xdob.pf4boot.annotation.Export;
+import net.xdob.pf4boot.deployment.DefaultPluginDeploymentService;
+import net.xdob.pf4boot.deployment.DefaultPluginDeploymentRecorder;
+import net.xdob.pf4boot.deployment.PluginCleanupVerifier;
+import net.xdob.pf4boot.deployment.PluginDeploymentService;
+import net.xdob.pf4boot.deployment.PluginDeploymentRecorder;
+import net.xdob.pf4boot.deployment.PluginHealthVerifier;
+import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import net.xdob.pf4boot.internal.*;
 import net.xdob.pf4boot.*;
 import net.xdob.pf4boot.modal.SharingScope;
@@ -77,6 +84,7 @@ public class Pf4bootAutoConfiguration {
   @ConditionalOnMissingBean
   public Pf4bootPluginManager pluginManager(ApplicationContext applicationContext,  Pf4bootProperties properties,
 																						ObjectProvider<Pf4bootPluginSupport> pluginSupports,
+                                            ObjectProvider<PluginPackageVerifier> pluginPackageVerifiers,
 																						ShareBeanMgr shareBeanMgr) {
     // Setup RuntimeMode
     System.setProperty(PF4J_MODE, properties.getRuntimeMode().toString());
@@ -87,7 +95,9 @@ public class Pf4bootAutoConfiguration {
     System.setProperty(PF4J_PLUGINS_DIR, pluginsRoot);
 
     Pf4bootPluginManager pluginManager = new Pf4bootPluginManagerImpl(applicationContext, properties,
-				compositePluginSupport(pluginSupports), shareBeanMgr, new File(pluginsRoot).toPath());
+				compositePluginSupport(pluginSupports), shareBeanMgr,
+        pluginPackageVerifiers.orderedStream().collect(java.util.stream.Collectors.toList()),
+        new File(pluginsRoot).toPath());
 
     pluginManager.setProfiles(properties.getPluginProfiles());
     pluginManager.presetProperties(flatProperties(properties.getPluginProperties()));
@@ -95,6 +105,30 @@ public class Pf4bootAutoConfiguration {
     pluginManager.setSystemVersion(properties.getSystemVersion());
 
     return pluginManager;
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(PluginDeploymentService.class)
+  public PluginDeploymentService pluginDeploymentService(
+      Pf4bootPluginManager pluginManager,
+      Pf4bootProperties properties,
+      ObjectProvider<PluginPackageVerifier> pluginPackageVerifiers,
+      ObjectProvider<PluginTrafficDrainer> trafficDrainers,
+      ObjectProvider<PluginCleanupVerifier> cleanupVerifiers,
+      ObjectProvider<PluginHealthVerifier> healthVerifiers,
+      ObjectProvider<PluginDeploymentRecorder> deploymentRecorders) {
+    return new DefaultPluginDeploymentService(pluginManager, properties,
+        pluginPackageVerifiers.orderedStream().collect(java.util.stream.Collectors.toList()),
+        trafficDrainers.orderedStream().collect(java.util.stream.Collectors.toList()),
+        cleanupVerifiers.orderedStream().collect(java.util.stream.Collectors.toList()),
+        healthVerifiers.orderedStream().collect(java.util.stream.Collectors.toList()),
+        deploymentRecorders.orderedStream().collect(java.util.stream.Collectors.toList()));
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(PluginDeploymentRecorder.class)
+  public DefaultPluginDeploymentRecorder pluginDeploymentRecorder() {
+    return new DefaultPluginDeploymentRecorder();
   }
 
   private Pf4bootPluginSupport compositePluginSupport(ObjectProvider<Pf4bootPluginSupport> pluginSupports) {

@@ -8,6 +8,7 @@ import org.pf4j.PluginWrapper;
 import java.nio.file.Path;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
@@ -15,6 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class Pf4bootPluginWrapper extends PluginWrapper {
 
 	private final AtomicInteger startFailed = new AtomicInteger();
+  private final AtomicLong lastStartDurationMillis = new AtomicLong(-1);
 	//private final ReentrantLock stateLock = new ReentrantLock();
 	/**
 	 * 是否手动停止
@@ -27,6 +29,10 @@ public class Pf4bootPluginWrapper extends PluginWrapper {
 	public AtomicInteger getStartFailed() {
 		return startFailed;
 	}
+
+  public AtomicLong getLastStartDurationMillis() {
+    return lastStartDurationMillis;
+  }
 
 	/**
 	 * 是否手动停止

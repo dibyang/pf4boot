@@ -1,0 +1,47 @@
+dependencies {
+    api project(":pf4boot-starter")
+    api project(":pf4boot-web-starter")
+    api project(":pf4boot-jpa-domain-starter")
+    api project(":pf4boot-jpa-starter")
+    api("com.h2database:h2:2.2.224")
+    api("net.xdob.springframework.boot:spring-boot-starter-web:${spring_boot_version}") {
+        exclude group: 'org.slf4j'
+    }
+    api("org.slf4j:slf4j-api:${slf4j_version}")
+    api("ch.qos.logback:logback-classic:1.2.13")
+    api("com.google.guava:guava:${guava_version}")
+    api("com.google.code.gson:gson:${gson_version}")
+    api("org.apache.commons:commons-lang3:${lang3_version}")
+    plugin project(":samples:cross-plugin-jpa:plugin-demo-jpa-domain")
+    plugin project(":samples:cross-plugin-jpa:plugin-user-book-service")
+    plugin project(":samples:cross-plugin-jpa:plugin-workflow")
+}
+
+task assembleSamplePlugins(type: Copy) {
+    group = "verification"
+    description = "Assembles the cross-plugin JPA sample plugin zips for the demo host."
+    dependsOn(
+            ":samples:cross-plugin-jpa:plugin-demo-jpa-domain:pf4boot",
+            ":samples:cross-plugin-jpa:plugin-user-book-service:pf4boot",
+            ":samples:cross-plugin-jpa:plugin-workflow:pf4boot"
+    )
+    from("${project(':samples:cross-plugin-jpa:plugin-demo-jpa-domain').buildDir}/libs") {
+        include "*.zip"
+    }
+    from("${project(':samples:cross-plugin-jpa:plugin-user-book-service').buildDir}/libs") {
+        include "*.zip"
+    }
+    from("${project(':samples:cross-plugin-jpa:plugin-workflow').buildDir}/libs") {
+        include "*.zip"
+    }
+    into "${buildDir}/sample-plugins"
+}
+
+task runSampleHost(type: JavaExec) {
+    group = "application"
+    description = "Runs the cross-plugin JPA sample host with assembled plugin zips."
+    dependsOn assembleSamplePlugins, classes
+    classpath = sourceSets.main.runtimeClasspath
+    main = "net.xdob.sample.host.CrossPluginJpaSampleHost"
+    workingDir = rootProject.projectDir
+}

@@ -1,0 +1,3 @@
+# Auto Configure
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+  net.xdob.pf4boot.actuate.autoconfigure.Pf4bootActuatorAutoConfiguration

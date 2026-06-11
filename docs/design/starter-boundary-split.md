@@ -10,7 +10,7 @@
 - `pf4boot-web-starter`：独立注册 Web MVC patch、资源解析器和 `WebPf4BootPluginSupport`。
 - `pf4boot-core`：移除未使用的 JPA/Hibernate 运行时依赖，避免核心 starter 通过 core 间接携带 Hibernate。
 - `pf4boot-jpa` / `pf4boot-jpa-starter`：保持 JPA 能力独立，插件需要时显式依赖或 bundle。
-- `demo-app`：显式声明 Web starter，保持 demo 中动态 controller/resource 行为。
+- `samples/cross-plugin-jpa:demo-host`：显式声明 Web starter，保持 sample 中动态 controller/resource 行为。
 
 ## 设计方案
 
@@ -36,7 +36,7 @@ JPA 保持插件侧 opt-in：核心 starter 不依赖 `pf4boot-jpa` 或 `pf4boot
 - `.\gradlew.bat :pf4boot-starter:compileJava`
 - `.\gradlew.bat :pf4boot-web-starter:test`
 - `.\gradlew.bat :pf4boot-jpa-starter:test`
-- `.\gradlew.bat :demo-app:compileJava`
+- `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:compileJava`
 
 广义验证：
 

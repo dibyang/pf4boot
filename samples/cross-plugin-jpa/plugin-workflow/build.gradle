@@ -1,0 +1,24 @@
+apply plugin: 'net.xdob.pf4boot-plugin'
+
+pf4bootPlugin {
+    id = "sample-workflow"
+    pluginClass = "net.xdob.sample.workflow.WorkflowPlugin"
+    description = "sample workflow orchestration plugin"
+    dependencies = "sample-demo-jpa-domain,sample-user-book-service"
+    provider = "pf4boot"
+    requires = ""
+    license = "Apache-2.0"
+}
+
+dependencies {
+    plugin project(":samples:cross-plugin-jpa:plugin-demo-jpa-domain")
+    plugin project(":samples:cross-plugin-jpa:plugin-user-book-service")
+    compileOnlyApi project(":pf4boot-api")
+    compileOnlyApi project(":pf4boot-jpa")
+    compileOnlyApi project(":pf4boot-jpa-starter")
+    compileOnlyApi project(":pf4boot-web-support")
+    compileOnlyApi project(":samples:cross-plugin-jpa:model-workflow-audit")
+    compileOnlyApi project(":samples:cross-plugin-jpa:model-user-book")
+    compileOnlyApi project(":samples:cross-plugin-jpa:plugin-demo-jpa-domain")
+    compileOnlyApi project(":samples:cross-plugin-jpa:plugin-user-book-service")
+}

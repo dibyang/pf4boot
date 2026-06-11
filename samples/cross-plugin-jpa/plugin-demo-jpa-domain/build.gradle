@@ -1,0 +1,27 @@
+apply plugin: 'net.xdob.pf4boot-plugin'
+
+pf4bootPlugin {
+    id = "sample-demo-jpa-domain"
+    pluginClass = "net.xdob.sample.domain.SampleJpaDomainPlugin"
+    description = "sample shared JPA domain provider"
+    dependencies = ""
+    provider = "pf4boot"
+    requires = ""
+    license = "Apache-2.0"
+}
+
+dependencies {
+    compileOnlyApi project(":pf4boot-api")
+    compileOnlyApi project(":pf4boot-jpa")
+    compileOnlyApi project(":pf4boot-jpa-domain-starter")
+    bundle(project(":samples:cross-plugin-jpa:model-user-book")) {
+        exclude group: "net.xdob.pf4boot", module: "pf4boot-api"
+        exclude group: "net.xdob.pf4boot", module: "pf4boot-jpa"
+        exclude group: "org.pf4j", module: "pf4j"
+    }
+    bundle(project(":samples:cross-plugin-jpa:model-workflow-audit")) {
+        exclude group: "net.xdob.pf4boot", module: "pf4boot-api"
+        exclude group: "net.xdob.pf4boot", module: "pf4boot-jpa"
+        exclude group: "org.pf4j", module: "pf4j"
+    }
+}
