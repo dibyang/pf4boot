@@ -502,9 +502,8 @@ When work is handed to a smaller model, use this exact sequence:
    - Update `plugin-http-management-api-plan.md` and `plugin-http-management-api-acceptance.md` with
      milestone and AC status before handoff.
 
-### Known deferred items in this phase
+### Known follow-up items
 
-- `rate-limit` and `csrf/origin` properties exist in properties model but are not enforced in phase one.
 - `POST /deployments/{deploymentId}/confirm` is documented in design for a later manual gate workflow and is not implemented in this phase.
 
 ### Common mistakes to avoid

@@ -61,6 +61,20 @@ public class Pf4bootManagementAutoConfiguration {
   }
 
   @Bean
+  @ConditionalOnMissingBean(PluginManagementRateLimiter.class)
+  public PluginManagementRateLimiter pluginManagementRateLimiter(Pf4bootManagementProperties properties) {
+    return new PluginManagementRateLimiter(properties);
+  }
+
+  @Bean
+  @ConditionalOnMissingBean(PluginManagementWriteSecurityPolicy.class)
+  public PluginManagementWriteSecurityPolicy pluginManagementWriteSecurityPolicy(
+      Pf4bootManagementProperties properties,
+      PluginManagementRateLimiter rateLimiter) {
+    return new PluginManagementWriteSecurityPolicy(properties, rateLimiter);
+  }
+
+  @Bean
   @ConditionalOnMissingBean(PluginManagementAuditRecorder.class)
   public PluginManagementAuditRecorder pluginManagementAuditRecorder() {
     return new LoggingPluginManagementAuditRecorder();
@@ -98,7 +112,8 @@ public class Pf4bootManagementAutoConfiguration {
       PluginManagementIdempotencyService idempotencyService,
       PluginDeploymentRecordStore deploymentRecordStore,
       PluginManagementAuditRecorder auditRecorder,
-      PluginOperationStore operationStore) {
+      PluginOperationStore operationStore,
+      PluginManagementWriteSecurityPolicy writeSecurityPolicy) {
     return new PluginManagementController(
         pluginManager,
         deploymentService,
@@ -109,7 +124,8 @@ public class Pf4bootManagementAutoConfiguration {
         idempotencyService,
         deploymentRecordStore,
         auditRecorder,
-        operationStore);
+        operationStore,
+        writeSecurityPolicy);
   }
 
   @Bean

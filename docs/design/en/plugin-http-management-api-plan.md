@@ -17,7 +17,7 @@
 | M3 Local token mode | Done | loopback, token, startup validation | `:pf4boot-management-starter:compileJava` |
 | M4 Read and lifecycle APIs | Done | list/detail/start/stop/restart/enable/disable | Controller code complete |
 | M5 Deployment APIs | Done | plan/replace/rollback queries integrated with `PluginDeploymentService` | Controller wiring complete |
-| M6 Remote authorization mode | In Progress | authorizer SPI and permission checks in place; CSRF/origin and rate-limit enforcement deferred | auth smoke pending |
+| M6 Remote authorization mode | Done | authorizer SPI, permissions, CSRF/origin, and rate-limit enforcement implemented | `PluginManagementControllerSecurityTest` plus `PluginManagementWriteSecurityPolicyTest` |
 | M7 Idempotency and audit | Done | idempotency keys, response replay, audit events | `:pf4boot-management-starter:compileJava` |
 | M8 Samples and docs | In Progress | local token and remote authorizer examples, migration notes | sample smoke/docs sync pending |
 
@@ -96,8 +96,8 @@ Tasks:
 
 - Integrate `PluginManagementAuthorizer`.
 - Add permission checks for read, lifecycle, reload, plan, replace, rollback, and admin.
-- Add CSRF/origin strategy.
-- Add per-principal and per-address write rate limits.
+- Add CSRF/origin strategy and same-origin checks.
+- Add per-subject write rate limits (memory fixed-window).
 
 ## M7 Idempotency And Audit
 

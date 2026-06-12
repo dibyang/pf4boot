@@ -136,7 +136,8 @@ Run and collect:
 ```powershell
 .\gradlew.bat :pf4boot-management-starter:compileJava
 .\gradlew.bat :pf4boot-management-starter:compileTestJava
-```
+.\gradlew.bat :pf4boot-management-starter:test
+``` 
 
 Then perform code-check assertions:
 
@@ -144,7 +145,14 @@ Then perform code-check assertions:
 - confirm plan endpoint does not call `deploymentService.replace`.
 - confirm `CONFIRM` endpoint is absent in this phase (documented as follow-up).
 - confirm startup validator blocks bad modes.
-- confirm rate-limit and CSRF/origin are marked as deferred.
+- confirm security policy for write operations in `PluginManagementWriteSecurityPolicy`.
+
+Concrete test checkpoints:
+
+- `PluginManagementWriteSecurityPolicyTest` (mode `auto`/`true`/`false` origin flow)
+- `PluginManagementControllerSecurityTest` (remote unauth/authz and rate limit for write endpoints)
+- `PluginManagementRateLimiterTest` (normal/over-limit and disabled scenarios)
+- `PluginManagementIdempotencyServiceTest` + `PluginManagementPathValidatorTest` (idempotency and path guard)
 
 ## Phase 4: Acceptance Handoff
 

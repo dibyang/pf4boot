@@ -55,6 +55,7 @@ public class PluginManagementController {
   private final PluginDeploymentRecordStore deploymentRecordStore;
   private final PluginManagementAuditRecorder auditRecorder;
   private final PluginOperationStore operationStore;
+  private final PluginManagementWriteSecurityPolicy writeSecurityPolicy;
 
   public PluginManagementController(
       Pf4bootPluginManager pluginManager,
@@ -66,7 +67,8 @@ public class PluginManagementController {
       PluginManagementIdempotencyService idempotencyService,
       PluginDeploymentRecordStore deploymentRecordStore,
       PluginManagementAuditRecorder auditRecorder,
-      PluginOperationStore operationStore) {
+      PluginOperationStore operationStore,
+      PluginManagementWriteSecurityPolicy writeSecurityPolicy) {
     this.pluginManager = pluginManager;
     this.deploymentService = deploymentService;
     this.properties = properties;
@@ -77,6 +79,7 @@ public class PluginManagementController {
     this.deploymentRecordStore = deploymentRecordStore;
     this.auditRecorder = auditRecorder;
     this.operationStore = operationStore;
+    this.writeSecurityPolicy = writeSecurityPolicy;
   }
 
   @GetMapping("/plugins")
@@ -350,6 +353,7 @@ public class PluginManagementController {
         null,
         null,
         properties);
+    writeSecurityPolicy.validateWriteRequest(request, mgmtRequest);
     PluginManagementPrincipal principal = authenticateAndAuthorize(mgmtRequest, operation);
     String pluginId = body == null ? null : body.getPluginId();
     String stagedPluginPath = body == null ? null : body.getStagedPluginPath();
@@ -460,6 +464,7 @@ public class PluginManagementController {
         pluginId,
         null,
         properties);
+    writeSecurityPolicy.validateWriteRequest(request, mgmtRequest);
     PluginManagementPrincipal principal = authenticateAndAuthorize(mgmtRequest, operation);
     String principalId = safePrincipalId(principal, mgmtRequest);
     String operationId = requestFactory.buildOperationId();

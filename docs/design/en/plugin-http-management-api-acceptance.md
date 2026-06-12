@@ -3,7 +3,7 @@
 ## Scope
 
 This document tracks implementation evidence for [plugin-http-management-api.md](plugin-http-management-api.md) and [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md).
-As of this pass, core implementation is completed and wired, compile checks pass, but full runtime smoke coverage is still pending.
+As of this pass, core implementation is wired, compile checks pass, and security hardening for local and remote-style write-path checks is covered by unit tests. Full runtime smoke coverage is still pending.
 
 Implementation should also follow [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md). Evidence should keep module paths, class names, and test names aligned with the guide where possible.
 
@@ -33,10 +33,10 @@ Implementation should also follow [plugin-http-management-api-implementation-gui
 | --- | --- | --- | --- |
 | SEC-01 | Local write without token returns `401` | Done | `LocalTokenPluginManagementAuthorizer.isSameToken` + error code map |
 | SEC-02 | Non-loopback request in local mode returns `401` | Done | `LocalTokenPluginManagementAuthorizer.authenticate` loopback branch |
-| SEC-03 | Remote unauthenticated request returns `401` | Not Done | `PluginManagementAuthorizer` integration and controller tests pending |
-| SEC-04 | Remote unauthorized request returns `403` | Not Done | `LocalTokenPluginManagementAuthorizer.authorize` / remote SPI test pending |
-| SEC-05 | Browser writes without CSRF/origin controls are rejected | Not Done | Deferred in phase one |
-| SEC-06 | Write rate limit returns `429` | Not Done | Deferred in phase one |
+| SEC-03 | Remote unauthenticated request returns `401` | Done | `PluginManagementControllerSecurityTest.remoteUnauthenticatedDelegatedRequestRejectedWith401` |
+| SEC-04 | Remote unauthorized request returns `403` | Done | `PluginManagementControllerSecurityTest.remoteUnauthorizedDelegatedRequestRejectedWith403` |
+| SEC-05 | Browser writes without CSRF/origin controls are rejected | Done | `PluginManagementWriteSecurityPolicyTest` + `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForWriteRequests` |
+| SEC-06 | Write rate limit returns `429` | Done | `PluginManagementRateLimiterTest` + `PluginManagementControllerSecurityTest.rateLimitAppliedBeforeSecondWrite` |
 | SEC-07 | Public binding without remote authorization fails startup | Done | `PluginManagementStartupValidator` |
 
 ## Compatibility Acceptance
