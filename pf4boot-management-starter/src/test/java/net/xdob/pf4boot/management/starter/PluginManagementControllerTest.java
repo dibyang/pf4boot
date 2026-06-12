@@ -187,6 +187,31 @@ public class PluginManagementControllerTest {
   }
 
   @Test
+  public void deploymentQueryByIdReturnsRecord() {
+    Pf4bootManagementProperties properties = properties();
+    InMemoryPluginDeploymentRecordStore store = new InMemoryPluginDeploymentRecordStore();
+    store.save(
+        new DeploymentRecord(
+            "d-1",
+            "plug-a",
+            DeploymentState.SUCCEEDED,
+            1000L,
+            1000L,
+            "query ok",
+            null));
+
+    PluginManagementController controller =
+        controller(properties, new InvocationRecorder().createPluginManager(), null, store);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/d-1");
+
+    PluginAdminResponse<DeploymentRecord> response = controller.deployment("d-1", request);
+
+    assertNotNull(response);
+    assertEquals("d-1", response.getData().getDeploymentId());
+    assertEquals(DeploymentState.SUCCEEDED, response.getData().getState());
+  }
+
+  @Test
   public void planEndpointSupportsIdempotencyReplayWithSameKey() {
     Pf4bootManagementProperties properties = properties();
     properties.setRequireIdempotencyKey(true);
