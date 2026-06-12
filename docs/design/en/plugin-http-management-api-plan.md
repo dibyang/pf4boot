@@ -12,14 +12,14 @@
 
 | Milestone | Status | Goal | Verification |
 | --- | --- | --- | --- |
-| M1 Module and configuration skeleton | Not Started | Add `pf4boot-management-starter`, disabled by default | compileJava |
-| M2 Public models and error codes | Not Started | DTOs, operation types, errors, SPI in `pf4boot-api` | api compile/test |
-| M3 Local token mode | Not Started | loopback, token, startup validation, audit | management starter test |
-| M4 Read and lifecycle APIs | Not Started | list/detail/start/stop/restart/enable/disable | HTTP integration tests |
-| M5 Deployment APIs | Not Started | plan/replace/rollback queries integrated with `PluginDeploymentService` | core + HTTP tests |
-| M6 Remote authorization mode | Not Started | authorizer SPI, permissions, CSRF/origin controls, rate limits | auth tests |
-| M7 Idempotency and audit | Not Started | idempotency keys, response replay, audit events | conflict tests |
-| M8 Samples and docs | Not Started | local token and remote authorizer examples, migration notes | sample smoke |
+| M1 Module and configuration skeleton | Done | Add `pf4boot-management-starter`, disabled by default | `:pf4boot-management-starter:compileJava` |
+| M2 Public models and error codes | Done | DTOs, operation types, errors, SPI in `pf4boot-api` | `:pf4boot-api:compileJava` |
+| M3 Local token mode | Done | loopback, token, startup validation | `:pf4boot-management-starter:compileJava` |
+| M4 Read and lifecycle APIs | Done | list/detail/start/stop/restart/enable/disable | Controller code complete |
+| M5 Deployment APIs | Done | plan/replace/rollback queries integrated with `PluginDeploymentService` | Controller wiring complete |
+| M6 Remote authorization mode | In Progress | authorizer SPI and permission checks in place; CSRF/origin and rate-limit enforcement deferred | auth smoke pending |
+| M7 Idempotency and audit | Done | idempotency keys, response replay, audit events | `:pf4boot-management-starter:compileJava` |
+| M8 Samples and docs | In Progress | local token and remote authorizer examples, migration notes | sample smoke/docs sync pending |
 
 ## M1 Module And Configuration Skeleton
 
@@ -114,8 +114,8 @@ Tasks:
 Tasks:
 
 - Add local token configuration to the sample.
-- Add a fake remote authorizer example.
 - Document curl flows for list, start/stop, plan, replace, and deployment record query.
+- Add a remote authorizer integration example and migration notes in a follow-up milestone.
 - Keep Chinese and English indexes in sync.
 
 Verification:

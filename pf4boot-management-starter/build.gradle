@@ -1,0 +1,11 @@
+dependencies {
+    implementation project(":pf4boot-api")
+    implementation project(":pf4boot-core")
+    implementation project(":pf4boot-web-support")
+    compileOnly("net.xdob.springframework.boot:spring-boot-autoconfigure:${spring_boot_version}") {
+        exclude group: 'org.slf4j'
+    }
+    compileOnly 'javax.servlet:javax.servlet-api:3.1.0'
+    testImplementation("net.xdob.springframework:spring-test:$spring_version")
+    testImplementation 'javax.servlet:javax.servlet-api:3.1.0'
+}

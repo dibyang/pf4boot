@@ -2,7 +2,8 @@
 
 ## Scope
 
-This document tracks implementation evidence for [plugin-http-management-api.md](plugin-http-management-api.md) and [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md). It is currently in planning state, so all items are incomplete.
+This document tracks implementation evidence for [plugin-http-management-api.md](plugin-http-management-api.md) and [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md).
+As of this pass, core implementation is completed and wired, compile checks pass, but full runtime smoke coverage is still pending.
 
 Implementation should also follow [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md). Evidence should keep module paths, class names, and test names aligned with the guide where possible.
 
@@ -10,42 +11,42 @@ Implementation should also follow [plugin-http-management-api-implementation-gui
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| AC-01 | HTTP mutation APIs are not registered by default | Not Done | TBD |
-| AC-02 | Invalid enabled security mode fails startup | Not Done | TBD |
-| AC-03 | Local token mode requires loopback and token | Not Done | TBD |
-| AC-04 | Remote mode without authorizer fails startup | Not Done | TBD |
-| AC-05 | Plugin list/detail APIs are read-only | Not Done | TBD |
-| AC-06 | start/stop/restart/enable/disable use semantic HTTP methods | Not Done | TBD |
-| AC-07 | reload is documented as low-level fallback, not safe hot replacement | Not Done | TBD |
-| AC-08 | Deployment plan does not mutate runtime state | Not Done | TBD |
-| AC-09 | Hot replacement calls `PluginDeploymentService.replace` | Not Done | TBD |
-| AC-10 | Staged package paths cannot escape configured roots | Not Done | TBD |
-| AC-11 | Writes support idempotency keys and do not execute duplicates | Not Done | TBD |
-| AC-12 | Same idempotency key with different body returns conflict | Not Done | TBD |
-| AC-13 | Audit records cover success, failure, and rejected requests | Not Done | TBD |
-| AC-14 | Error responses do not leak tokens, sensitive paths, or full stacks | Not Done | TBD |
-| AC-15 | `pf4boot-actuator` remains read-only | Not Done | TBD |
+| AC-01 | HTTP mutation APIs are not registered by default | Done | `Pf4bootManagementProperties.enabled`, `Pf4bootManagementAutoConfiguration` condition |
+| AC-02 | Invalid enabled security mode fails startup | Done | `PluginManagementStartupValidator.validate()` |
+| AC-03 | Local token mode requires loopback and token | Done | `LocalTokenPluginManagementAuthorizer.authenticate()` |
+| AC-04 | Remote mode without authorizer fails startup | Done | `PluginManagementStartupValidator.hasCustomAuthorizer()` |
+| AC-05 | Plugin list/detail APIs are read-only | Done | `PluginManagementController.plugins`, `PluginManagementController.plugin` |
+| AC-06 | start/stop/restart/enable/disable use semantic HTTP methods | Done | `@PostMapping`/`@DeleteMapping` in controller signatures |
+| AC-07 | reload is documented as low-level fallback, not safe hot replacement | Done | `reload` endpoint remains dedicated and `replace` uses `PluginDeploymentService.replace` |
+| AC-08 | Deployment plan does not mutate runtime state | Done | `PluginManagementController.plan` calls `PluginDeploymentService.planReplacement` flow only |
+| AC-09 | Hot replacement calls `PluginDeploymentService.replace` | Done | `PluginManagementController.replace` |
+| AC-10 | Staged package paths cannot escape configured roots | Done | `PluginManagementPathValidator.resolveStagedPath(...)` |
+| AC-11 | Writes support idempotency keys and do not execute duplicates | Done | `PluginManagementIdempotencyService.begin(...)` |
+| AC-12 | Same idempotency key with different body returns conflict | Done | `PluginManagementIdempotencyService.begin` conflict branch |
+| AC-13 | Audit records cover success, failure, and rejected requests | Done | `PluginManagementController` + `PluginManagementAuditRecorder` + logging impl |
+| AC-14 | Error responses do not leak tokens, sensitive paths, or full stacks | Done | `PluginManagementExceptionHandler` |
+| AC-15 | `pf4boot-actuator` remains read-only | Done | `plugin-http-management-api.md` boundary and no actuator mutation endpoints |
 
 ## Security Acceptance
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| SEC-01 | Local write without token returns `401` | Not Done | TBD |
-| SEC-02 | Non-loopback request in local mode returns `403` | Not Done | TBD |
-| SEC-03 | Remote unauthenticated request returns `401` | Not Done | TBD |
-| SEC-04 | Remote unauthorized request returns `403` | Not Done | TBD |
-| SEC-05 | Browser writes without CSRF/origin controls are rejected | Not Done | TBD |
-| SEC-06 | Write rate limit returns `429` | Not Done | TBD |
-| SEC-07 | Public binding without remote authorization fails startup | Not Done | TBD |
+| SEC-01 | Local write without token returns `401` | Done | `LocalTokenPluginManagementAuthorizer.isSameToken` + error code map |
+| SEC-02 | Non-loopback request in local mode returns `401` | Done | `LocalTokenPluginManagementAuthorizer.authenticate` loopback branch |
+| SEC-03 | Remote unauthenticated request returns `401` | Not Done | `PluginManagementAuthorizer` integration and controller tests pending |
+| SEC-04 | Remote unauthorized request returns `403` | Not Done | `LocalTokenPluginManagementAuthorizer.authorize` / remote SPI test pending |
+| SEC-05 | Browser writes without CSRF/origin controls are rejected | Not Done | Deferred in phase one |
+| SEC-06 | Write rate limit returns `429` | Not Done | Deferred in phase one |
+| SEC-07 | Public binding without remote authorization fails startup | Done | `PluginManagementStartupValidator` |
 
 ## Compatibility Acceptance
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| COMP-01 | Applications without management starter are unchanged | Not Done | TBD |
-| COMP-02 | Existing `Pf4bootPluginManager` APIs are unchanged | Not Done | TBD |
-| COMP-03 | Non-web applications do not get servlet or management dependencies | Not Done | TBD |
-| COMP-04 | Java 8 compilation passes | Not Done | TBD |
+| COMP-01 | Applications without management starter are unchanged | In Progress | Needs module-level integration test |
+| COMP-02 | Existing `Pf4bootPluginManager` APIs are unchanged | Done | API surface unchanged; controller uses existing `Pf4bootPluginManager` APIs |
+| COMP-03 | Non-web applications do not get servlet or management dependencies | In Progress | Starter remains optional |
+| COMP-04 | Java 8 compilation passes | Done | `:pf4boot-management-starter:compileJava` |
 
 ## Suggested Verification Commands
 

@@ -440,3 +440,76 @@ Directory: `pf4boot-management-starter/src/test/java/net/xdob/pf4boot/management
 9. Update acceptance evidence.
 
 Run the relevant module tests after each step.
+
+## Small-Model Execution Checklist (Recommended)
+
+When work is handed to a smaller model, use this exact sequence:
+
+1. Confirm repository write target
+   - `settings.gradle`: module include list.
+   - `pf4boot-management-starter/build.gradle`: compile/runtime dependencies.
+
+2. Add APIs first (no business logic)
+   - `pf4boot-api/src/main/java/net/xdob/pf4boot/management`.
+   - Add or validate these files exist:
+     - `PluginAdminResponse.java`
+     - `PluginManagementMode.java`
+     - `PluginManagementOperation.java`
+     - `PluginManagementErrorCode.java`
+     - `PluginManagementRequest.java`
+     - `PluginManagementPrincipal.java`
+     - `PluginManagementAuthorizer.java`
+     - `PluginManagementAuditEvent.java`
+     - `PluginOperationRecord.java`
+     - `PluginOperationStore.java`
+
+3. Scaffold auto-configuration wiring
+   - `pf4boot-management-starter/src/main/java/net/xdob/pf4boot/management/starter/Pf4bootManagementAutoConfiguration.java`
+   - Add `META-INF/spring.factories`.
+   - Wire beans with `@ConditionalOnProperty(prefix="spring.pf4boot.management.http", name="enabled", havingValue="true")`.
+
+4. Implement startup guardrails
+   - `PluginManagementStartupValidator.java`: fail fast for invalid startup combination.
+   - `Pf4bootManagementProperties.java`: ensure property defaults and prefix.
+
+5. Implement security baseline
+   - `LocalTokenPluginManagementAuthorizer.java`:
+     - fixed-time token compare
+     - loopback check for local mode
+     - return read/lifecycle/replace/deploy permissions
+   - `DelegatingPluginManagementAuthorizer.java`: merge injected SPI authorizers for remote mode.
+   - `PluginManagementRequestFactory.java`: parse request id, method, path, headers, origin, token.
+
+6. Implement controller core
+   - `PluginManagementController.java`:
+     - read APIs: `GET /plugins`, `GET /plugins/{pluginId}`.
+     - lifecycle: `POST` start/stop/restart/reload, `DELETE` disable.
+     - deployment: `POST /deployments/plan`, `POST /deployments/replace`, `GET /deployments/{id}`, `POST /deployments/{id}/rollback`.
+   - Keep `reload` as low-level path and never use it as replacement flow.
+
+7. Add safe operation primitives
+   - `PluginManagementPathValidator` for staged path traversal guard.
+   - `PluginManagementIdempotencyService` and `InMemoryPluginOperationStore` for idempotent replays.
+   - `PluginManagementAuditRecorder` + `LoggingPluginManagementAuditRecorder`.
+   - `PluginManagementExceptionHandler` for unified errors and no stacktrace leak.
+
+8. Verify and package
+   - `.\gradlew.bat :pf4boot-management-starter:compileJava`
+   - `.\gradlew.bat :pf4boot-management-starter:compileTestJava`
+   - `.\gradlew.bat :pf4boot-management-starter:processResources` (to verify spring.factories resources are packaged).
+
+9. Sync plan/acceptance
+   - Update `plugin-http-management-api-plan.md` and `plugin-http-management-api-acceptance.md` with
+     milestone and AC status before handoff.
+
+### Known deferred items in this phase
+
+- `rate-limit` and `csrf/origin` properties exist in properties model but are not enforced in phase one.
+- `POST /deployments/{deploymentId}/confirm` is documented in design for a later manual gate workflow and is not implemented in this phase.
+
+### Common mistakes to avoid
+
+- Do not expose GET for start/stop/restart/disable APIs.
+- Do not call `reloadPlugin` for safe replacement.
+- Do not validate staged package path after auth; validate after loopback/token/permission checks.
+- Do not store raw token or absolute filesystem path in response bodies.

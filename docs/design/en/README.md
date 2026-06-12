@@ -28,6 +28,7 @@ Use the parent directory for design notes before implementing non-trivial change
 - [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md): implementation plan for plugin HTTP management APIs.
 - [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md): implementation guide for plugin HTTP management APIs.
 - [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md): acceptance checklist for plugin HTTP management APIs.
+- [plugin-http-management-api-small-model-guide.md](plugin-http-management-api-small-model-guide.md): deterministic execution guide for smaller implementation models.
 - [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md): repository, loader, Gradle plugin packaging, and app assembly.
 - [code-quality-fixes.md](code-quality-fixes.md): issues found in this code quality review and the fix plan.
 - [lifecycle-cleanup-fix.md](lifecycle-cleanup-fix.md): fix plan for plugin stop and context cleanup responsibility boundaries.
