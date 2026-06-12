@@ -105,7 +105,26 @@ public class PluginManagementControllerTest {
   }
 
   @Test
-  public void replaceEndpointCallsReplaceService() {
+  public void replaceEndpointUsesPlanWhenDryRunDefaultIsTrue() {
+    Pf4bootManagementProperties properties = properties();
+    properties.setDryRunDefault(true);
+    RecordingDeploymentService deploymentService = new RecordingDeploymentService();
+    InvocationRecorder invocation = new InvocationRecorder();
+
+    PluginManagementController controller = controller(properties, invocation.createPluginManager(), deploymentService);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/replace");
+    PluginDeploymentRequest body = deploymentRequest("sample-workflow", "plugin.jar");
+    body.setDryRun(null);
+
+    PluginAdminResponse<DeploymentRecord> response = controller.replace(body, request);
+    assertNotNull(response);
+    assertEquals("plan-result", response.getData().getDeploymentId());
+    assertEquals(1, deploymentService.planCalls);
+    assertEquals(0, deploymentService.replaceCalls);
+  }
+
+  @Test
+  public void replaceEndpointCallsReplaceServiceWhenDryRunFalse() {
     Pf4bootManagementProperties properties = properties();
     RecordingDeploymentService deploymentService = new RecordingDeploymentService();
     InvocationRecorder invocation = new InvocationRecorder();
@@ -113,12 +132,36 @@ public class PluginManagementControllerTest {
     PluginManagementController controller = controller(properties, invocation.createPluginManager(), deploymentService);
     MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/replace");
     PluginDeploymentRequest body = deploymentRequest("sample-workflow", "plugin.jar");
+    body.setDryRun(false);
 
     PluginAdminResponse<DeploymentRecord> response = controller.replace(body, request);
     assertNotNull(response);
     assertEquals("op-replace", response.getData().getDeploymentId());
     assertEquals(0, deploymentService.planCalls);
     assertEquals(1, deploymentService.replaceCalls);
+  }
+
+  @Test
+  public void writeSecurityRejectionIsAudited() {
+    Pf4bootManagementProperties properties = properties();
+    properties.getCsrf().setEnabled("true");
+    CapturingAuditRecorder auditRecorder = new CapturingAuditRecorder();
+    PluginManagementController controller =
+        controller(properties, new InvocationRecorder().createPluginManager(), new RecordingDeploymentService(),
+            new InMemoryPluginDeploymentRecordStore(), auditRecorder);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/replace");
+    PluginDeploymentRequest body = deploymentRequest("sample-workflow", "plugin.jar");
+
+    try {
+      controller.replace(body, request);
+      fail("expected CSRF rejection");
+    } catch (PluginManagementException e) {
+      assertEquals(PluginManagementErrorCode.FORBIDDEN, e.getCode());
+    }
+
+    assertEquals(1, auditRecorder.events.size());
+    assertEquals(PluginManagementOperation.DEPLOYMENT_REPLACE, auditRecorder.events.get(0).getOperation());
+    assertEquals(PluginManagementErrorCode.FORBIDDEN.getCode(), auditRecorder.events.get(0).getCode());
   }
 
   @Test

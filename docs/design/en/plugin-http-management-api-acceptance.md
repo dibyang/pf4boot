@@ -23,10 +23,10 @@ Implementation should also follow [plugin-http-management-api-implementation-gui
 | AC-10 | Staged package paths cannot escape configured roots | Done | `PluginManagementPathValidator.resolveStagedPath(...)` |
 | AC-11 | Writes support idempotency keys and do not execute duplicates | Done | `PluginManagementIdempotencyService.begin(...)` |
 | AC-12 | Same idempotency key with different body returns conflict | Done | `PluginManagementIdempotencyService.begin` conflict branch |
-| AC-13 | Audit records cover success, failure, and rejected requests | Done | `PluginManagementController` + `PluginManagementAuditRecorder` + logging impl |
-| AC-14 | Error responses do not leak tokens, sensitive paths, or full stacks | Done | `PluginManagementExceptionHandler` |
+| AC-13 | Audit records cover success, failure, and rejected requests | Done | `PluginManagementController` + `PluginManagementControllerTest.writeSecurityRejectionIsAudited` |
+| AC-14 | Error responses do not leak tokens, sensitive paths, or full stacks | Done | `PluginManagementExceptionHandlerTest` |
 | AC-15 | `pf4boot-actuator` remains read-only | Done | `plugin-http-management-api.md` boundary and no actuator mutation endpoints |
-| AC-16 | Manual deployment confirm endpoint is implemented and enforces write policies | Done | `PluginManagementController.confirm` and tests `PluginManagementControllerTest.confirmEndpointExecutesReplacementForPrecheckedRecord` + `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForConfirmWrite` |
+| AC-16 | Manual deployment confirm endpoint is implemented and enforces write policies | Done | `PluginManagementController.confirm` and tests `PluginManagementControllerTest.confirmEndpointExecutesReplacementForPrecheckedRecord`, `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForConfirmWrite`, `PluginManagementControllerSecurityTest.confirmRequiresDedicatedConfirmPermission` |
 
 ## Security Acceptance
 

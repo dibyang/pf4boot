@@ -150,7 +150,7 @@ Package paths must reference files under configured staging roots only.
 | `pf4boot:plugin:reload` | low-level reload |
 | `pf4boot:deployment:plan` | deployment plan |
 | `pf4boot:deployment:replace` | hot replacement |
-| `pf4boot:deployment:replace` | execute confirmed/prechecked deployment |
+| `pf4boot:deployment:confirm` | execute confirmed/prechecked deployment |
 | `pf4boot:deployment:rollback` | rollback |
 | `pf4boot:admin:all` | all operations |
 

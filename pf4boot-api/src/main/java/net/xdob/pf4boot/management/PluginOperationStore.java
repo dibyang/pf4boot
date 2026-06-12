@@ -9,6 +9,13 @@ public interface PluginOperationStore {
 
   PluginOperationRecord save(PluginOperationRecord record);
 
+  /**
+   * Atomically reserves an idempotency key for a new operation.
+   *
+   * @return the existing record when the key has already been reserved, otherwise {@code null}
+   */
+  PluginOperationRecord saveIfIdempotencyKeyAbsent(PluginOperationRecord record);
+
   PluginOperationRecord findById(String operationId);
 
   PluginOperationRecord findByIdempotencyKey(String idempotencyKey);

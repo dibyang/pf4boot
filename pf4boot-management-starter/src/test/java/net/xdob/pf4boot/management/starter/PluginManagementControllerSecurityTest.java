@@ -318,7 +318,37 @@ public class PluginManagementControllerSecurityTest {
 
     authorizer.authorize(principal, PluginManagementOperation.PLUGIN_READ);
     authorizer.authorize(principal, PluginManagementOperation.DEPLOYMENT_QUERY);
+    authorizer.authorize(principal, PluginManagementOperation.DEPLOYMENT_CONFIRM);
     authorizer.authorize(principal, PluginManagementOperation.DEPLOYMENT_ROLLBACK);
+  }
+
+  @Test
+  public void confirmRequiresDedicatedConfirmPermission() {
+    Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
+    properties.setEnabled(true);
+    properties.getCsrf().setEnabled("false");
+    properties.setRequireIdempotencyKey(false);
+    properties.getRateLimit().setEnabled(false);
+    properties.setStagingRoot("target/test-staged");
+    InMemoryPluginDeploymentRecordStore recordStore = new InMemoryPluginDeploymentRecordStore();
+    recordStore.save(precheckedRecord("conf-authz"));
+    PluginManagementAuthorizer authorizer = new PermissionAuthorizer("pf4boot:deployment:replace");
+    PluginManagementController controller = controllerWithDeployment(
+        properties,
+        authorizer,
+        recordStore,
+        confirmingDeploymentService());
+
+    MockHttpServletRequest request = baseRequest();
+    request.setRequestURI("/pf4boot/admin/deployments/conf-authz/confirm");
+    request.addHeader("Origin", "http://127.0.0.1:8080");
+
+    try {
+      controller.confirm("conf-authz", request);
+      fail("Expected missing confirm permission to be rejected");
+    } catch (PluginManagementException e) {
+      assertEquals(PluginManagementErrorCode.FORBIDDEN, e.getCode());
+    }
   }
 
   private PluginManagementController controller(Pf4bootManagementProperties properties) {
@@ -572,5 +602,34 @@ public class PluginManagementControllerSecurityTest {
     request.addHeader("Host", "127.0.0.1:8080");
     request.setContentType("application/json");
     return request;
+  }
+
+  private static class PermissionAuthorizer implements PluginManagementAuthorizer {
+
+    private final String permission;
+
+    private PermissionAuthorizer(String permission) {
+      this.permission = permission;
+    }
+
+    @Override
+    public PluginManagementPrincipal authenticate(PluginManagementRequest request) {
+      PluginManagementPrincipal principal = new PluginManagementPrincipal();
+      principal.setPrincipalId("remote-user");
+      principal.setPrincipalName("remote-user");
+      principal.setPermissions(Collections.singletonList(permission));
+      return principal;
+    }
+
+    @Override
+    public void authorize(PluginManagementPrincipal principal, PluginManagementOperation operation) {
+      if (principal.getPermissions().contains(operation.getPermission())) {
+        return;
+      }
+      throw new PluginManagementException(
+          PluginManagementErrorCode.FORBIDDEN,
+          "missing permission",
+          403);
+    }
   }
 }

@@ -16,14 +16,21 @@ public class PluginManagementExceptionHandler {
   @ExceptionHandler(PluginManagementException.class)
   public ResponseEntity<PluginAdminResponse<Object>> handlePluginManagementException(
       PluginManagementException e) {
-    PluginAdminResponse<Object> response = PluginAdminResponse.failed(null, null, e.getCode(), e.getMessage());
+    PluginAdminResponse<Object> response = PluginAdminResponse.failed(
+        null,
+        null,
+        e.getCode(),
+        PluginManagementResponseSanitizer.safeMessage(e.getCode()));
     return new ResponseEntity<>(response, HttpStatus.valueOf(e.getStatusCode()));
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<PluginAdminResponse<Object>> handleBadRequest(IllegalArgumentException e) {
     PluginAdminResponse<Object> response = PluginAdminResponse.failed(
-        null, null, PluginManagementErrorCode.INVALID_REQUEST, e.getMessage());
+        null,
+        null,
+        PluginManagementErrorCode.INVALID_REQUEST,
+        PluginManagementResponseSanitizer.safeMessage(PluginManagementErrorCode.INVALID_REQUEST));
     return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
   }
 
@@ -34,4 +41,3 @@ public class PluginManagementExceptionHandler {
     return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
   }
 }
-

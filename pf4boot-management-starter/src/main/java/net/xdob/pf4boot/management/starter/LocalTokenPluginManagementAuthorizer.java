@@ -48,6 +48,7 @@ public class LocalTokenPluginManagementAuthorizer implements PluginManagementAut
         "pf4boot:deployment:query",
         "pf4boot:deployment:plan",
         "pf4boot:deployment:replace",
+        "pf4boot:deployment:confirm",
         "pf4boot:deployment:rollback",
         "pf4boot:admin:all"));
     return principal;

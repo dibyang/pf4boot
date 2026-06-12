@@ -51,8 +51,10 @@ public class PluginManagementIdempotencyService {
       record.setIdempotencyKey(key);
       record.setRequestHash(requestHash);
       record.setState("STARTED");
-      operationStore.save(record);
-      return null;
+      existing = operationStore.saveIfIdempotencyKeyAbsent(record);
+      if (existing == null) {
+        return null;
+      }
     }
     if (!requestHash.equals(existing.getRequestHash())) {
       throw new PluginManagementException(
@@ -83,4 +85,3 @@ public class PluginManagementIdempotencyService {
     return safePrincipalId + ":" + operation.name() + ":" + safePluginId + ":" + idempotencyKey;
   }
 }
-

@@ -25,10 +25,10 @@ As of this pass, the HTTP management core is implemented, module wiring is in pl
 | AC-10 | Staged plugin path is root-safe | Done | `PluginManagementPathValidator.resolveStagedPath(...)` |
 | AC-11 | Idempotency key deduplicates duplicate writes | Done | `PluginManagementIdempotencyService.begin(...)` |
 | AC-12 | Duplicate key + different request body returns conflict | Done | `PluginManagementIdempotencyService.begin` conflict branch |
-| AC-13 | Audit records success / failure / reject paths | Done | `PluginManagementController` + `PluginManagementAuditRecorder` |
-| AC-14 | Error responses do not leak token/path/stack details | Done | `PluginManagementExceptionHandler` |
+| AC-13 | Audit records success / failure / reject paths | Done | `PluginManagementController` + `PluginManagementControllerTest.writeSecurityRejectionIsAudited` |
+| AC-14 | Error responses do not leak token/path/stack details | Done | `PluginManagementExceptionHandlerTest` |
 | AC-15 | `pf4boot-actuator` remains mutation-free | Done | API doc boundary in `plugin-http-management-api.md` and implementation scope |
-| AC-16 | Manual confirm endpoint is implemented and enforces write policies | Done | `PluginManagementController.confirm` and tests `PluginManagementControllerTest.confirmEndpointExecutesReplacementForPrecheckedRecord` + `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForConfirmWrite` |
+| AC-16 | Manual confirm endpoint is implemented and enforces write policies | Done | `PluginManagementController.confirm` and tests `PluginManagementControllerTest.confirmEndpointExecutesReplacementForPrecheckedRecord`, `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForConfirmWrite`, `PluginManagementControllerSecurityTest.confirmRequiresDedicatedConfirmPermission` |
 
 ## Security Acceptance
 

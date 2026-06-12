@@ -169,6 +169,7 @@ PLUGIN_DISABLE("pf4boot:plugin:lifecycle"),
 PLUGIN_RELOAD("pf4boot:plugin:reload"),
 DEPLOYMENT_PLAN("pf4boot:deployment:plan"),
 DEPLOYMENT_REPLACE("pf4boot:deployment:replace"),
+DEPLOYMENT_CONFIRM("pf4boot:deployment:confirm"),
 DEPLOYMENT_ROLLBACK("pf4boot:deployment:rollback");
 ```
 

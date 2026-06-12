@@ -37,6 +37,30 @@ public class InMemoryPluginOperationStore implements PluginOperationStore {
   }
 
   @Override
+  public PluginOperationRecord saveIfIdempotencyKeyAbsent(PluginOperationRecord record) {
+    if (record == null || !StringUtils.hasText(record.getOperationId())
+        || !StringUtils.hasText(record.getIdempotencyKey())) {
+      save(record);
+      return null;
+    }
+    long now = System.currentTimeMillis();
+    if (record.getCreatedAt() == 0) {
+      record.setCreatedAt(now);
+    }
+    record.setUpdatedAt(now);
+    byOperationId.put(record.getOperationId(), record);
+    String existingOperationId = byIdempotencyKey.putIfAbsent(record.getIdempotencyKey(), record.getOperationId());
+    if (existingOperationId != null) {
+      byOperationId.remove(record.getOperationId());
+      return byOperationId.get(existingOperationId);
+    }
+    if (StringUtils.hasText(record.getDeploymentId())) {
+      byDeploymentId.put(record.getDeploymentId(), record.getOperationId());
+    }
+    return null;
+  }
+
+  @Override
   public PluginOperationRecord findById(String operationId) {
     return byOperationId.get(operationId);
   }
@@ -76,4 +100,3 @@ public class InMemoryPluginOperationStore implements PluginOperationStore {
     return records.subList(0, size);
   }
 }
-

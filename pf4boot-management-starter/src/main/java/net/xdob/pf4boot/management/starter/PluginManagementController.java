@@ -295,7 +295,7 @@ public class PluginManagementController {
         deploymentId,
         properties);
     // Rollback is a mutating endpoint and must run through the same write-hardening flow.
-    writeSecurityPolicy.validateWriteRequest(request, mgmtRequest);
+    validateWriteRequest(request, mgmtRequest, PluginManagementOperation.DEPLOYMENT_ROLLBACK);
     PluginManagementPrincipal principal = authenticateAndAuthorize(
         mgmtRequest,
         PluginManagementOperation.DEPLOYMENT_ROLLBACK);
@@ -303,9 +303,10 @@ public class PluginManagementController {
     String principalId = safePrincipalId(principal, mgmtRequest);
     String operationId = requestFactory.buildOperationId();
     String requestHash = requestHash(mgmtRequest, "deployment-rollback", deploymentId, "");
-    PluginOperationRecord recordReplay = idempotencyService.begin(
+    PluginOperationRecord recordReplay = beginIdempotency(
         mgmtRequest,
         PluginManagementOperation.DEPLOYMENT_ROLLBACK,
+        principal,
         principalId,
         requestHash,
         operationId,
@@ -343,8 +344,8 @@ public class PluginManagementController {
             mgmtRequest.getRequestId(),
             operationId,
             PluginManagementErrorCode.OPERATION_FAILED,
-            messageForDeployment(result),
-            Arrays.asList(messageForDeployment(result)));
+            PluginManagementResponseSanitizer.safeMessage(PluginManagementErrorCode.OPERATION_FAILED),
+            Arrays.asList(summary(result)));
       }
       return PluginAdminResponse.ok(
           mgmtRequest.getRequestId(),
@@ -356,6 +357,12 @@ public class PluginManagementController {
       idempotencyService.markFinished(operationRecord, false, PluginManagementErrorCode.OPERATION_FAILED.getCode(),
           safeMessage(e),
           null);
+      recordFailureAudit(
+          mgmtRequest,
+          principal,
+          operationId,
+          PluginManagementOperation.DEPLOYMENT_ROLLBACK,
+          e);
       throw e;
     }
   }
@@ -371,7 +378,7 @@ public class PluginManagementController {
         null,
         deploymentId,
         properties);
-    writeSecurityPolicy.validateWriteRequest(request, mgmtRequest);
+    validateWriteRequest(request, mgmtRequest, PluginManagementOperation.DEPLOYMENT_CONFIRM);
     PluginManagementPrincipal principal = authenticateAndAuthorize(
         mgmtRequest,
         PluginManagementOperation.DEPLOYMENT_CONFIRM);
@@ -379,9 +386,10 @@ public class PluginManagementController {
     String principalId = safePrincipalId(principal, mgmtRequest);
     String operationId = requestFactory.buildOperationId();
     String requestHash = requestHash(mgmtRequest, "deployment-confirm", deploymentId);
-    PluginOperationRecord recordReplay = idempotencyService.begin(
+    PluginOperationRecord recordReplay = beginIdempotency(
         mgmtRequest,
         PluginManagementOperation.DEPLOYMENT_CONFIRM,
+        principal,
         principalId,
         requestHash,
         operationId,
@@ -432,7 +440,7 @@ public class PluginManagementController {
             mgmtRequest.getRequestId(),
             operationId,
             errorCode,
-            messageForDeployment(result),
+            PluginManagementResponseSanitizer.safeMessage(errorCode),
             result == null ? Collections.<String>emptyList() : Collections.singletonList(summary(result)));
       }
 
@@ -458,6 +466,12 @@ public class PluginManagementController {
           PluginManagementErrorCode.OPERATION_FAILED.getCode(),
           safeMessage(e),
           null);
+      recordFailureAudit(
+          mgmtRequest,
+          principal,
+          operationId,
+          PluginManagementOperation.DEPLOYMENT_CONFIRM,
+          e);
       throw e;
     }
   }
@@ -473,18 +487,24 @@ public class PluginManagementController {
         null,
         null,
         properties);
-    writeSecurityPolicy.validateWriteRequest(request, mgmtRequest);
+    validateWriteRequest(request, mgmtRequest, operation);
     PluginManagementPrincipal principal = authenticateAndAuthorize(mgmtRequest, operation);
     String pluginId = body == null ? null : body.getPluginId();
     String stagedPluginPath = body == null ? null : body.getStagedPluginPath();
     if (pluginId == null || pluginId.trim().isEmpty()) {
-      throw new PluginManagementException(
+      throw rejectManagement(
+          requestForAudit(mgmtRequest, pluginId, null),
+          principal,
+          operation,
           PluginManagementErrorCode.INVALID_REQUEST,
           "pluginId is required",
           400);
     }
     if (stagedPluginPath == null || stagedPluginPath.trim().isEmpty()) {
-      throw new PluginManagementException(
+      throw rejectManagement(
+          requestForAudit(mgmtRequest, pluginId, null),
+          principal,
+          operation,
           PluginManagementErrorCode.INVALID_REQUEST,
           "stagedPluginPath is required",
           400);
@@ -497,7 +517,7 @@ public class PluginManagementController {
       dryRun = properties.isDryRunDefault();
     }
 
-    Path resolvedStagedPath = pathValidator.resolveStagedPath(properties.getStagingRoot(), stagedPluginPath);
+    Path resolvedStagedPath = resolveStagedPath(mgmtRequest, principal, operation, stagedPluginPath);
     String principalId = safePrincipalId(principal, mgmtRequest);
     String operationId = requestFactory.buildOperationId();
     String requestHash = requestHash(
@@ -514,9 +534,10 @@ public class PluginManagementController {
         properties);
     requestForHash.setIdempotencyKey(mgmtRequest.getIdempotencyKey());
 
-    PluginOperationRecord cached = idempotencyService.begin(
+    PluginOperationRecord cached = beginIdempotency(
         requestForHash,
         operation,
+        principal,
         principalId,
         requestHash,
         operationId,
@@ -548,7 +569,7 @@ public class PluginManagementController {
             requestForHash.getRequestId(),
             operationId,
             errorCode,
-            messageForDeployment(record),
+            PluginManagementResponseSanitizer.safeMessage(errorCode),
             record == null ? Collections.<String>emptyList() : Collections.singletonList(summary(record)));
       }
 
@@ -574,6 +595,7 @@ public class PluginManagementController {
           PluginManagementErrorCode.OPERATION_FAILED.getCode(),
           safeMessage(e),
           null);
+      recordFailureAudit(requestForHash, principal, operationId, operation, e);
       throw e;
     }
   }
@@ -591,14 +613,15 @@ public class PluginManagementController {
         pluginId,
         null,
         properties);
-    writeSecurityPolicy.validateWriteRequest(request, mgmtRequest);
+    validateWriteRequest(request, mgmtRequest, operation);
     PluginManagementPrincipal principal = authenticateAndAuthorize(mgmtRequest, operation);
     String principalId = safePrincipalId(principal, mgmtRequest);
     String operationId = requestFactory.buildOperationId();
     String requestHash = requestHash(mgmtRequest, pluginId, operation.name());
-    PluginOperationRecord cached = idempotencyService.begin(
+    PluginOperationRecord cached = beginIdempotency(
         mgmtRequest,
         operation,
+        principal,
         principalId,
         requestHash,
         operationId,
@@ -624,6 +647,7 @@ public class PluginManagementController {
       PluginOperationRecord operationRecord = operationStore.findById(operationId);
       idempotencyService.markFinished(operationRecord, false, PluginManagementErrorCode.OPERATION_FAILED.getCode(),
           safeMessage(e), null);
+      recordFailureAudit(mgmtRequest, principal, operationId, operation, e);
       throw e;
     }
   }
@@ -632,15 +656,20 @@ public class PluginManagementController {
       PluginManagementRequest request,
       PluginManagementOperation operation) {
     // Centralized identity + permission check to keep endpoint behavior consistent.
-    PluginManagementPrincipal principal = authorizer.authenticate(request);
-    if (principal == null) {
-      throw new PluginManagementException(
-          PluginManagementErrorCode.UNAUTHENTICATED,
-          "No principal returned from authorizer",
-          401);
+    try {
+      PluginManagementPrincipal principal = authorizer.authenticate(request);
+      if (principal == null) {
+        throw new PluginManagementException(
+            PluginManagementErrorCode.UNAUTHENTICATED,
+            "No principal returned from authorizer",
+            401);
+      }
+      authorizer.authorize(principal, operation);
+      return principal;
+    } catch (RuntimeException e) {
+      recordFailureAudit(request, null, null, operation, e);
+      throw e;
     }
-    authorizer.authorize(principal, operation);
-    return principal;
   }
 
   private PluginRuntimeSnapshot pluginSnapshot(String pluginId) {
@@ -682,11 +711,11 @@ public class PluginManagementController {
       Path stagedPath,
       boolean dryRun) {
     // Explicitly map deployment operation to service methods; ensure no silent fallback.
+    if (operation == PluginManagementOperation.DEPLOYMENT_PLAN || dryRun) {
+      return deploymentService.planReplacement(pluginId, stagedPath);
+    }
     if (operation == PluginManagementOperation.DEPLOYMENT_REPLACE) {
       return deploymentService.replace(pluginId, stagedPath);
-    }
-    if (operation == PluginManagementOperation.DEPLOYMENT_PLAN) {
-      return deploymentService.planReplacement(pluginId, stagedPath);
     }
     throw new PluginManagementException(
         PluginManagementErrorCode.INVALID_REQUEST,
@@ -729,7 +758,7 @@ public class PluginManagementController {
           DeploymentState.MANUAL_INTERVENTION,
           startedAt,
           System.currentTimeMillis(),
-          "rollback failed: " + rollbackFailure.getMessage(),
+          "rollback failed",
           plan,
           DeploymentRecord.history(DeploymentState.PLANNED, DeploymentState.ROLLING_BACK,
               DeploymentState.MANUAL_INTERVENTION),
@@ -857,6 +886,101 @@ public class PluginManagementController {
     return event;
   }
 
+  private void validateWriteRequest(
+      HttpServletRequest servletRequest,
+      PluginManagementRequest request,
+      PluginManagementOperation operation) {
+    try {
+      writeSecurityPolicy.validateWriteRequest(servletRequest, request);
+    } catch (RuntimeException e) {
+      recordFailureAudit(request, null, null, operation, e);
+      throw e;
+    }
+  }
+
+  private PluginOperationRecord beginIdempotency(
+      PluginManagementRequest request,
+      PluginManagementOperation operation,
+      PluginManagementPrincipal principal,
+      String principalId,
+      String requestHash,
+      String operationId,
+      String deploymentId) {
+    try {
+      return idempotencyService.begin(request, operation, principalId, requestHash, operationId, deploymentId);
+    } catch (RuntimeException e) {
+      recordFailureAudit(request, principal, operationId, operation, e);
+      throw e;
+    }
+  }
+
+  private void recordFailureAudit(
+      PluginManagementRequest request,
+      PluginManagementPrincipal principal,
+      String operationId,
+      PluginManagementOperation operation,
+      RuntimeException e) {
+    if (request == null) {
+      return;
+    }
+    PluginManagementErrorCode code = errorCode(e);
+    auditRecorder.record(buildEvent(
+        request,
+        principal,
+        operationId,
+        operation,
+        code.getCode(),
+        PluginManagementResponseSanitizer.safeMessage(code)));
+  }
+
+  private Path resolveStagedPath(
+      PluginManagementRequest request,
+      PluginManagementPrincipal principal,
+      PluginManagementOperation operation,
+      String stagedPluginPath) {
+    try {
+      return pathValidator.resolveStagedPath(properties.getStagingRoot(), stagedPluginPath);
+    } catch (RuntimeException e) {
+      recordFailureAudit(request, principal, null, operation, e);
+      throw e;
+    }
+  }
+
+  private PluginManagementException rejectManagement(
+      PluginManagementRequest request,
+      PluginManagementPrincipal principal,
+      PluginManagementOperation operation,
+      PluginManagementErrorCode code,
+      String message,
+      int status) {
+    PluginManagementException exception = new PluginManagementException(code, message, status);
+    recordFailureAudit(request, principal, null, operation, exception);
+    return exception;
+  }
+
+  private PluginManagementRequest requestForAudit(
+      PluginManagementRequest source,
+      String pluginId,
+      String deploymentId) {
+    if (source == null) {
+      return null;
+    }
+    if (pluginId != null) {
+      source.setPluginId(pluginId);
+    }
+    if (deploymentId != null) {
+      source.setDeploymentId(deploymentId);
+    }
+    return source;
+  }
+
+  private PluginManagementErrorCode errorCode(RuntimeException e) {
+    if (e instanceof PluginManagementException) {
+      return ((PluginManagementException) e).getCode();
+    }
+    return PluginManagementErrorCode.OPERATION_FAILED;
+  }
+
   private String requestHash(PluginManagementRequest request, String... parts) {
     // Hashes operation context to detect same-key duplicate requests with different bodies.
     List<String> chunks = new ArrayList<String>();
@@ -933,7 +1057,7 @@ public class PluginManagementController {
   }
 
   private String safeMessage(RuntimeException e) {
-    return e == null || e.getMessage() == null ? "operation failed" : e.getMessage();
+    return PluginManagementResponseSanitizer.safeMessage(errorCode(e));
   }
 
   @FunctionalInterface
