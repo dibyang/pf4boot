@@ -28,7 +28,7 @@ public class PluginManagementStartupValidator {
           400);
     }
     if (properties.getMode() == PluginManagementMode.LOCAL_TOKEN && !StringUtils.hasText(properties.getToken())) {
-      if (hasLocalTokenAuthorizer()) {
+      if (!hasCustomAuthorizer()) {
         throw new PluginManagementException(
             net.xdob.pf4boot.management.PluginManagementErrorCode.INVALID_REQUEST,
             "Local token mode requires spring.pf4boot.management.http.token",
@@ -44,11 +44,6 @@ public class PluginManagementStartupValidator {
             400);
       }
     }
-  }
-
-  private boolean hasLocalTokenAuthorizer() {
-    return pluginManagementAuthorizers.orderedStream()
-        .anyMatch(authorizer -> authorizer != null && authorizer instanceof LocalTokenPluginManagementAuthorizer);
   }
 
   private boolean hasCustomAuthorizer() {

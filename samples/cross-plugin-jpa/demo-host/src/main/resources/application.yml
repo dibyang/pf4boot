@@ -24,6 +24,13 @@ spring:
     open-in-view: false
     show_sql: true
     format_sql: true
+  pf4boot:
+    management:
+      http:
+        enabled: true
+        mode: LOCAL_TOKEN
+        token: ${PF4BOOT_ADMIN_TOKEN:sample-token}
+        staging-root: build/sample-plugins
 pf4boot:
   plugin:
     jpa:

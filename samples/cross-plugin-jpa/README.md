@@ -31,10 +31,8 @@
 
 产物：
 
-```text
-samples/cross-plugin-jpa/app-run/build/runtime
-samples/cross-plugin-jpa/app-run/build/distributions/pf4boot-cross-plugin-jpa-sample-*.zip
-```
+- `samples/cross-plugin-jpa/app-run/build/runtime`
+- `samples/cross-plugin-jpa/app-run/build/distributions/pf4boot-cross-plugin-jpa-sample-*.zip`
 
 ## HTTP smoke
 
@@ -53,6 +51,67 @@ GET /api/sample/workflow/audit?username=alice
 - `failAfterAudit=true` 会演示主事务失败路径：用户、图书随外层跨插件事务回滚；audit writer 使用独立 bean 承载 `REQUIRES_NEW`，审计记录独立提交。
 - workflow 不直接注入 user-book 插件内部 Repository，只通过导出的 `UserBookService` 协作。
 
+## 插件管理 HTTP API（示例）
+
+示例宿主默认启用本地令牌模式（`LOCAL_TOKEN`）：
+
+```yaml
+spring:
+  pf4boot:
+    management:
+      http:
+        enabled: true
+        mode: LOCAL_TOKEN
+        token: ${PF4BOOT_ADMIN_TOKEN:sample-token}
+        staging-root: build/sample-plugins
+```
+
+在 `http://127.0.0.1:7791` 上执行：
+
+```bash
+curl -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/plugins
+
+curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
+  http://127.0.0.1:7791/pf4boot/admin/plugins/sample-workflow/start
+
+curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
+  http://127.0.0.1:7791/pf4boot/admin/plugins/sample-workflow/stop
+
+curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
+  -H "X-Idempotency-Key: deploy-plan-01" \
+  -H "Content-Type: application/json" \
+  -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip"}' \
+  http://127.0.0.1:7791/pf4boot/admin/deployments/plan
+
+curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
+  -H "Content-Type: application/json" \
+  -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip","dryRun":false}' \
+  http://127.0.0.1:7791/pf4boot/admin/deployments/replace
+
+curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" \
+  http://127.0.0.1:7791/pf4boot/admin/deployments
+```
+
+说明：`plan/replace` 会校验 `stagedPluginPath` 必须位于 `staging-root` 下，避免目录穿越。
+
+### REMOTE_DELEGATED 示例
+
+提供了一个远端鉴权示例实现（仅示例用途）：
+
+- 实现类：`samples/cross-plugin-jpa/demo-host/src/main/java/net/xdob/sample/host/SampleRemoteManagementAuthorizer.java`
+- 配置文件：`samples/cross-plugin-jpa/demo-host/src/main/resources/application-management-remote-sample.yml`
+
+启用方式：启动时激活 `management-remote-sample` profile。
+
+示例 token：
+
+- `ops-token`：具备 `pf4boot:admin:all`
+- `reader-token`：具备 `pf4boot:plugin:read`
+
+建议在生产环境中用企业身份体系替换该示例类，迁移到正式 `REMOTE_DELEGATED` 鉴权模型。
+
 ## 验收状态
 
-编译、打包、包边界和 HTTP smoke 已通过。验收记录见 `docs/design/cross-plugin-jpa-transaction-complex-sample-acceptance.md`。
+编译、打包、HTTP smoke、管理 API 示例流程已同步更新。验收记录见：
+
+- `docs/design/en/plugin-http-management-api-acceptance.md`

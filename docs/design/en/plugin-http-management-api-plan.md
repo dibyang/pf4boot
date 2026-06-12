@@ -19,7 +19,7 @@
 | M5 Deployment APIs | Done | plan/replace/rollback queries integrated with `PluginDeploymentService` | Controller wiring complete |
 | M6 Remote authorization mode | Done | authorizer SPI, permissions, CSRF/origin, and rate-limit enforcement implemented | `PluginManagementControllerSecurityTest` plus `PluginManagementWriteSecurityPolicyTest` |
 | M7 Idempotency and audit | Done | idempotency keys, response replay, audit events | `:pf4boot-management-starter:compileJava` |
-| M8 Samples and docs | In Progress | local token and remote authorizer examples, migration notes | sample smoke/docs sync pending |
+| M8 Samples and docs | Done | local token and remote authorizer examples, migration notes | sample smoke/docs sync updated |
 
 ## M1 Module And Configuration Skeleton
 
@@ -115,7 +115,7 @@ Tasks:
 
 - Add local token configuration to the sample.
 - Document curl flows for list, start/stop, plan, replace, and deployment record query.
-- Add a remote authorizer integration example and migration notes in a follow-up milestone.
+- Add a remote authorizer integration example and migration notes.
 - Keep Chinese and English indexes in sync.
 
 Verification:

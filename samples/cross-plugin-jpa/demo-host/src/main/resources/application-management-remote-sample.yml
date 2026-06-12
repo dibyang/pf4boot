@@ -1,0 +1,15 @@
+spring:
+  config:
+    activate:
+      on-profile: management-remote-sample
+  pf4boot:
+    management:
+      http:
+        mode: REMOTE_DELEGATED
+        allow-loopback-only: false
+        require-idempotency-key: true
+        rate-limit:
+          enabled: true
+          writes-per-minute: 60
+        csrf:
+          enabled: auto

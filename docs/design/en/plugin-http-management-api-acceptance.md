@@ -62,11 +62,15 @@ If the first implementation is hosted by `pf4boot-web-starter`, skip `:pf4boot-m
 
 ## Manual Smoke
 
-Add concrete commands after implementation:
+Manual smoke commands for the sample host:
 
-- missing token rejected;
-- valid token lists plugins;
-- valid token starts/stops a plugin;
-- staged package precheck;
-- hot replacement and deployment record query;
-- invalid token, missing permission, path traversal, and idempotency conflict.
+- `curl -I -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/plugins` (auth path)
+- `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/plugins/sample-workflow/start` (write path)
+- `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" -H "Content-Type: application/json" -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip","dryRun":true}' http://127.0.0.1:7791/pf4boot/admin/deployments/plan` (precheck path)
+- `curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/deployments` (record query)
+- Repeat a write request with the same `X-Idempotency-Key` (same body should replay; different body should return conflict).
+- Run local-token negative case (`X-PF4Boot-Admin-Token` missing) and remote delegated profile negative case.
+
+Sample-specific references:
+
+- `samples/cross-plugin-jpa/README.md`
