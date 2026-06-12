@@ -281,6 +281,51 @@ work/pf4boot/
 - 不允许把测试用 fake、硬编码路径或本机私有配置写入生产代码。
 - 不允许把跨数据源事务作为能力声明或 smoke 的隐含成功条件。
 
+#### 单任务交付规格
+
+后续每个实施任务都必须能被独立 review、独立验证和独立回滚。较小模型实施时按以下规格交付，不能只给“已实现”描述。
+
+| 交付项 | 必填内容 | 不合格示例 |
+| --- | --- | --- |
+| 变更摘要 | 写明新增/修改的 public 类型、运行时调用点、配置项和默认值 | 只写“完善插件治理” |
+| 文件清单 | 按模块列出修改文件，并说明每个文件承担的职责 | 只列 `git diff` 文件名 |
+| 行为前后对比 | 说明默认配置、WARN/ENFORCE、失败路径、兼容历史插件的行为 | 只说明成功路径 |
+| 测试证据 | 列出实际执行命令、关键测试类和结果；未执行要写原因 | 把未执行的 smoke 标为通过 |
+| 文档同步 | 中文主文档、英文翻译、验收文档是否同步，以及未同步原因 | 只改中文或只改代码 |
+| 风险与回滚 | 写明新增风险、如何关闭配置、如何恢复到旧行为 | 只写“无风险” |
+
+实现提交前必须满足：
+
+1. `git status --short` 中只包含当前任务相关文件，或在回复中明确说明无关文件来源。
+2. 新增 public API 已有 JavaDoc，新增复杂运行时逻辑已有必要中文注释。
+3. 新增配置默认值与本设计一致，并有 null/空值测试。
+4. 所有 HTTP/日志/持久化错误摘要经过脱敏，不包含 token、私钥、完整堆栈和敏感绝对路径。
+5. 验收文档只填写已经由命令、测试或人工检查证明的证据。
+
+#### 最小测试映射
+
+实施模型在选择测试时按下表从上到下取最小闭环。若修改跨模块接口，必须运行所有受影响模块的最小命令。
+
+| 修改内容 | 必跑命令 |
+| --- | --- |
+| 只改设计/规划/指南文档 | `git diff --check`，并检查中文文档无 `U+FFFD` 替换字符 |
+| `pf4boot-api` public 类型或配置模型 | `.\gradlew.bat :pf4boot-api:compileJava`，以及引用该类型的模块 targeted test |
+| `pf4boot-core` 加载、部署、生命周期、能力预检 | `.\gradlew.bat :pf4boot-core:test` |
+| `pf4boot-management-starter` Controller、安全、幂等、store | `.\gradlew.bat :pf4boot-management-starter:test` |
+| `pf4boot-actuator` endpoint 或 metrics | `.\gradlew.bat :pf4boot-actuator:test` |
+| `pf4boot-jpa*` 数据源、事务或扫描边界 | 对应 `:pf4boot-jpa*:test` 或 `compileJava`，再运行相关 sample assemble |
+| `samples/cross-plugin-jpa` 运行时行为 | `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`，必要时运行 runtime smoke |
+
+#### 小模型防偏差检查
+
+每次实施完成后，模型需要逐项回答：
+
+- 是否新增了默认开启的强治理能力？如果是，必须改回 opt-in 或说明用户已明确要求。
+- 是否让 actuator 或 sample 反向影响 core/starter 依赖？如果是，必须拆回只读/示例边界。
+- 是否把能力声明当成 PF4J 依赖替代？如果是，必须恢复 PF4J 依赖解析原语义。
+- 是否为了测试绕过 token、幂等、预检或签名校验？如果是，任务不合格。
+- 是否把未验证条目标为 `Done`？如果是，必须改回 `Planned` 或 `In Progress`。
+
 ## 接口设计
 
 ### 插件包信任链

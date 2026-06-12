@@ -468,6 +468,117 @@
 | P5-4a | sample workflows | `samples/cross-plugin-jpa` | 正常交易、事务回滚、缺 datasource、热替换失败回滚 | runtime smoke |
 | P5-5a | 开发指南中英文版 | `docs/design/plugin-developer-guide.md`、英文版 | smoke 命令、token/idempotency header、清理和排障 | 文档检查 |
 
+### P5 可直接实施规格
+
+#### P5-2 Actuator 只读治理摘要
+
+建议新增一个独立 endpoint，避免改变现有 `pf4bootplugins` 响应结构。
+
+| 项 | 规格 |
+| --- | --- |
+| endpoint id | `pf4bootgovernance` |
+| 类名 | `Pf4bootGovernanceEndpoint`、`Pf4bootGovernanceSnapshot` |
+| 归属模块 | `pf4boot-actuator` |
+| 自动配置 | `Pf4bootActuatorAutoConfiguration` 条件注册 |
+| 依赖输入 | `PluginRuntimeInspector`、可选 `PluginDeploymentMetricsProvider`、可选 `PluginLifecycleDiagnostic`、可选 `Pf4bootProperties` |
+| 只读约束 | 只能调用 snapshot/inspect 方法，不得调用 start/stop/reload/replace/delete |
+
+`Pf4bootGovernanceSnapshot` 第一阶段字段：
+
+| 字段 | 类型 | 含义 |
+| --- | --- | --- |
+| `pluginCount` | `int` | 当前 runtime snapshot 数量 |
+| `startedPluginCount` | `int` | 状态为 started/running 的插件数量，按现有 snapshot state 字符串判断 |
+| `failedPluginCount` | `int` | 状态为 failed 或包含失败摘要的插件数量 |
+| `trustMode` | `String` | `Pf4bootProperties.pluginPackageTrustMode`，缺 bean 时为 `UNKNOWN` |
+| `capabilityPrecheckMode` | `String` | `Pf4bootProperties.pluginCapabilityPrecheckMode`，缺 bean 时为 `UNKNOWN` |
+| `trustManifestExtension` | `String` | 当前 sidecar manifest 后缀，缺 bean 时为空 |
+| `deploymentSummary` | `PluginDeploymentMetricsSnapshot` 或等价 DTO | 部署总数、失败数、回滚数、最近耗时 |
+| `cleanupReports` | `List<PluginCleanupReport>` | 每个插件只读清理摘要；无法诊断时为空列表并带 warning |
+| `warnings` | `List<String>` | 只放安全摘要，例如缺少 provider、诊断不可用 |
+
+实现步骤：
+
+1. 先读 `Pf4bootPluginsEndpoint`、`Pf4bootMetrics`、`Pf4bootActuatorAutoConfiguration` 和现有测试。
+2. 新增 DTO 时使用普通 Java 8 POJO，不使用 Lombok。
+3. endpoint 构造函数接收依赖，所有可选依赖允许为 null。
+4. `@ReadOperation` 方法返回快照对象；出现单个插件诊断异常时记录 warning，不让整个 endpoint 失败。
+5. 新增 `Pf4bootGovernanceEndpointTest` 覆盖：无可选 provider、带 deployment metrics、diagnostic 抛异常仍返回 warning。
+6. 运行 `.\gradlew.bat :pf4boot-actuator:test`。
+
+#### P5-3 管理 metrics
+
+建议把写入点放在 management starter 内，把读取和 Micrometer 注册放在 actuator 内，避免 actuator 反向影响管理接口。
+
+| 类型 | 位置 | 说明 |
+| --- | --- | --- |
+| `PluginManagementMetricsSnapshot` | `pf4boot-api` 的 `net.xdob.pf4boot.management` | 只读计数快照 |
+| `PluginManagementMetricsProvider` | `pf4boot-api` | actuator 读取 SPI |
+| `DefaultPluginManagementMetricsRecorder` | `pf4boot-management-starter` | 使用 `AtomicLong` 记录请求、拒绝、幂等命中 |
+| `Pf4bootMetrics` 扩展 | `pf4boot-actuator` | 条件注册 management metrics gauge |
+
+计数规则：
+
+| 指标 | 名称 | 计数时机 |
+| --- | --- | --- |
+| 管理请求数 | `pf4boot.management.request.total` | Controller 每个 HTTP endpoint 入口进入后加 1，包括读接口 |
+| 管理拒绝数 | `pf4boot.management.rejected.total` | 鉴权失败、CSRF/origin 失败、参数校验失败、预检拒绝、store fail-closed 时加 1 |
+| 幂等命中数 | `pf4boot.management.idempotency.hit.total` | 相同 idempotency key 且 requestHash 相同时 replay 加 1 |
+| 部署耗时 | 复用 `pf4boot.deployment.last.duration.millis` | 由 deployment metrics provider 提供 |
+| 回滚次数 | 复用 `pf4boot.deployment.rollback.total` | 由 deployment metrics provider 提供 |
+
+实现步骤：
+
+1. 先读 `PluginManagementController`、`PluginManagementIdempotencyService`、`Pf4bootManagementAutoConfiguration` 和 `Pf4bootMetrics`。
+2. 在 management starter 自动配置中注册 `DefaultPluginManagementMetricsRecorder`，同时以 `PluginManagementMetricsProvider` 暴露。
+3. Controller 构造函数增加 recorder 参数；测试 helper 统一传入 recorder，不能用 null 绕过。
+4. 所有 public endpoint 入口调用 `recordRequest()`；已有私有公共校验方法可集中记录，但不得漏掉读接口。
+5. 鉴权/校验/预检失败路径调用 `recordRejected()`；如果失败被全局异常处理捕获，需要在抛出前记录。
+6. 幂等 replay 路径调用 `recordIdempotencyHit()`，冲突不算 hit，但算 rejected。
+7. `Pf4bootMetrics` 增加三项 management gauge，并保留旧构造函数兼容测试。
+8. 新增/更新测试：recorder 计数单测、Controller 请求/拒绝/幂等命中测试、Actuator metrics 注册测试。
+
+#### P5-4 runtime smoke 脚本
+
+smoke 可以先用 PowerShell 脚本落地，后续再抽成 Gradle task。脚本放在 `samples/cross-plugin-jpa/demo-host/src/smoke/` 或 `samples/cross-plugin-jpa/scripts/`，不要放在仓库根目录。
+
+脚本必须按以下顺序执行：
+
+1. 调用 `:samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`。
+2. 准备独立 work 目录，写入测试 token、端口、operation store 路径。
+3. 启动 demo host，日志写入 `build/tmp/<smoke-name>/runtime.log`。
+4. 轮询 readiness 或一个稳定业务 endpoint，最多等待 120 秒。
+5. 调用正常 JPA workflow，断言 HTTP 200 和响应字段。
+6. 调用失败 workflow，断言失败后 summary 数据未部分提交。
+7. 调用管理 plan/replace/start/stop 中至少一个写接口，必须带 token 和 idempotency key。
+8. 重复同一个幂等请求，断言 replay 或已有 operation id。
+9. 调用 actuator governance endpoint 和 metrics endpoint，断言关键字段存在。
+10. 触发一个失败部署或缺能力预检，断言返回错误码或 warning。
+11. finally 中关闭进程、释放端口、清理临时文件；失败时打印日志尾部和 HTTP 响应。
+
+脚本输出至少包含：
+
+```text
+SMOKE_HOST_READY port=...
+SMOKE_PLUGIN_ZIPS count=...
+SMOKE_WORKFLOW_OK status=200
+SMOKE_WORKFLOW_ROLLBACK status=...
+SMOKE_MANAGEMENT_OPERATION operationId=...
+SMOKE_IDEMPOTENCY_REPLAY operationId=...
+SMOKE_ACTUATOR_GOVERNANCE status=200
+SMOKE_FAILURE_CASE code=...
+SMOKE_CLEANUP_OK
+```
+
+#### P5 文档与验收更新要求
+
+P5 任一子任务完成后都要同步：
+
+- `plugin-framework-production-hardening-acceptance.md`：只更新已验证条目。
+- `plugin-developer-guide.md` 和英文版：涉及用户命令、配置、HTTP header、排障时必须更新。
+- sample README：涉及 sample 命令或目录结构时必须更新。
+- 本规划：若实现中类名或 endpoint id 与本节不同，必须先更新规划说明差异。
+
 ### smoke 必须输出的证据
 
 | 证据 | 最低要求 |
@@ -513,6 +624,37 @@
 | P6-2a | 跨插件事务设计 | `docs/design/*transaction*`、英文版 | 对比禁止、Saga、Outbox、可选 XA；明确本阶段不支持跨数据源本地事务 | 独立设计文档 |
 | P6-3a | trust/packaging/management 设计 | `docs/design`、英文版 | 插件仓库、签名发布、灰度分发、回滚治理边界 | 独立设计文档 |
 | P6-4a | management API 设计 | `docs/design`、英文版 | 明确是否做 UI、UI 与 HTTP API/Actuator 的边界 | 独立设计文档 |
+
+### P6 决策文档规格
+
+P6 只做设计决策，不直接修改生产代码。每个专题必须新增一份中文设计和一份英文翻译，文件名建议如下：
+
+| 专题 | 中文文件 | 英文文件 |
+| --- | --- | --- |
+| JPA 运行时刷新 | `docs/design/jpa-runtime-refresh-decision.md` | `docs/design/en/jpa-runtime-refresh-decision.md` |
+| 跨数据源事务 | `docs/design/cross-datasource-transaction-decision.md` | `docs/design/en/cross-datasource-transaction-decision.md` |
+| 插件市场/仓库治理 | `docs/design/plugin-repository-governance-decision.md` | `docs/design/en/plugin-repository-governance-decision.md` |
+| 控制台 UI 边界 | `docs/design/plugin-management-console-boundary.md` | `docs/design/en/plugin-management-console-boundary.md` |
+
+每份决策文档必须包含：
+
+| 章节 | 必须回答的问题 |
+| --- | --- |
+| 背景 | 当前代码和现有文档已经支持什么，缺口是什么 |
+| 备选方案 | 至少列 3 个方案；对不可行方案也要写清不可行原因 |
+| 推荐结论 | 明确推荐、暂缓或拒绝；不能只写“后续考虑” |
+| 模块影响 | 哪些模块会新增 API、runtime、starter、sample 或文档 |
+| 兼容影响 | 默认行为是否变化，历史插件是否受影响 |
+| 验证方式 | 若未来实施，需要哪些单元测试、集成测试和 smoke |
+| 进入规划条件 | 满足什么条件才把专题转成实施任务 |
+| 非目标 | 明确哪些看似相关但本专题不做 |
+
+P6 默认推荐方向：
+
+- JPA 运行时刷新：优先评估“重启 datasource domain plugin 并重建局部事务环境”，暂不承诺在线刷新 Hibernate metamodel。
+- 跨数据源事务：继续禁止本地跨数据源事务；优先把 Saga/Outbox 作为业务层模式，XA 仅作为未来可选模块评估。
+- 插件市场/仓库治理：先做离线包仓库、签名发布和灰度策略设计，不引入远程中心服务强依赖。
+- 控制台 UI：保持后端 API 与 actuator 边界稳定后再评估 UI；UI 不应成为 core/starter 依赖。
 
 ### 退出条件
 

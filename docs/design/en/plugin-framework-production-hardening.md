@@ -281,6 +281,51 @@ If these files disagree with current code, current code wins. Add the smallest d
 - Do not put test fakes, hard-coded local paths, or private local configuration into production code.
 - Do not make cross-datasource transactions an implicit success condition for capability declarations or smoke.
 
+#### Single-Task Delivery Specification
+
+Every implementation task must be independently reviewable, verifiable, and revertible. Smaller models must deliver the following information instead of only saying that the feature is implemented.
+
+| Deliverable | Required Content | Bad Example |
+| --- | --- | --- |
+| Change summary | New/changed public types, runtime call sites, properties, and defaults | Only saying "improved plugin governance" |
+| File list | Changed files grouped by module, with each file's responsibility | Only pasting file names from `git diff` |
+| Behavior comparison | Default behavior, WARN/ENFORCE behavior, failure paths, and historical-plugin compatibility | Only describing the success path |
+| Test evidence | Actual commands, key test classes, and result; if not run, explain why | Marking an unrun smoke test as passed |
+| Doc sync | Whether Chinese docs, English translation, and acceptance docs were updated | Updating only Chinese docs or only code |
+| Risk and rollback | New risks, how to disable the feature, and how to restore old behavior | Saying only "no risk" |
+
+Before committing an implementation:
+
+1. `git status --short` must contain only files related to the current task, or the response must explain unrelated changes.
+2. New public APIs must have JavaDoc, and complex runtime logic must have concise Chinese comments where useful.
+3. New property defaults must match this design and have null/empty-value tests.
+4. HTTP/log/persistence error summaries must be sanitized and must not contain tokens, private keys, full stacks, or sensitive absolute paths.
+5. Acceptance docs may only contain evidence that was actually proven by commands, tests, or manual checks.
+
+#### Minimum Test Mapping
+
+Implementation models should choose the smallest closed verification loop from the following table. If a change affects cross-module APIs, run the minimum command for every affected module.
+
+| Change | Required Command |
+| --- | --- |
+| Design/plan/guide docs only | `git diff --check`, plus check Chinese docs do not contain `U+FFFD` replacement characters |
+| `pf4boot-api` public types or property models | `.\gradlew.bat :pf4boot-api:compileJava`, plus targeted tests for modules using the type |
+| `pf4boot-core` loading, deployment, lifecycle, capability precheck | `.\gradlew.bat :pf4boot-core:test` |
+| `pf4boot-management-starter` controller, security, idempotency, store | `.\gradlew.bat :pf4boot-management-starter:test` |
+| `pf4boot-actuator` endpoint or metrics | `.\gradlew.bat :pf4boot-actuator:test` |
+| `pf4boot-jpa*` datasource, transaction, or scan boundary | Matching `:pf4boot-jpa*:test` or `compileJava`, then relevant sample assemble |
+| `samples/cross-plugin-jpa` runtime behavior | `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`, and runtime smoke when needed |
+
+#### Drift Checks For Smaller Models
+
+After every implementation, the model must answer:
+
+- Did it add a strict governance feature that is enabled by default? If yes, make it opt-in unless the user explicitly asked otherwise.
+- Did actuator or samples affect core/starter dependencies? If yes, move the dependency back to the read-only/sample boundary.
+- Did it treat capability manifests as a replacement for PF4J dependencies? If yes, restore the original PF4J dependency semantics.
+- Did it bypass tokens, idempotency, prechecks, or signature verification for tests? If yes, the task is invalid.
+- Did it mark unverified acceptance items as `Done`? If yes, change them back to `Planned` or `In Progress`.
+
 ## Interface Design
 
 ### Package Trust Chain

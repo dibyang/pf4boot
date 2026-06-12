@@ -468,6 +468,117 @@ Use the sample host to verify management APIs, read-only observability, deployme
 | P5-4a | Sample workflows | `samples/cross-plugin-jpa` | Successful transaction, rollback, missing datasource, failed replacement rollback | Runtime smoke |
 | P5-5a | Developer guide in both languages | `docs/design/plugin-developer-guide.md`, English translation | Smoke command, token/idempotency headers, cleanup and troubleshooting | Doc check |
 
+### Direct Implementation Specification For P5
+
+#### P5-2 Actuator Read-Only Governance Summary
+
+Add a separate endpoint to avoid changing the existing `pf4bootplugins` response structure.
+
+| Item | Specification |
+| --- | --- |
+| endpoint id | `pf4bootgovernance` |
+| classes | `Pf4bootGovernanceEndpoint`, `Pf4bootGovernanceSnapshot` |
+| module | `pf4boot-actuator` |
+| auto-configuration | conditionally registered by `Pf4bootActuatorAutoConfiguration` |
+| inputs | `PluginRuntimeInspector`, optional `PluginDeploymentMetricsProvider`, optional `PluginLifecycleDiagnostic`, optional `Pf4bootProperties` |
+| read-only rule | May only call snapshot/inspect methods; must not call start/stop/reload/replace/delete |
+
+First-stage `Pf4bootGovernanceSnapshot` fields:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pluginCount` | `int` | Number of runtime snapshots |
+| `startedPluginCount` | `int` | Number of plugins considered started/running from the existing snapshot state string |
+| `failedPluginCount` | `int` | Number of failed plugins or plugins with failure summaries |
+| `trustMode` | `String` | `Pf4bootProperties.pluginPackageTrustMode`, or `UNKNOWN` if no bean exists |
+| `capabilityPrecheckMode` | `String` | `Pf4bootProperties.pluginCapabilityPrecheckMode`, or `UNKNOWN` if no bean exists |
+| `trustManifestExtension` | `String` | Current sidecar manifest extension, or empty when unavailable |
+| `deploymentSummary` | `PluginDeploymentMetricsSnapshot` or equivalent DTO | Deployment totals, failures, rollbacks, and latest duration |
+| `cleanupReports` | `List<PluginCleanupReport>` | Per-plugin read-only cleanup summaries; empty with warning when diagnostics are unavailable |
+| `warnings` | `List<String>` | Safe summaries only, such as missing provider or unavailable diagnostics |
+
+Implementation steps:
+
+1. Read `Pf4bootPluginsEndpoint`, `Pf4bootMetrics`, `Pf4bootActuatorAutoConfiguration`, and existing tests first.
+2. Use plain Java 8 POJOs for new DTOs; do not use Lombok.
+3. Endpoint constructors may receive optional dependencies as null.
+4. The `@ReadOperation` returns a snapshot object; one plugin diagnostic failure adds a warning and must not fail the whole endpoint.
+5. Add `Pf4bootGovernanceEndpointTest` covering no optional providers, deployment metrics present, and diagnostic exceptions converted to warnings.
+6. Run `.\gradlew.bat :pf4boot-actuator:test`.
+
+#### P5-3 Management Metrics
+
+Write-side recording should live in the management starter, while reading and Micrometer registration should live in actuator. This avoids making actuator affect the management API.
+
+| Type | Location | Description |
+| --- | --- | --- |
+| `PluginManagementMetricsSnapshot` | `pf4boot-api` under `net.xdob.pf4boot.management` | Read-only counter snapshot |
+| `PluginManagementMetricsProvider` | `pf4boot-api` | SPI read by actuator |
+| `DefaultPluginManagementMetricsRecorder` | `pf4boot-management-starter` | Uses `AtomicLong` for requests, rejections, and idempotency hits |
+| `Pf4bootMetrics` extension | `pf4boot-actuator` | Conditionally registers management metrics gauges |
+
+Counting rules:
+
+| Metric | Name | Increment Point |
+| --- | --- | --- |
+| Management requests | `pf4boot.management.request.total` | At every Controller HTTP endpoint entry, including read endpoints |
+| Management rejections | `pf4boot.management.rejected.total` | Auth failure, CSRF/origin failure, validation failure, precheck rejection, or store fail-closed |
+| Idempotency hits | `pf4boot.management.idempotency.hit.total` | Same idempotency key and same requestHash replay |
+| Deployment duration | reuse `pf4boot.deployment.last.duration.millis` | Provided by deployment metrics provider |
+| Rollbacks | reuse `pf4boot.deployment.rollback.total` | Provided by deployment metrics provider |
+
+Implementation steps:
+
+1. Read `PluginManagementController`, `PluginManagementIdempotencyService`, `Pf4bootManagementAutoConfiguration`, and `Pf4bootMetrics`.
+2. Register `DefaultPluginManagementMetricsRecorder` in management auto-configuration and expose it as `PluginManagementMetricsProvider`.
+3. Add the recorder to the Controller constructor; update test helpers to pass a recorder instead of using null.
+4. Call `recordRequest()` at every public endpoint entry. A shared private method is acceptable only if it covers read endpoints too.
+5. Call `recordRejected()` before throwing authentication, validation, precheck, or fail-closed errors.
+6. Call `recordIdempotencyHit()` only for replay. Conflicts count as rejected, not as hits.
+7. Add three management gauges to `Pf4bootMetrics` and keep existing constructors for compatibility.
+8. Add/update tests for recorder counts, Controller request/rejection/idempotency-hit behavior, and Actuator metric registration.
+
+#### P5-4 Runtime Smoke Script
+
+The smoke can start as a PowerShell script and later move into a Gradle task. Place it under `samples/cross-plugin-jpa/demo-host/src/smoke/` or `samples/cross-plugin-jpa/scripts/`, not the repository root.
+
+Required sequence:
+
+1. Run `:samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`.
+2. Prepare an isolated work directory with test token, port, and operation-store path.
+3. Start the demo host and write logs to `build/tmp/<smoke-name>/runtime.log`.
+4. Poll readiness or a stable business endpoint for at most 120 seconds.
+5. Call the successful JPA workflow and assert HTTP 200 plus response fields.
+6. Call the failing workflow and assert summary data was not partially committed.
+7. Call at least one management write endpoint such as plan/replace/start/stop with token and idempotency key.
+8. Repeat the same idempotent request and assert replay or the same operation id.
+9. Call actuator governance and metrics endpoints and assert key fields exist.
+10. Trigger one failed deployment or missing-capability precheck and assert an error code or warning.
+11. In `finally`, stop the process, release the port, and clean temporary files. On failure, print log tail and HTTP responses.
+
+The script must print at least:
+
+```text
+SMOKE_HOST_READY port=...
+SMOKE_PLUGIN_ZIPS count=...
+SMOKE_WORKFLOW_OK status=200
+SMOKE_WORKFLOW_ROLLBACK status=...
+SMOKE_MANAGEMENT_OPERATION operationId=...
+SMOKE_IDEMPOTENCY_REPLAY operationId=...
+SMOKE_ACTUATOR_GOVERNANCE status=200
+SMOKE_FAILURE_CASE code=...
+SMOKE_CLEANUP_OK
+```
+
+#### P5 Documentation And Acceptance Updates
+
+After any P5 subtask, update:
+
+- `plugin-framework-production-hardening-acceptance.md`: only items with evidence.
+- `plugin-developer-guide.md` and English translation when user commands, properties, HTTP headers, or troubleshooting change.
+- Sample README when sample commands or directory layout change.
+- This plan if implementation class names or endpoint IDs differ from this section.
+
 ### Required Smoke Evidence
 
 | Evidence | Minimum Requirement |
@@ -513,6 +624,37 @@ Create decision documents for architectural questions that should not block P1-P
 | P6-2a | Cross-plugin transaction designs | `docs/design/*transaction*`, English translation | Compare forbidden, Saga, Outbox, optional XA; state that cross-datasource local transactions are unsupported now | Standalone design |
 | P6-3a | Trust/packaging/management designs | `docs/design`, English translation | Define plugin repository, signed release, staged rollout, rollback governance boundaries | Standalone design |
 | P6-4a | Management API designs | `docs/design`, English translation | Decide whether UI is in scope and separate UI/API/Actuator boundaries | Standalone design |
+
+### P6 Decision Document Specification
+
+P6 is design-only and must not modify production code directly. Each topic must add a Chinese design and an English translation. Recommended names:
+
+| Topic | Chinese File | English File |
+| --- | --- | --- |
+| JPA runtime refresh | `docs/design/jpa-runtime-refresh-decision.md` | `docs/design/en/jpa-runtime-refresh-decision.md` |
+| Cross-datasource transactions | `docs/design/cross-datasource-transaction-decision.md` | `docs/design/en/cross-datasource-transaction-decision.md` |
+| Plugin marketplace/repository governance | `docs/design/plugin-repository-governance-decision.md` | `docs/design/en/plugin-repository-governance-decision.md` |
+| Management console UI boundary | `docs/design/plugin-management-console-boundary.md` | `docs/design/en/plugin-management-console-boundary.md` |
+
+Each decision document must contain:
+
+| Section | Required Question |
+| --- | --- |
+| Background | What current code/docs support, and what gap remains |
+| Alternatives | At least three options, including why rejected options are not viable |
+| Recommendation | Recommend, defer, or reject explicitly; do not only say "consider later" |
+| Module impact | Which modules would add API, runtime, starter, sample, or docs |
+| Compatibility impact | Whether defaults change and whether historical plugins are affected |
+| Verification | Future unit tests, integration tests, and smoke checks |
+| Entry criteria | Conditions required before turning the topic into implementation work |
+| Non-goals | Related work that is deliberately excluded |
+
+Default P6 recommendations:
+
+- JPA runtime refresh: first evaluate restarting the datasource domain plugin and rebuilding a local transaction environment; do not promise online Hibernate metamodel refresh.
+- Cross-datasource transactions: keep local cross-datasource transactions forbidden; prefer Saga/Outbox as business-layer patterns, and evaluate XA only as a future optional module.
+- Plugin repository governance: design offline package repository, signed release, and rollout policy first; do not introduce a mandatory remote central service.
+- Management console UI: evaluate UI only after backend API and actuator boundaries are stable; UI must not become a core/starter dependency.
 
 ### Exit Criteria
 
