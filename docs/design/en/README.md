@@ -38,6 +38,10 @@ Use the parent directory for design notes before implementing non-trivial change
 - [plugin-framework-production-hardening.md](plugin-framework-production-hardening.md): production hardening design for package trust, persistent records, lifecycle verification, capability manifests, and observability closure.
 - [plugin-framework-production-hardening-plan.md](plugin-framework-production-hardening-plan.md): implementation plan for plugin framework production hardening.
 - [plugin-framework-production-hardening-acceptance.md](plugin-framework-production-hardening-acceptance.md): acceptance tracking for plugin framework production hardening.
+- [jpa-runtime-refresh-decision.md](jpa-runtime-refresh-decision.md): decision for JPA runtime refresh and EntityManagerFactory rebuild.
+- [cross-datasource-transaction-decision.md](cross-datasource-transaction-decision.md): decision for cross-datasource transaction boundaries, Saga/Outbox, and optional XA.
+- [plugin-repository-governance-decision.md](plugin-repository-governance-decision.md): decision for offline plugin repository, signed releases, rollout, and rollback governance.
+- [plugin-management-console-boundary.md](plugin-management-console-boundary.md): decision for management console UI boundaries against HTTP APIs and Actuator.
 - [plugin-developer-guide.md](plugin-developer-guide.md): plugin development, dependency scopes, package verification, read-only observability, JPA, and upgrade rollback guide.
 
 Create or update a design document when a change affects:

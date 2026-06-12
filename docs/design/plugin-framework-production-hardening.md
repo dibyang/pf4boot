@@ -639,7 +639,7 @@ public interface PluginLifecycleDiagnostic {
 4. P3：补生命周期并发、资源泄漏和失败注入验证。
 5. P4：落地能力声明与兼容矩阵预检。
 6. P5：补管理 smoke、Actuator 诊断和样例闭环。
-7. P6：补 JPA 运行时刷新与跨数据源事务的后续决策文档。
+7. P6：补 JPA 运行时刷新、跨数据源事务、插件仓库治理和控制台 UI 边界的后续决策文档。
 
 ## 未决问题
 

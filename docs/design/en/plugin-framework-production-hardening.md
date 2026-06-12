@@ -639,7 +639,7 @@ Tracking lives in [plugin-framework-production-hardening-plan.md](plugin-framewo
 4. P3: Add lifecycle concurrency, cleanup leak, and failure-injection verification.
 5. P4: Add capability manifests and compatibility matrix prechecks.
 6. P5: Add management smoke, Actuator diagnostics, and sample closure.
-7. P6: Add follow-up decision docs for JPA runtime refresh and cross-datasource transactions.
+7. P6: Add follow-up decision docs for JPA runtime refresh, cross-datasource transactions, plugin repository governance, and management console UI boundary.
 
 ## Open Questions
 

@@ -34,6 +34,10 @@
 - [plugin-framework-production-hardening.md](plugin-framework-production-hardening.md)：插件框架生产级完善设计，覆盖签名信任链、持久化记录、生命周期验证、能力声明和观测闭环。
 - [plugin-framework-production-hardening-plan.md](plugin-framework-production-hardening-plan.md)：插件框架生产级完善实施规划。
 - [plugin-framework-production-hardening-acceptance.md](plugin-framework-production-hardening-acceptance.md)：插件框架生产级完善验收追踪。
+- [jpa-runtime-refresh-decision.md](jpa-runtime-refresh-decision.md)：JPA 运行时刷新/EntityManagerFactory 重建决策。
+- [cross-datasource-transaction-decision.md](cross-datasource-transaction-decision.md)：跨数据源事务边界、Saga/Outbox 和 XA 可选模块决策。
+- [plugin-repository-governance-decision.md](plugin-repository-governance-decision.md)：插件离线仓库、签名发布、灰度和回滚治理决策。
+- [plugin-management-console-boundary.md](plugin-management-console-boundary.md)：插件管理控制台 UI 与 HTTP API/Actuator 边界决策。
 - [plugin-developer-guide.md](plugin-developer-guide.md)：插件开发、依赖作用域、包校验、只读观测、JPA 和升级回滚指南。
 
 英文翻译版：
@@ -68,6 +72,10 @@
 - [en/plugin-framework-production-hardening.md](en/plugin-framework-production-hardening.md)
 - [en/plugin-framework-production-hardening-plan.md](en/plugin-framework-production-hardening-plan.md)
 - [en/plugin-framework-production-hardening-acceptance.md](en/plugin-framework-production-hardening-acceptance.md)
+- [en/jpa-runtime-refresh-decision.md](en/jpa-runtime-refresh-decision.md)
+- [en/cross-datasource-transaction-decision.md](en/cross-datasource-transaction-decision.md)
+- [en/plugin-repository-governance-decision.md](en/plugin-repository-governance-decision.md)
+- [en/plugin-management-console-boundary.md](en/plugin-management-console-boundary.md)
 - [en/plugin-developer-guide.md](en/plugin-developer-guide.md)
 
 ## 何时新增或更新设计文档

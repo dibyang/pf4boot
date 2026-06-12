@@ -86,11 +86,11 @@ After each completed task, add evidence such as commit hash, verification comman
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| P6-AC1: JPA runtime refresh / EntityManagerFactory rebuild has a standalone decision | Planned | TBD |
-| P6-AC2: Cross-datasource transactions have a standalone decision covering forbidden, Saga, Outbox, or optional XA module | Planned | TBD |
-| P6-AC3: Plugin marketplace/repository governance has a standalone decision | Planned | TBD |
-| P6-AC4: Management console UI scope has a standalone decision | Planned | TBD |
+| P6-AC1: JPA runtime refresh / EntityManagerFactory rebuild has a standalone decision | Done | `docs/design/jpa-runtime-refresh-decision.md` rejects online Hibernate metamodel refresh and keeps stop-consumers-and-rebuild-domain EMF/TM as the future candidate |
+| P6-AC2: Cross-datasource transactions have a standalone decision covering forbidden, Saga, Outbox, or optional XA module | Done | `docs/design/cross-datasource-transaction-decision.md` keeps local cross-datasource atomic transactions forbidden in core, treats Saga/Outbox as business patterns, and leaves XA as a future independent optional module |
+| P6-AC3: Plugin marketplace/repository governance has a standalone decision | Done | `docs/design/plugin-repository-governance-decision.md` recommends offline index repository, signed release, rollout, and rollback governance without a mandatory remote central service |
+| P6-AC4: Management console UI scope has a standalone decision | Done | `docs/design/plugin-management-console-boundary.md` keeps UI out of core/starter/management starter; future UI must be an independent sample or external app consuming HTTP APIs and Actuator |
 
 ## Current Recommendation
 
-P5 management smoke and observability closure is complete. Next, prioritize the four P6 standalone decision documents: JPA runtime refresh, cross-datasource transactions, plugin repository governance, and management console UI boundary.
+The P0-P6 production hardening line is complete. Future implementation of JPA domain reload, Saga/Outbox samples, offline plugin repository, or console UI should start with a separate implementation plan and acceptance document based on the matching decision doc.

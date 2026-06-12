@@ -22,7 +22,7 @@
 | P3 | 生命周期并发与资源泄漏验证 | Done | 生命周期锁测试、清理报告、失败注入 |
 | P4 | 能力声明与兼容矩阵 | Done | capability manifest、预检、JPA 多数据源声明 |
 | P5 | 管理 smoke 与观测闭环 | Done | 管理 smoke、Actuator 诊断、metrics |
-| P6 | 后续决策专题 | Planned | JPA 运行时刷新和跨数据源事务决策文档 |
+| P6 | 后续决策专题 | Done | JPA 运行时刷新、跨数据源事务、插件仓库治理和控制台 UI 决策文档 |
 
 ## 面向小模型的任务拆分规则
 
@@ -64,14 +64,14 @@
 
 ## 当前剩余工作快照
 
-截至本规划当前版本，P1-P5 已完成并有验收记录；P6 尚未形成独立决策文档。后续模型优先按下表执行，不要重新实现 P1-P5。
+截至本规划当前版本，P1-P6 均已完成并有验收记录。后续如果继续推进，应从对应决策文档中满足“进入实施规划条件”的专题另起实施规划，不要把 P6 暂缓事项直接混入生产代码。
 
 | 优先级 | 任务 | 当前状态 | 下一步 |
 | --- | --- | --- | --- |
-| 1 | P6 JPA 运行时刷新决策 | Planned | 新增中英文决策文档，给出推荐与暂缓项 |
-| 2 | P6 跨数据源事务决策 | Planned | 新增中英文决策文档，明确仍不支持本地跨数据源事务 |
-| 3 | P6 插件仓库治理决策 | Planned | 新增中英文决策文档，明确离线仓库、签名发布、灰度与回滚边界 |
-| 4 | P6 控制台 UI 边界决策 | Planned | 新增中英文决策文档，明确 UI 与 HTTP API/Actuator/core 的依赖边界 |
+| 1 | P6 JPA 运行时刷新决策 | Done | `jpa-runtime-refresh-decision.md` 和英文版 |
+| 2 | P6 跨数据源事务决策 | Done | `cross-datasource-transaction-decision.md` 和英文版 |
+| 3 | P6 插件仓库治理决策 | Done | `plugin-repository-governance-decision.md` 和英文版 |
+| 4 | P6 控制台 UI 边界决策 | Done | `plugin-management-console-boundary.md` 和英文版 |
 
 ## P0 设计与追踪基线
 

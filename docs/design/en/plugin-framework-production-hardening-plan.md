@@ -22,7 +22,7 @@ This plan tracks the work described in [plugin-framework-production-hardening.md
 | P3 | Lifecycle concurrency and leak verification | Done | Lifecycle lock tests, cleanup reports, failure injection |
 | P4 | Capability manifests and compatibility matrix | Done | Capability manifest, precheck, JPA multi-datasource declarations |
 | P5 | Management smoke and observability closure | Done | Management smoke, Actuator diagnostics, metrics |
-| P6 | Follow-up decision topics | Planned | JPA runtime refresh and cross-datasource transaction decision docs |
+| P6 | Follow-up decision topics | Done | Decision docs for JPA runtime refresh, cross-datasource transactions, plugin repository governance, and management console UI |
 
 ## Task Breakdown Rules For Smaller Models
 
@@ -64,14 +64,14 @@ Before starting a task, state the following in the response or commit notes:
 
 ## Current Remaining Work Snapshot
 
-As of this plan version, P1-P5 are complete and have acceptance records. P6 has not yet produced standalone decision documents. Follow-up models should execute the table below first and must not reimplement P1-P5.
+As of this plan version, P1-P6 are complete and have acceptance records. Future implementation should start from the matching decision document only after its entry criteria are satisfied. Do not mix deferred P6 topics directly into production code.
 
 | Priority | Task | Current Status | Next Step |
 | --- | --- | --- | --- |
-| 1 | P6 JPA runtime refresh decision | Planned | Add Chinese and English decision docs with recommendation and deferred items |
-| 2 | P6 cross-datasource transaction decision | Planned | Add Chinese and English decision docs that keep local cross-datasource transactions unsupported |
-| 3 | P6 plugin repository governance decision | Planned | Add Chinese and English decision docs for offline repository, signed release, rollout, and rollback boundaries |
-| 4 | P6 management console UI boundary decision | Planned | Add Chinese and English decision docs separating UI from HTTP API, Actuator, and core dependencies |
+| 1 | P6 JPA runtime refresh decision | Done | `jpa-runtime-refresh-decision.md` and English translation |
+| 2 | P6 cross-datasource transaction decision | Done | `cross-datasource-transaction-decision.md` and English translation |
+| 3 | P6 plugin repository governance decision | Done | `plugin-repository-governance-decision.md` and English translation |
+| 4 | P6 management console UI boundary decision | Done | `plugin-management-console-boundary.md` and English translation |
 
 ## P0 Design And Tracking Baseline
 

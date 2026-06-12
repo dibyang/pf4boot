@@ -86,11 +86,11 @@
 
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
-| P6-AC1：JPA 运行时刷新/EntityManagerFactory 重建已有独立设计结论 | Planned | 待补充 |
-| P6-AC2：跨数据源事务已有独立设计结论，明确禁止、Saga、Outbox 或 XA 可选模块路径 | Planned | 待补充 |
-| P6-AC3：插件市场/仓库治理已有独立设计结论 | Planned | 待补充 |
-| P6-AC4：控制台 UI 是否进入项目范围已有独立设计结论 | Planned | 待补充 |
+| P6-AC1：JPA 运行时刷新/EntityManagerFactory 重建已有独立设计结论 | Done | `docs/design/jpa-runtime-refresh-decision.md` 明确拒绝在线刷新 Hibernate metamodel，未来候选为停止 consumer 后重建 domain EMF/TM |
+| P6-AC2：跨数据源事务已有独立设计结论，明确禁止、Saga、Outbox 或 XA 可选模块路径 | Done | `docs/design/cross-datasource-transaction-decision.md` 明确核心继续禁止本地跨数据源原子事务，Saga/Outbox 为业务层模式，XA 仅为未来独立可选模块 |
+| P6-AC3：插件市场/仓库治理已有独立设计结论 | Done | `docs/design/plugin-repository-governance-decision.md` 推荐离线索引仓库、签名发布、灰度和回滚治理，不引入强制远程中心服务 |
+| P6-AC4：控制台 UI 是否进入项目范围已有独立设计结论 | Done | `docs/design/plugin-management-console-boundary.md` 明确 UI 不进入 core/starter/management starter，只能作为独立 sample 或外部应用消费 HTTP API 与 Actuator |
 
 ## 当前建议
 
-P5 管理 smoke 与观测闭环已完成。下一步优先推进 P6 四个独立决策文档：JPA 运行时刷新、跨数据源事务、插件仓库治理和控制台 UI 边界。
+P0-P6 生产级完善主线已完成。后续若继续实现 JPA domain reload、Saga/Outbox sample、离线插件仓库或控制台 UI，应先按对应决策文档新增独立实施规划和验收文档。
