@@ -50,11 +50,11 @@
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
 | P3-AC0：设计和规划已明确生命周期锁策略、诊断模型、失败注入方式和禁止事项 | Done | `docs/design/plugin-framework-production-hardening-plan.md` 的 P3 实施步骤、必测用例和禁止事项 |
-| P3-AC1：同一插件并发 start/stop/reload 被串行化或明确拒绝 | Planned | 待补充 |
-| P3-AC2：重复 start 不会重复注册 share bean、MVC mapping、interceptor 或 scheduler | Planned | 待补充 |
-| P3-AC3：stop 后动态资源计数归零，或输出明确残留报告 | Planned | 待补充 |
-| P3-AC4：加载失败、启动失败、health check 失败均能进入可诊断状态 | Planned | 待补充 |
-| P3-AC5：热替换失败时能回滚旧包；回滚失败时进入人工介入状态并保留现场 | Planned | 待补充 |
+| P3-AC1：同一插件并发 start/stop/reload 被串行化或明确拒绝 | Done | `Pf4bootPluginManagerLifecycleTest.concurrentStartsForSamePluginRunStartOnce`；`DefaultPluginLifecycleDiagnostic.inspectLifecycleLocks()` 输出 `stateLock` 策略 |
+| P3-AC2：重复 start 不会重复注册 share bean、MVC mapping、interceptor 或 scheduler | Done | `DefaultShareBeanMgrTest.duplicateExportRegistrationIsRemovedOnceOnStop`、`DefaultShareBeanMgrTest.exportsBeansToAllScopesAndCleansThemOnStop`、`PluginRequestMappingHandlerMappingTest` 既有 mapping/interceptor 清理测试 |
+| P3-AC3：stop 后动态资源计数归零，或输出明确残留报告 | Done | 新增 `PluginLifecycleDiagnostic`、`PluginCleanupReport`、`DefaultPluginLifecycleDiagnostic`；`DefaultShareBeanMgrTest.lifecycleDiagnosticReportsCleanedResourcesAfterStop` |
+| P3-AC4：加载失败、启动失败、health check 失败均能进入可诊断状态 | Done | `Pf4bootPluginManagerLifecycleTest.loadPluginVerifiesPackageBeforeCreatingClassLoader`、`failedStartClosesPluginContext`、`DefaultPluginDeploymentServiceTest.replaceRollsBackWhenPluginHealthProbeFails` |
+| P3-AC5：热替换失败时能回滚旧包；回滚失败时进入人工介入状态并保留现场 | Done | `DefaultPluginDeploymentServiceTest.replaceRollsBackWhenNewPluginStartFails`、`replaceRollsBackWhenPackageActivationFails`、`replaceMovesToManualInterventionWhenRollbackFails` |
 | P3-AC6：复杂样例包含可触发失败路径的演示插件或配置 | Planned | 待补充 |
 
 ## P4 能力声明与兼容矩阵

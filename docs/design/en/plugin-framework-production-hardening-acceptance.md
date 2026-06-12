@@ -50,11 +50,11 @@ After each completed task, add evidence such as commit hash, verification comman
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
 | P3-AC0: Design and plan define lifecycle locks, diagnostics, failure injection, and forbidden changes | Done | `docs/design/plugin-framework-production-hardening-plan.md` P3 implementation steps, required tests, and forbidden changes |
-| P3-AC1: Concurrent start/stop/reload for one plugin is serialized or rejected | Planned | TBD |
-| P3-AC2: Repeated start does not duplicate shared beans, MVC mappings, interceptors, or schedulers | Planned | TBD |
-| P3-AC3: Dynamic resource counts are zero after stop, or a clear leak report is emitted | Planned | TBD |
-| P3-AC4: Load failure, startup failure, and health check failure enter diagnosable states | Planned | TBD |
-| P3-AC5: Hot replacement failure can roll back the old package; rollback failure enters manual intervention with evidence | Planned | TBD |
+| P3-AC1: Concurrent start/stop/reload for one plugin is serialized or rejected | Done | `Pf4bootPluginManagerLifecycleTest.concurrentStartsForSamePluginRunStartOnce`; `DefaultPluginLifecycleDiagnostic.inspectLifecycleLocks()` reports the `stateLock` strategy |
+| P3-AC2: Repeated start does not duplicate shared beans, MVC mappings, interceptors, or schedulers | Done | `DefaultShareBeanMgrTest.duplicateExportRegistrationIsRemovedOnceOnStop`, `DefaultShareBeanMgrTest.exportsBeansToAllScopesAndCleansThemOnStop`, existing `PluginRequestMappingHandlerMappingTest` mapping/interceptor cleanup coverage |
+| P3-AC3: Dynamic resource counts are zero after stop, or a clear leak report is emitted | Done | Added `PluginLifecycleDiagnostic`, `PluginCleanupReport`, `DefaultPluginLifecycleDiagnostic`; `DefaultShareBeanMgrTest.lifecycleDiagnosticReportsCleanedResourcesAfterStop` |
+| P3-AC4: Load failure, startup failure, and health check failure enter diagnosable states | Done | `Pf4bootPluginManagerLifecycleTest.loadPluginVerifiesPackageBeforeCreatingClassLoader`, `failedStartClosesPluginContext`, `DefaultPluginDeploymentServiceTest.replaceRollsBackWhenPluginHealthProbeFails` |
+| P3-AC5: Hot replacement failure can roll back the old package; rollback failure enters manual intervention with evidence | Done | `DefaultPluginDeploymentServiceTest.replaceRollsBackWhenNewPluginStartFails`, `replaceRollsBackWhenPackageActivationFails`, `replaceMovesToManualInterventionWhenRollbackFails` |
 | P3-AC6: Complex sample includes a demo plugin or configuration that triggers failure paths | Planned | TBD |
 
 ## P4 Capability Manifests And Compatibility Matrix

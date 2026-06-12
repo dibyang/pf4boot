@@ -3,6 +3,9 @@ package net.xdob.pf4boot;
 import net.xdob.pf4boot.annotation.Export;
 import net.xdob.pf4boot.annotation.ExportBeans;
 import net.xdob.pf4boot.annotation.PluginStarter;
+import net.xdob.pf4boot.diagnostic.DefaultPluginLifecycleDiagnostic;
+import net.xdob.pf4boot.diagnostic.PluginCleanupReport;
+import net.xdob.pf4boot.diagnostic.PluginConcurrencyReport;
 import net.xdob.pf4boot.modal.SharingScope;
 import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
 import org.junit.After;
@@ -87,6 +90,36 @@ public class DefaultShareBeanMgrTest {
     assertFalse(groupedPlatform.getBeanFactory().containsBeanDefinition("groupService"));
     assertEquals(0, pluginManager.shareBeanMgr.getRegisteredSharingBeanCount("sharing"));
     assertEquals(0, pluginManager.shareBeanMgr.getScheduledTaskCount("sharing"));
+  }
+
+  @Test
+  public void lifecycleDiagnosticReportsCleanedResourcesAfterStop() {
+    pluginManager.addResolvedPlugin("sharing", SharingPlugin.class);
+    pluginManager.startPlugin("sharing");
+    ClassLoader pluginClassLoader = pluginManager.getPlugin("sharing").getPluginClassLoader();
+
+    pluginManager.stopPlugin("sharing");
+    PluginCleanupReport report = new DefaultPluginLifecycleDiagnostic(pluginManager.shareBeanMgr)
+        .inspectAfterStop("sharing", pluginClassLoader);
+
+    assertTrue(report.isPassed());
+    assertEquals(0, report.getRemainingSharingBeans());
+    assertEquals(0, report.getRemainingExtensionBeans());
+    assertEquals(0, report.getRemainingScheduledTasks());
+    assertEquals(0, report.getRemainingRunningScheduledTasks());
+    assertTrue(report.getMessages().contains("plugin core resources are cleaned"));
+  }
+
+  @Test
+  public void lifecycleDiagnosticDescribesSerializedLifecycleLockStrategy() {
+    PluginConcurrencyReport report = new DefaultPluginLifecycleDiagnostic(pluginManager.shareBeanMgr)
+        .inspectLifecycleLocks();
+
+    assertTrue(report.isLifecycleMutationsSerialized());
+    assertEquals("Pf4bootPluginManagerImpl.stateLock", report.getStrategy());
+    assertTrue(report.getProtectedOperations().contains("startPlugin"));
+    assertTrue(report.getProtectedOperations().contains("stopPlugin"));
+    assertTrue(report.getProtectedOperations().contains("reloadPlugin"));
   }
 
   @Test
