@@ -19,7 +19,7 @@ This plan tracks the work described in [plugin-framework-production-hardening.md
 | P0 | Design and tracking baseline | Done | Design, plan, acceptance docs, indexes |
 | P1 | Package signing and trust chain | Done | SPI, result model, WARN mode, manifest example |
 | P2 | Operation/deployment/audit persistence | Done | Recorder SPI, file implementation, recovery scan |
-| P3 | Lifecycle concurrency and leak verification | In Progress | Lifecycle lock tests, cleanup reports, failure injection |
+| P3 | Lifecycle concurrency and leak verification | Done | Lifecycle lock tests, cleanup reports, failure injection |
 | P4 | Capability manifests and compatibility matrix | Done | Capability manifest, precheck, JPA multi-datasource declarations |
 | P5 | Management smoke and observability closure | Planned | Management smoke, Actuator diagnostics, metrics |
 | P6 | Follow-up decision topics | Planned | JPA runtime refresh and cross-datasource transaction decision docs |

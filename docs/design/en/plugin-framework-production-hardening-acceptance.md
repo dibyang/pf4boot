@@ -55,7 +55,7 @@ After each completed task, add evidence such as commit hash, verification comman
 | P3-AC3: Dynamic resource counts are zero after stop, or a clear leak report is emitted | Done | Added `PluginLifecycleDiagnostic`, `PluginCleanupReport`, `DefaultPluginLifecycleDiagnostic`; `DefaultShareBeanMgrTest.lifecycleDiagnosticReportsCleanedResourcesAfterStop` |
 | P3-AC4: Load failure, startup failure, and health check failure enter diagnosable states | Done | `Pf4bootPluginManagerLifecycleTest.loadPluginVerifiesPackageBeforeCreatingClassLoader`, `failedStartClosesPluginContext`, `DefaultPluginDeploymentServiceTest.replaceRollsBackWhenPluginHealthProbeFails` |
 | P3-AC5: Hot replacement failure can roll back the old package; rollback failure enters manual intervention with evidence | Done | `DefaultPluginDeploymentServiceTest.replaceRollsBackWhenNewPluginStartFails`, `replaceRollsBackWhenPackageActivationFails`, `replaceMovesToManualInterventionWhenRollbackFails` |
-| P3-AC6: Complex sample includes a demo plugin or configuration that triggers failure paths | Planned | TBD |
+| P3-AC6: Complex sample includes a demo plugin or configuration that triggers failure paths | Done | `samples/cross-plugin-jpa/plugin-workflow` provides the `failAfterAudit=true` failure path; `samples/cross-plugin-jpa/README.md` documents normal and forced-failure HTTP smoke paths; ran `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins` |
 
 ## P4 Capability Manifests And Compatibility Matrix
 
@@ -75,7 +75,7 @@ After each completed task, add evidence such as commit hash, verification comman
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
 | P5-AC0: Design and plan define smoke steps, request headers, security constraints, observability checks, and cleanup requirements | Done | `docs/design/plugin-framework-production-hardening-plan.md` P5 implementation steps and required smoke cases |
-| P5-AC1: Complex sample plugins can be packaged with one Gradle command | Planned | TBD |
+| P5-AC1: Complex sample plugins can be packaged with one Gradle command | Done | Ran `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`, producing the domain, user-book, and workflow sample plugin zips |
 | P5-AC2: Sample host smoke starts the host, calls management APIs, verifies JPA examples, and shuts down | Planned | TBD |
 | P5-AC3: Local management smoke uses a token and does not bypass security | Planned | TBD |
 | P5-AC4: Actuator exposes trust summary, deployment summary, and cleanup report summary | Planned | TBD |

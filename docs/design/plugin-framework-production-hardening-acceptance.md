@@ -55,7 +55,7 @@
 | P3-AC3：stop 后动态资源计数归零，或输出明确残留报告 | Done | 新增 `PluginLifecycleDiagnostic`、`PluginCleanupReport`、`DefaultPluginLifecycleDiagnostic`；`DefaultShareBeanMgrTest.lifecycleDiagnosticReportsCleanedResourcesAfterStop` |
 | P3-AC4：加载失败、启动失败、health check 失败均能进入可诊断状态 | Done | `Pf4bootPluginManagerLifecycleTest.loadPluginVerifiesPackageBeforeCreatingClassLoader`、`failedStartClosesPluginContext`、`DefaultPluginDeploymentServiceTest.replaceRollsBackWhenPluginHealthProbeFails` |
 | P3-AC5：热替换失败时能回滚旧包；回滚失败时进入人工介入状态并保留现场 | Done | `DefaultPluginDeploymentServiceTest.replaceRollsBackWhenNewPluginStartFails`、`replaceRollsBackWhenPackageActivationFails`、`replaceMovesToManualInterventionWhenRollbackFails` |
-| P3-AC6：复杂样例包含可触发失败路径的演示插件或配置 | Planned | 待补充 |
+| P3-AC6：复杂样例包含可触发失败路径的演示插件或配置 | Done | `samples/cross-plugin-jpa/plugin-workflow` 提供 `failAfterAudit=true` 失败路径；`samples/cross-plugin-jpa/README.md` 的 HTTP smoke 说明正常路径和强制失败路径；已执行 `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins` |
 
 ## P4 能力声明与兼容矩阵
 
@@ -75,7 +75,7 @@
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
 | P5-AC0：设计和规划已明确 smoke 步骤、请求头、安全约束、观测检查和清理要求 | Done | `docs/design/plugin-framework-production-hardening-plan.md` 的 P5 实施步骤和必测场景 |
-| P5-AC1：复杂样例插件可通过单一 Gradle 命令完成打包 | Planned | 待补充 |
+| P5-AC1：复杂样例插件可通过单一 Gradle 命令完成打包 | Done | 已执行 `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`，产出 domain、user-book、workflow 三个 sample plugin zip |
 | P5-AC2：sample host smoke 能启动宿主、调用管理接口、验证 JPA 示例并关闭进程 | Planned | 待补充 |
 | P5-AC3：本地管理接口 smoke 使用 token，不绕过安全保护 | Planned | 待补充 |
 | P5-AC4：Actuator 暴露信任校验摘要、部署摘要和清理报告摘要 | Planned | 待补充 |

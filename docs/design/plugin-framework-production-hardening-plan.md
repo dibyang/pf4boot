@@ -19,7 +19,7 @@
 | P0 | 设计与追踪基线 | Done | 设计、规划、验收文档和索引 |
 | P1 | 插件包签名与信任链 | Done | SPI、结果模型、WARN 模式、manifest 样例 |
 | P2 | 操作/部署/审计持久化 | Done | recorder SPI、文件实现、恢复扫描 |
-| P3 | 生命周期并发与资源泄漏验证 | In Progress | 生命周期锁测试、清理报告、失败注入 |
+| P3 | 生命周期并发与资源泄漏验证 | Done | 生命周期锁测试、清理报告、失败注入 |
 | P4 | 能力声明与兼容矩阵 | Done | capability manifest、预检、JPA 多数据源声明 |
 | P5 | 管理 smoke 与观测闭环 | Planned | 管理 smoke、Actuator 诊断、metrics |
 | P6 | 后续决策专题 | Planned | JPA 运行时刷新和跨数据源事务决策文档 |
