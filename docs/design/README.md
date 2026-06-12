@@ -31,6 +31,9 @@
 - [scheduler-sharingbeans-fix.md](scheduler-sharingbeans-fix.md)：自动启动调度幂等和共享 Bean 记录 key 修复方案。
 - [autoexport-jpa-boundary.md](autoexport-jpa-boundary.md)：AutoExport 分组和 JPA 动态元数据能力边界。
 - [production-readiness-roadmap.md](production-readiness-roadmap.md)：验证闭环、观测诊断、JPA 边界、插件治理和文档体验的生产化完善路线图。
+- [plugin-framework-production-hardening.md](plugin-framework-production-hardening.md)：插件框架生产级完善设计，覆盖签名信任链、持久化记录、生命周期验证、能力声明和观测闭环。
+- [plugin-framework-production-hardening-plan.md](plugin-framework-production-hardening-plan.md)：插件框架生产级完善实施规划。
+- [plugin-framework-production-hardening-acceptance.md](plugin-framework-production-hardening-acceptance.md)：插件框架生产级完善验收追踪。
 - [plugin-developer-guide.md](plugin-developer-guide.md)：插件开发、依赖作用域、包校验、只读观测、JPA 和升级回滚指南。
 
 英文翻译版：
@@ -62,6 +65,9 @@
 - [en/scheduler-sharingbeans-fix.md](en/scheduler-sharingbeans-fix.md)
 - [en/autoexport-jpa-boundary.md](en/autoexport-jpa-boundary.md)
 - [en/production-readiness-roadmap.md](en/production-readiness-roadmap.md)
+- [en/plugin-framework-production-hardening.md](en/plugin-framework-production-hardening.md)
+- [en/plugin-framework-production-hardening-plan.md](en/plugin-framework-production-hardening-plan.md)
+- [en/plugin-framework-production-hardening-acceptance.md](en/plugin-framework-production-hardening-acceptance.md)
 - [en/plugin-developer-guide.md](en/plugin-developer-guide.md)
 
 ## 何时新增或更新设计文档

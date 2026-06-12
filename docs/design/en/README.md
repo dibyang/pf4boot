@@ -35,6 +35,9 @@ Use the parent directory for design notes before implementing non-trivial change
 - [scheduler-sharingbeans-fix.md](scheduler-sharingbeans-fix.md): fix plan for auto-start scheduler idempotency and shared bean record keys.
 - [autoexport-jpa-boundary.md](autoexport-jpa-boundary.md): AutoExport groups and JPA dynamic metadata capability boundary.
 - [production-readiness-roadmap.md](production-readiness-roadmap.md): production readiness roadmap for verification, observability, JPA boundaries, plugin governance, and documentation.
+- [plugin-framework-production-hardening.md](plugin-framework-production-hardening.md): production hardening design for package trust, persistent records, lifecycle verification, capability manifests, and observability closure.
+- [plugin-framework-production-hardening-plan.md](plugin-framework-production-hardening-plan.md): implementation plan for plugin framework production hardening.
+- [plugin-framework-production-hardening-acceptance.md](plugin-framework-production-hardening-acceptance.md): acceptance tracking for plugin framework production hardening.
 - [plugin-developer-guide.md](plugin-developer-guide.md): plugin development, dependency scopes, package verification, read-only observability, JPA, and upgrade rollback guide.
 
 Create or update a design document when a change affects:
