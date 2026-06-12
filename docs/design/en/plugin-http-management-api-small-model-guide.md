@@ -115,6 +115,7 @@ Checks:
     - `POST /deployments/plan`
     - `POST /deployments/replace`
     - `POST /deployments/{deploymentId}/rollback`
+    - `POST /deployments/{deploymentId}/confirm` (executes a prechecked record)
   - Mutations must run manager/deployment flows, not manual low-level duplication.
 
 ### 2.7 Idempotency / audit / response safety
@@ -144,14 +145,14 @@ Then perform code-check assertions:
 
 - confirm `reload` maps to `@PostMapping` and does **not** call `PluginDeploymentService.replace`.
 - confirm plan endpoint does not call `deploymentService.replace`.
-- confirm `CONFIRM` endpoint is absent in this phase (documented as follow-up).
+  - confirm `/deployments/{deploymentId}/confirm` exists, requires write authz, and only executes `PRECHECKED` records.
 - confirm startup validator blocks bad modes.
 - confirm security policy for write operations in `PluginManagementWriteSecurityPolicy`.
 
 Concrete test checkpoints:
 
 - `PluginManagementWriteSecurityPolicyTest` (mode `auto`/`true`/`false` origin flow)
-- `PluginManagementControllerSecurityTest` (remote unauth/authz and rate limit for write endpoints)
+   - `PluginManagementControllerSecurityTest` (remote unauth/authz and rate limit for write/confirm endpoints)
 - `PluginManagementRateLimiterTest` (normal/over-limit and disabled scenarios)
 - `PluginManagementIdempotencyServiceTest` + `PluginManagementPathValidatorTest` (idempotency and path guard)
 
@@ -205,4 +206,4 @@ If context is limited, execute by this strict sequence:
    - Add `In Progress` for not-yet-ran smoke only.
 6. Confirm follow-up behavior:
    - `rg --line-number "deployments/.*/confirm|PostMapping(\"/deployments/\\{deploymentId\\}/confirm\")" pf4boot-management-starter/src/main/java`
-   - If endpoint is absent, keep `AC-16` as `Pending` and include reason in acceptance note.
+   - If endpoint is missing or does not enforce `PRECHECKED` state, keep `AC-16` as `In Progress` and record remediation.

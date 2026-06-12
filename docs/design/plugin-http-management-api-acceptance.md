@@ -28,7 +28,7 @@ As of this pass, the HTTP management core is implemented, module wiring is in pl
 | AC-13 | Audit records success / failure / reject paths | Done | `PluginManagementController` + `PluginManagementAuditRecorder` |
 | AC-14 | Error responses do not leak token/path/stack details | Done | `PluginManagementExceptionHandler` |
 | AC-15 | `pf4boot-actuator` remains mutation-free | Done | API doc boundary in `plugin-http-management-api.md` and implementation scope |
-| AC-16 | Manual confirm endpoint is deferred (follow-up) | Pending | `PluginManagementController` currently has no `POST /deployments/{deploymentId}/confirm` |
+| AC-16 | Manual confirm endpoint is implemented and enforces write policies | Done | `PluginManagementController.confirm` and tests `PluginManagementControllerTest.confirmEndpointExecutesReplacementForPrecheckedRecord` + `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForConfirmWrite` |
 
 ## Security Acceptance
 
@@ -73,6 +73,7 @@ If the first implementation is hosted by `pf4boot-web-starter`, skip `:pf4boot-m
 - `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" -H "Content-Type: application/json" -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip","dryRun":true}' http://127.0.0.1:7791/pf4boot/admin/deployments/plan`
 - `curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/deployments`
 - `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" -H "Content-Type: application/json" -d '{"deploymentId":"D-rollback","idempotencyKey":"idem-key-1"}' http://127.0.0.1:7791/pf4boot/admin/deployments/{id}/rollback` (replace `{id}` with valid id)
+- `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/deployments/{id}/confirm` (replace `{id}` with a `PRECHECKED` deployment id returned by plan)
 - `curl -H "X-PF4Boot-Admin-Token: sample-token" -X POST http://127.0.0.1:7791/pf4boot/admin/plugins/sample-workflow/enable` (run twice to validate idempotency semantics)
 - `curl -H "X-PF4Boot-Admin-Token: sample-token" -X DELETE http://127.0.0.1:7791/pf4boot/admin/plugins/sample-workflow/enable` (run twice to validate idempotency semantics)
 - Local-token negative test: omit token and verify `401`

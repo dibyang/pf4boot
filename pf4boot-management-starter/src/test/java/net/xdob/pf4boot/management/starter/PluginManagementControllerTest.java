@@ -2,8 +2,11 @@ package net.xdob.pf4boot.management.starter;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.deployment.DeploymentRecord;
+import net.xdob.pf4boot.deployment.DeploymentCheckResult;
+import net.xdob.pf4boot.deployment.DeploymentPlan;
 import net.xdob.pf4boot.deployment.DeploymentState;
 import net.xdob.pf4boot.deployment.PluginDeploymentService;
+import net.xdob.pf4boot.deployment.RollbackSnapshot;
 import net.xdob.pf4boot.management.PluginAdminResponse;
 import net.xdob.pf4boot.management.PluginDeploymentRequest;
 import net.xdob.pf4boot.management.PluginManagementAuditEvent;
@@ -25,8 +28,6 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.fail;
 
 public class PluginManagementControllerTest {
@@ -212,6 +213,92 @@ public class PluginManagementControllerTest {
   }
 
   @Test
+  public void confirmEndpointExecutesReplacementForPrecheckedRecord() {
+    Pf4bootManagementProperties properties = properties();
+    properties.setStagingRoot("target/test-staged");
+    InMemoryPluginDeploymentRecordStore store = new InMemoryPluginDeploymentRecordStore();
+    DeploymentPlan plan = new DeploymentPlan(
+        "dep-1",
+        "sample-workflow",
+        "deployments/sample-workflow.zip",
+        "plugins/sample-workflow-old.jar",
+        "1.0.0",
+        org.pf4j.PluginState.STOPPED,
+        "2.0.0",
+        null,
+        Collections.<String>emptyList(),
+        Collections.<String>emptyList(),
+        Collections.<String>emptyList(),
+        Collections.<DeploymentCheckResult>emptyList(),
+        new RollbackSnapshot(
+            "sample-workflow",
+            "/tmp/sample-workflow.jar",
+            "1.0.0",
+            org.pf4j.PluginState.STOPPED,
+            Collections.<String>emptyList(),
+            Collections.<String, String>emptyMap()));
+    store.save(new DeploymentRecord(
+        "dep-1",
+        "sample-workflow",
+        DeploymentState.PRECHECKED,
+        0L,
+        0L,
+        "plan ok",
+        plan));
+    RecordingDeploymentService deploymentService = new RecordingDeploymentService();
+
+    PluginManagementController controller =
+        controller(properties, new InvocationRecorder().createPluginManager(), deploymentService, store);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/dep-1/confirm");
+
+    PluginAdminResponse<DeploymentRecord> response = controller.confirm("dep-1", request);
+
+    assertNotNull(response);
+    assertEquals(1, deploymentService.replaceCalls);
+    assertEquals("op-replace", response.getData().getDeploymentId());
+    assertEquals("sample-workflow", deploymentService.lastReplacePluginId);
+  }
+
+  @Test
+  public void confirmEndpointRejectsMissingDeploymentRecord() {
+    Pf4bootManagementProperties properties = properties();
+    PluginManagementController controller =
+        controller(properties, new InvocationRecorder().createPluginManager(), new RecordingDeploymentService());
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/nope/confirm");
+
+    try {
+      controller.confirm("nope", request);
+      fail("expected missing deployment id to be rejected");
+    } catch (PluginManagementException e) {
+      assertEquals(PluginManagementErrorCode.NOT_FOUND, e.getCode());
+    }
+  }
+
+  @Test
+  public void confirmEndpointRejectsUnprecheckedDeploymentRecord() {
+    Pf4bootManagementProperties properties = properties();
+    InMemoryPluginDeploymentRecordStore store = new InMemoryPluginDeploymentRecordStore();
+    store.save(new DeploymentRecord(
+        "dep-2",
+        "sample-workflow",
+        DeploymentState.SUCCEEDED,
+        0L,
+        0L,
+        "already replaced",
+        null));
+    PluginManagementController controller =
+        controller(properties, new InvocationRecorder().createPluginManager(), new RecordingDeploymentService(), store);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/dep-2/confirm");
+
+    try {
+      controller.confirm("dep-2", request);
+      fail("expected prechecked-only confirm to be rejected");
+    } catch (PluginManagementException e) {
+      assertEquals(PluginManagementErrorCode.PRECHECK_FAILED, e.getCode());
+    }
+  }
+
+  @Test
   public void planEndpointSupportsIdempotencyReplayWithSameKey() {
     Pf4bootManagementProperties properties = properties();
     properties.setRequireIdempotencyKey(true);
@@ -339,6 +426,7 @@ public class PluginManagementControllerTest {
 
     private int planCalls;
     private int replaceCalls;
+    private String lastReplacePluginId;
 
     @Override
     public DeploymentRecord planReplacement(String targetPluginId, java.nio.file.Path stagedPluginPath) {
@@ -356,6 +444,7 @@ public class PluginManagementControllerTest {
     @Override
     public DeploymentRecord replace(String targetPluginId, java.nio.file.Path stagedPluginPath) {
       replaceCalls++;
+      lastReplacePluginId = targetPluginId;
       return new DeploymentRecord(
           "op-replace",
           targetPluginId,

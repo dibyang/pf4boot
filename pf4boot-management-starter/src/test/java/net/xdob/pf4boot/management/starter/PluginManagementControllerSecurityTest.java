@@ -119,6 +119,71 @@ public class PluginManagementControllerSecurityTest {
   }
 
   @Test
+  public void csrfEnabledRequiresOriginForConfirmWrite() {
+    Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
+    properties.setEnabled(true);
+    properties.setToken("secret-token");
+    properties.setAllowLoopbackOnly(true);
+    properties.getCsrf().setEnabled("true");
+    properties.setRequireIdempotencyKey(false);
+    properties.getRateLimit().setEnabled(false);
+    properties.setStagingRoot("target/test-staged");
+    InMemoryPluginDeploymentRecordStore recordStore = new InMemoryPluginDeploymentRecordStore();
+    recordStore.save(precheckedRecord("conf-1"));
+
+    PluginManagementController controller = controllerWithDeployment(
+        properties,
+        new LocalTokenPluginManagementAuthorizer(properties),
+        recordStore,
+        confirmingDeploymentService());
+
+    MockHttpServletRequest request = baseRequest();
+    request.setRequestURI("/pf4boot/admin/deployments/conf-1/confirm");
+    request.addHeader("X-PF4Boot-Admin-Token", "secret-token");
+
+    try {
+      controller.confirm("conf-1", request);
+      fail("Expected CSRF/Origin rejection");
+    } catch (PluginManagementException e) {
+      assertEquals(PluginManagementErrorCode.FORBIDDEN, e.getCode());
+    }
+  }
+
+  @Test
+  public void rateLimitAppliedBeforeSecondConfirm() {
+    Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
+    properties.setEnabled(true);
+    properties.setToken("secret-token");
+    properties.setAllowLoopbackOnly(true);
+    properties.getCsrf().setEnabled("false");
+    properties.setRequireIdempotencyKey(false);
+    properties.getRateLimit().setEnabled(true);
+    properties.getRateLimit().setWritesPerMinute(1);
+    properties.setStagingRoot("target/test-staged");
+    InMemoryPluginDeploymentRecordStore recordStore = new InMemoryPluginDeploymentRecordStore();
+    recordStore.save(precheckedRecord("conf-2"));
+
+    PluginManagementController controller = controllerWithDeployment(
+        properties,
+        new LocalTokenPluginManagementAuthorizer(properties),
+        recordStore,
+        confirmingDeploymentService());
+
+    MockHttpServletRequest request = baseRequest();
+    request.setRequestURI("/pf4boot/admin/deployments/conf-2/confirm");
+    request.addHeader("X-PF4Boot-Admin-Token", "secret-token");
+    request.addHeader("Origin", "http://127.0.0.1:8080");
+
+    controller.confirm("conf-2", request);
+    try {
+      controller.confirm("conf-2", request);
+      fail("Expected rate limit rejection");
+    } catch (PluginManagementException e) {
+      assertEquals(PluginManagementErrorCode.RATE_LIMITED, e.getCode());
+    }
+  }
+
+  @Test
   public void rateLimitAppliedBeforeSecondRollback() {
     Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
     properties.setEnabled(true);
@@ -329,6 +394,44 @@ public class PluginManagementControllerSecurityTest {
   private PluginManagementController controllerWithDeployment(
       Pf4bootManagementProperties properties,
       PluginManagementAuthorizer authorizer,
+      InMemoryPluginDeploymentRecordStore recordStore,
+      PluginDeploymentService deploymentService) {
+    Pf4bootPluginManager pluginManager = (Pf4bootPluginManager) Proxy.newProxyInstance(
+        Thread.currentThread().getContextClassLoader(),
+        new Class<?>[]{Pf4bootPluginManager.class},
+        new InvocationHandler() {
+          @Override
+          public Object invoke(Object proxy, Method method, Object[] args) {
+            return null;
+          }
+        });
+
+    PluginManagementRequestFactory requestFactory = new PluginManagementRequestFactory();
+    PluginManagementPathValidator pathValidator = new PluginManagementPathValidator();
+    PluginManagementIdempotencyService idempotencyService = new PluginManagementIdempotencyService(
+        properties,
+        new InMemoryPluginOperationStore());
+    PluginManagementAuditRecorder auditRecorder = new LoggingPluginManagementAuditRecorder();
+    PluginManagementRateLimiter rateLimiter = new PluginManagementRateLimiter(properties);
+    PluginManagementWriteSecurityPolicy policy = new PluginManagementWriteSecurityPolicy(properties, rateLimiter);
+
+    return new PluginManagementController(
+        pluginManager,
+        deploymentService,
+        properties,
+        authorizer,
+        requestFactory,
+        pathValidator,
+        idempotencyService,
+        recordStore,
+        auditRecorder,
+        new InMemoryPluginOperationStore(),
+        policy);
+  }
+
+  private PluginManagementController controllerWithDeployment(
+      Pf4bootManagementProperties properties,
+      PluginManagementAuthorizer authorizer,
       InMemoryPluginDeploymentRecordStore recordStore) {
     Pf4bootPluginManager pluginManager = (Pf4bootPluginManager) Proxy.newProxyInstance(
         Thread.currentThread().getContextClassLoader(),
@@ -404,6 +507,57 @@ public class PluginManagementControllerSecurityTest {
         Collections.<String>emptyList(),
         Collections.<DeploymentCheckResult>emptyList(),
         snapshot);
+  }
+
+  private DeploymentRecord precheckedRecord(String deploymentId) {
+    return new DeploymentRecord(
+        deploymentId,
+        "plugin",
+        DeploymentState.PRECHECKED,
+        System.currentTimeMillis(),
+        System.currentTimeMillis(),
+        "precheck ok",
+        new DeploymentPlan(
+            deploymentId,
+            "plugin",
+            "plugins/staged/plugin.zip",
+            "plugins/current/plugin.jar",
+            "1.0.0",
+            org.pf4j.PluginState.STOPPED,
+            "2.0.0",
+            null,
+            Collections.<String>emptyList(),
+            Collections.<String>emptyList(),
+            Collections.<String>emptyList(),
+            Collections.<DeploymentCheckResult>emptyList(),
+            new RollbackSnapshot(
+                "plugin",
+                "plugins/current/plugin.jar",
+                "1.0.0",
+                org.pf4j.PluginState.STOPPED,
+                Collections.<String>emptyList(),
+                java.util.Collections.<String, String>emptyMap())));
+  }
+
+  private PluginDeploymentService confirmingDeploymentService() {
+    return new PluginDeploymentService() {
+      @Override
+      public DeploymentRecord planReplacement(String targetPluginId, java.nio.file.Path stagedPluginPath) {
+        throw new UnsupportedOperationException("plan not needed");
+      }
+
+      @Override
+      public DeploymentRecord replace(String targetPluginId, java.nio.file.Path stagedPluginPath) {
+        return new DeploymentRecord(
+            "conf-" + targetPluginId,
+            targetPluginId,
+            DeploymentState.SUCCEEDED,
+            System.currentTimeMillis(),
+            System.currentTimeMillis(),
+            "confirm ok",
+            null);
+      }
+    };
   }
 
   private MockHttpServletRequest baseRequest() {

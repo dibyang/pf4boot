@@ -13,6 +13,7 @@ public enum PluginManagementOperation {
   PLUGIN_RELOAD("pf4boot:plugin:reload"),
   DEPLOYMENT_PLAN("pf4boot:deployment:plan"),
   DEPLOYMENT_REPLACE("pf4boot:deployment:replace"),
+  DEPLOYMENT_CONFIRM("pf4boot:deployment:replace"),
   DEPLOYMENT_ROLLBACK("pf4boot:deployment:rollback"),
   DEPLOYMENT_QUERY("pf4boot:deployment:query");
 

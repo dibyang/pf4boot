@@ -167,6 +167,7 @@ PLUGIN_DISABLE("pf4boot:plugin:lifecycle"),
 PLUGIN_RELOAD("pf4boot:plugin:reload"),
 DEPLOYMENT_PLAN("pf4boot:deployment:plan"),
 DEPLOYMENT_REPLACE("pf4boot:deployment:replace"),
+DEPLOYMENT_CONFIRM("pf4boot:deployment:replace"),
 DEPLOYMENT_ROLLBACK("pf4boot:deployment:rollback");
 ```
 
@@ -230,6 +231,9 @@ public PluginAdminResponse<DeploymentRecord> deployment(@PathVariable String dep
 
 @PostMapping("/deployments/{deploymentId}/rollback")
 public PluginAdminResponse<DeploymentRecord> rollback(@PathVariable String deploymentId, HttpServletRequest request)
+
+@PostMapping("/deployments/{deploymentId}/confirm")
+public PluginAdminResponse<DeploymentRecord> confirm(@PathVariable String deploymentId, HttpServletRequest request)
 ```
 
 If `PluginDeploymentRecorder` cannot query by deployment id yet, return a clear `PFM-007` or `PFM-009` and leave the acceptance item incomplete.
@@ -484,7 +488,7 @@ When work is handed to a smaller model, use this exact sequence:
    - `PluginManagementController.java`:
      - read APIs: `GET /plugins`, `GET /plugins/{pluginId}`.
      - lifecycle: `POST` start/stop/restart/reload, `DELETE` disable.
-     - deployment: `POST /deployments/plan`, `POST /deployments/replace`, `GET /deployments/{id}`, `POST /deployments/{id}/rollback`.
+     - deployment: `POST /deployments/plan`, `POST /deployments/replace`, `GET /deployments/{id}`, `POST /deployments/{id}/rollback`, `POST /deployments/{id}/confirm`.
    - Keep `reload` as low-level path and never use it as replacement flow.
 
 7. Add safe operation primitives
@@ -504,7 +508,7 @@ When work is handed to a smaller model, use this exact sequence:
 
 ### Known follow-up items
 
-- `POST /deployments/{deploymentId}/confirm` is documented in design for a later manual gate workflow and is not implemented in this phase.
+- `POST /deployments/{deploymentId}/confirm` is implemented as "execute precheck plan" in this phase.
 
 ### Common mistakes to avoid
 

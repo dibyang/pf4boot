@@ -76,7 +76,7 @@ Deliverables:
 - `POST /deployments/plan` for pre-check only.
 - `POST /deployments/replace` for real replacement.
 - `POST /deployments/{deploymentId}/rollback` for rollback execution.
-- `POST /deployments/{deploymentId}/confirm` is intentionally **deferred** to follow-up.
+- `POST /deployments/{deploymentId}/confirm` executes a confirmed replacement from a `PRECHECKED` record.
 
 Validation:
 - `.\gradlew.bat :pf4boot-management-starter:test --tests "net.xdob.pf4boot.management.starter.PluginManagementControllerTest"`

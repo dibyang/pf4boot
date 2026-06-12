@@ -360,6 +360,108 @@ public class PluginManagementController {
     }
   }
 
+  @PostMapping("/deployments/{deploymentId}/confirm")
+  public PluginAdminResponse<DeploymentRecord> confirm(
+      @PathVariable("deploymentId") String deploymentId,
+      HttpServletRequest request) {
+    // Confirm turns a prechecked plan into real execution and follows the same security + idempotency pipeline.
+    PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
+        request,
+        PluginManagementOperation.DEPLOYMENT_CONFIRM,
+        null,
+        deploymentId,
+        properties);
+    writeSecurityPolicy.validateWriteRequest(request, mgmtRequest);
+    PluginManagementPrincipal principal = authenticateAndAuthorize(
+        mgmtRequest,
+        PluginManagementOperation.DEPLOYMENT_CONFIRM);
+
+    String principalId = safePrincipalId(principal, mgmtRequest);
+    String operationId = requestFactory.buildOperationId();
+    String requestHash = requestHash(mgmtRequest, "deployment-confirm", deploymentId);
+    PluginOperationRecord recordReplay = idempotencyService.begin(
+        mgmtRequest,
+        PluginManagementOperation.DEPLOYMENT_CONFIRM,
+        principalId,
+        requestHash,
+        operationId,
+        deploymentId);
+    if (recordReplay != null) {
+      return replayResponse(mgmtRequest, recordReplay, "deployment confirm replayed");
+    }
+
+    try {
+      DeploymentRecord source = deploymentRecordStore.findById(deploymentId);
+      if (source == null) {
+        throw new PluginManagementException(
+            PluginManagementErrorCode.NOT_FOUND,
+            "Deployment record not found: " + deploymentId,
+            404);
+      }
+      DeploymentPlan plan = source.getPlan();
+      if (plan == null || plan.getTargetPluginId() == null || plan.getStagedPluginPath() == null) {
+        throw new PluginManagementException(
+            PluginManagementErrorCode.PRECHECK_FAILED,
+            "Deployment plan is not available for confirm: " + deploymentId,
+            422);
+      }
+      if (source.getState() != DeploymentState.PRECHECKED) {
+        throw new PluginManagementException(
+            PluginManagementErrorCode.PRECHECK_FAILED,
+            "Deployment must be prechecked before confirm: " + deploymentId,
+            422);
+      }
+      Path resolvedPlanPath = pathValidator.resolveStagedPath(properties.getStagingRoot(), plan.getStagedPluginPath());
+      DeploymentRecord result = deploymentService.replace(plan.getTargetPluginId(), resolvedPlanPath);
+      deploymentRecordStore.save(result);
+
+      PluginOperationRecord operationRecord = operationStore.findById(operationId);
+      if (!isDeploymentSucceeded(result)) {
+        PluginManagementErrorCode errorCode = mapDeploymentErrorCode(result);
+        idempotencyService.markFinished(operationRecord, false, errorCode.getCode(), messageForDeployment(result),
+            summary(result));
+        PluginManagementAuditEvent event = buildEvent(
+            mgmtRequest,
+            principal,
+            operationId,
+            PluginManagementOperation.DEPLOYMENT_CONFIRM,
+            errorCode.getCode(),
+            messageForDeployment(result));
+        auditRecorder.record(event);
+        return PluginAdminResponse.failed(
+            mgmtRequest.getRequestId(),
+            operationId,
+            errorCode,
+            messageForDeployment(result),
+            result == null ? Collections.<String>emptyList() : Collections.singletonList(summary(result)));
+      }
+
+      idempotencyService.markFinished(operationRecord, true, CODE_OK, messageForDeployment(result), summary(result));
+      PluginManagementAuditEvent event = buildEvent(
+          mgmtRequest,
+          principal,
+          operationId,
+          PluginManagementOperation.DEPLOYMENT_CONFIRM,
+          CODE_OK,
+          messageForDeployment(result));
+      auditRecorder.record(event);
+      return PluginAdminResponse.ok(
+          mgmtRequest.getRequestId(),
+          operationId,
+          messageForDeployment(result),
+          result);
+    } catch (RuntimeException e) {
+      PluginOperationRecord operationRecord = operationStore.findById(operationId);
+      idempotencyService.markFinished(
+          operationRecord,
+          false,
+          PluginManagementErrorCode.OPERATION_FAILED.getCode(),
+          safeMessage(e),
+          null);
+      throw e;
+    }
+  }
+
   private PluginAdminResponse<DeploymentRecord> deploymentOperation(
       HttpServletRequest request,
       PluginDeploymentRequest body,

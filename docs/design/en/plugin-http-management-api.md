@@ -137,7 +137,7 @@ All responses use `PluginAdminResponse<T>`:
 | `POST` | `/pf4boot/admin/deployments/plan` | Generate a hot replacement plan without runtime mutation |
 | `POST` | `/pf4boot/admin/deployments/replace` | Execute hot replacement |
 | `POST` | `/pf4boot/admin/deployments/{deploymentId}/rollback` | Roll back a deployment |
-| `POST` | `/pf4boot/admin/deployments/{deploymentId}/confirm` | **Follow-up**: manual gate or dry-run confirmation endpoint, not implemented in this phase |
+| `POST` | `/pf4boot/admin/deployments/{deploymentId}/confirm` | Execute a `PRECHECKED` deployment plan; idempotent replay for same key |
 
 Package paths must reference files under configured staging roots only.
 
@@ -150,6 +150,7 @@ Package paths must reference files under configured staging roots only.
 | `pf4boot:plugin:reload` | low-level reload |
 | `pf4boot:deployment:plan` | deployment plan |
 | `pf4boot:deployment:replace` | hot replacement |
+| `pf4boot:deployment:replace` | execute confirmed/prechecked deployment |
 | `pf4boot:deployment:rollback` | rollback |
 | `pf4boot:admin:all` | all operations |
 
@@ -251,6 +252,7 @@ If the management surface initially lives in `pf4boot-web-starter`, replace the 
 ## Implementation Notes for Handover
 
 - `POST /deployments/{deploymentId}/rollback` must pass the shared write security policy before authentication and authorization in the controller, and then reuse the same `idempotency + audit` flow as plan/replace.
+- `POST /deployments/{deploymentId}/confirm` must run inside the same `validateWrite` / authenticate / authorize / idempotency pipeline, and only execute prechecked records.
 - `pf4boot-plugin` lifecycle calls must be guarded by explicit permissions (`plugin:lifecycle`, `plugin:reload`, `deployment:plan/replace/rollback`) and the request pipeline should remain:
   - `validateWrite` -> `authenticate` -> `authorize` -> `idempotency` -> execute -> `record`.
 - Keep API response shape stable for smaller model handoff: always fill `requestId`, `operationId`, `code`, `message`, and `success`; avoid leaking raw exception.
