@@ -21,6 +21,7 @@ public class PluginManagementRateLimiter {
   }
 
   public void validateWrite(String subjectKey) {
+    // Fixed-window memory limiter: reject burst traffic when writes per minute exceeds threshold.
     if (!properties.getRateLimit().isEnabled()) {
       return;
     }

@@ -84,6 +84,7 @@ public class PluginManagementController {
 
   @GetMapping("/plugins")
   public PluginAdminResponse<List<PluginRuntimeSnapshot>> plugins(HttpServletRequest request) {
+    // Read path only: build request context, authenticate by SPI, and list runtime snapshots.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
         PluginManagementOperation.PLUGIN_READ,
@@ -106,6 +107,7 @@ public class PluginManagementController {
   public PluginAdminResponse<PluginRuntimeSnapshot> plugin(
       @PathVariable String pluginId,
       HttpServletRequest request) {
+    // Read path only: read single plugin snapshot by pluginId and fail fast when missing.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
         PluginManagementOperation.PLUGIN_READ,
@@ -128,6 +130,7 @@ public class PluginManagementController {
   public PluginAdminResponse<PluginRuntimeSnapshot> start(
       @PathVariable String pluginId,
       HttpServletRequest request) {
+    // Lifecycle endpoint: always goes through write-security + SPI auth + idempotency gate.
     return mutatePlugin(request,
         pluginId,
         PluginManagementOperation.PLUGIN_START,
@@ -139,6 +142,7 @@ public class PluginManagementController {
   public PluginAdminResponse<PluginRuntimeSnapshot> stop(
       @PathVariable String pluginId,
       HttpServletRequest request) {
+    // Lifecycle endpoint: stop existing plugin by pluginId.
     return mutatePlugin(request,
         pluginId,
         PluginManagementOperation.PLUGIN_STOP,
@@ -150,6 +154,7 @@ public class PluginManagementController {
   public PluginAdminResponse<PluginRuntimeSnapshot> restart(
       @PathVariable String pluginId,
       HttpServletRequest request) {
+    // Lifecycle endpoint: restart existing plugin by pluginId.
     return mutatePlugin(request,
         pluginId,
         PluginManagementOperation.PLUGIN_RESTART,
@@ -161,6 +166,7 @@ public class PluginManagementController {
   public PluginAdminResponse<PluginRuntimeSnapshot> reload(
       @PathVariable String pluginId,
       HttpServletRequest request) {
+    // Low-level lifecycle fallback endpoint; not treated as replacement workflow.
     return mutatePlugin(request,
         pluginId,
         PluginManagementOperation.PLUGIN_RELOAD,
@@ -172,6 +178,7 @@ public class PluginManagementController {
   public PluginAdminResponse<PluginRuntimeSnapshot> enable(
       @PathVariable String pluginId,
       HttpServletRequest request) {
+    // Enable lifecycle endpoint.
     return mutatePlugin(request,
         pluginId,
         PluginManagementOperation.PLUGIN_ENABLE,
@@ -186,6 +193,7 @@ public class PluginManagementController {
   public PluginAdminResponse<PluginRuntimeSnapshot> disable(
       @PathVariable String pluginId,
       HttpServletRequest request) {
+    // Disable lifecycle endpoint.
     return mutatePlugin(request,
         pluginId,
         PluginManagementOperation.PLUGIN_DISABLE,
@@ -198,6 +206,7 @@ public class PluginManagementController {
 
   @GetMapping("/deployments")
   public PluginAdminResponse<List<DeploymentRecord>> deployments(HttpServletRequest request) {
+    // Read-only deployment history query path.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
         PluginManagementOperation.DEPLOYMENT_QUERY,
@@ -226,6 +235,7 @@ public class PluginManagementController {
   public PluginAdminResponse<DeploymentRecord> deployment(
       @PathVariable String deploymentId,
       HttpServletRequest request) {
+    // Query single deployment record by id.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
         PluginManagementOperation.DEPLOYMENT_QUERY,
@@ -347,6 +357,7 @@ public class PluginManagementController {
       HttpServletRequest request,
       PluginDeploymentRequest body,
       PluginManagementOperation operation) {
+    // Shared write path for plan/replace to guarantee same auth, security and idempotency flow.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
         operation,
@@ -458,6 +469,7 @@ public class PluginManagementController {
       PluginManagementOperation operation,
       String successMessage,
       PluginAction action) {
+    // Shared mutation helper for lifecycle operations: idempotency-first execution and audit recording.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
         operation,
@@ -504,6 +516,7 @@ public class PluginManagementController {
   private PluginManagementPrincipal authenticateAndAuthorize(
       PluginManagementRequest request,
       PluginManagementOperation operation) {
+    // Centralized identity + permission check to keep endpoint behavior consistent.
     PluginManagementPrincipal principal = authorizer.authenticate(request);
     if (principal == null) {
       throw new PluginManagementException(
@@ -553,6 +566,7 @@ public class PluginManagementController {
       String pluginId,
       Path stagedPath,
       boolean dryRun) {
+    // Explicitly map deployment operation to service methods; ensure no silent fallback.
     if (operation == PluginManagementOperation.DEPLOYMENT_REPLACE) {
       return deploymentService.replace(pluginId, stagedPath);
     }
@@ -566,6 +580,7 @@ public class PluginManagementController {
   }
 
   private DeploymentRecord rollbackByPlan(DeploymentPlan plan) {
+    // Rollback must stop->unload->restore->start->health-check in a fixed order.
     if (plan == null || plan.getRollbackSnapshot() == null) {
       throw new PluginManagementException(
           PluginManagementErrorCode.PRECHECK_FAILED,
@@ -727,6 +742,7 @@ public class PluginManagementController {
   }
 
   private String requestHash(PluginManagementRequest request, String... parts) {
+    // Hashes operation context to detect same-key duplicate requests with different bodies.
     List<String> chunks = new ArrayList<String>();
     chunks.add(request.getOperation() == null ? "" : request.getOperation().name());
     chunks.add(safe(request.getPluginId()));

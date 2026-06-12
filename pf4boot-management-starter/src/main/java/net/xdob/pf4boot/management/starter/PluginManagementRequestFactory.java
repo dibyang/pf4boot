@@ -19,6 +19,7 @@ public class PluginManagementRequestFactory {
       String principalId,
       HttpServletRequest request,
       Pf4bootManagementProperties properties) {
+    // Build a trace context object for logging/audit before any endpoint executes.
     PluginManagementRequest mgmtRequest = requestBody(operation, deploymentId);
     mgmtRequest.setRequestId(requestId(request));
     mgmtRequest.setOperation(operation);
@@ -51,6 +52,7 @@ public class PluginManagementRequestFactory {
       String pluginId,
       String deploymentId,
       Pf4bootManagementProperties properties) {
+    // Build a request object consistently for auth/authorize/idempotency pipeline.
     PluginManagementRequest mgmtRequest = requestBody(operation, deploymentId);
     mgmtRequest.setRequestId(requestId(request));
     mgmtRequest.setOperation(operation);
@@ -85,6 +87,7 @@ public class PluginManagementRequestFactory {
   }
 
   private String idempotencyKey(HttpServletRequest request, Pf4bootManagementProperties properties) {
+    // Idempotency keys are optional/required by policy; transport extraction happens here.
     return request.getHeader(properties.getIdempotencyHeader());
   }
 

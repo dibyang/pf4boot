@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 public class PluginManagementPathValidator {
 
   public Path resolveStagedPath(String stagingRoot, String stagedPluginPath) {
+    // Only allow staged artifacts that stay under the configured staging root.
     if (stagingRoot == null || stagingRoot.trim().isEmpty()) {
       throw new PluginManagementException(
           PluginManagementErrorCode.UNAVAILABLE,
