@@ -13,14 +13,17 @@ This guide gives plugin developers a minimal end-to-end path for dependency scop
 
 ## Plugin Package Verification
 
-Hosts can enable pre-load plugin package governance:
+Hosts can enable pre-load plugin package governance. Checksums cover package integrity, while the trust manifest carries package digest, signature metadata, and capability declarations:
 
 ```yaml
 spring:
   pf4boot:
     plugin-package-verification-mode: WARN
+    plugin-package-trust-mode: WARN
     plugin-compatibility-verification-mode: WARN
     plugin-package-checksum-extension: .sha256
+    plugin-package-trust-manifest-extension: .pf4boot-trust.json
+    plugin-capability-precheck-mode: WARN
     system-version: 1.0.0
 ```
 
@@ -28,7 +31,53 @@ spring:
 - `WARN`: logs missing checksums, checksum mismatches, or incompatible system versions without blocking load.
 - `ENFORCE`: blocks plugin loading when verification fails.
 
-The default checksum file lives next to the plugin package, for example `sample-workflow.zip.sha256`. Signature verification remains a later topic and does not block checksum/verifier usage.
+The default checksum file lives next to the plugin package, for example `sample-workflow.zip.sha256`. The first-stage trust manifest is also a sidecar file, for example `sample-workflow.zip.pf4boot-trust.json`:
+
+```json
+{
+  "formatVersion": 1,
+  "pluginId": "sample-workflow",
+  "pluginVersion": "3.0.0-SNAPSHOT",
+  "packageSha256": "lowercase-hex-sha256",
+  "signature": {
+    "algorithm": "SHA256withRSA",
+    "keyId": "local-dev-key",
+    "value": "base64-signature"
+  },
+  "capabilities": {
+    "provides": [
+      {
+        "name": "jpa.consumer",
+        "version": "1",
+        "scope": "PLUGIN",
+        "attributes": {
+          "datasource": "orderDs"
+        }
+      }
+    ],
+    "requires": [
+      {
+        "name": "jpa.datasource",
+        "versionRange": "[1,2)",
+        "required": true,
+        "attributes": {
+          "datasource": "orderDs",
+          "entityPackages": "net.xdob.sample.model.userbook",
+          "repositoryPackages": "net.xdob.sample.userbook.repository"
+        }
+      }
+    ]
+  }
+}
+```
+
+Recommended production migration:
+
+1. `DISABLED`: deploy historical plugins without manifests first and confirm behavior stays unchanged.
+2. `WARN`: generate `.sha256` and `.pf4boot-trust.json` for new packages and observe missing manifest, digest mismatch, signature metadata, and missing capability warnings.
+3. `ENFORCE`: enable only after every deployed plugin has manifests, checksums, and required capability declarations. Run deployment prechecks in staging first.
+
+Note: `signature.value`, tokens, private key paths, and full stacks must not be written into HTTP responses, audit records, or the operation store. The framework performs baseline sanitization, but the plugin release flow should also avoid placing private keys or raw credentials in manifests.
 
 ## Read-Only Observability
 

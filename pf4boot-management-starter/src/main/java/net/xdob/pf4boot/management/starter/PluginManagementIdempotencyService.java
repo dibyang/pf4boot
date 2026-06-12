@@ -72,8 +72,8 @@ public class PluginManagementIdempotencyService {
     }
     record.setSuccess(success);
     record.setResponseCode(code);
-    record.setResponseMessage(message);
-    record.setResponseBodySummary(responseBodySummary);
+    record.setResponseMessage(PluginManagementResponseSanitizer.safeText(message));
+    record.setResponseBodySummary(PluginManagementResponseSanitizer.safeText(responseBodySummary));
     record.setState(success ? "SUCCEEDED" : "FAILED");
     record.setUpdatedAt(System.currentTimeMillis());
     operationStore.save(record);

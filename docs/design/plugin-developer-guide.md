@@ -13,14 +13,17 @@
 
 ## 插件包校验
 
-宿主可启用加载前插件包治理：
+宿主可启用加载前插件包治理。checksum 用于包完整性，trust manifest 用于包摘要、签名元数据和能力声明：
 
 ```yaml
 spring:
   pf4boot:
     plugin-package-verification-mode: WARN
+    plugin-package-trust-mode: WARN
     plugin-compatibility-verification-mode: WARN
     plugin-package-checksum-extension: .sha256
+    plugin-package-trust-manifest-extension: .pf4boot-trust.json
+    plugin-capability-precheck-mode: WARN
     system-version: 1.0.0
 ```
 
@@ -28,7 +31,53 @@ spring:
 - `WARN`：记录缺失 checksum、checksum 不匹配或系统版本不兼容，不阻断加载。
 - `ENFORCE`：校验失败时阻断插件加载。
 
-默认 checksum 文件位于插件包同级目录，例如 `sample-workflow.zip.sha256`。签名校验作为后续专题，不阻塞 checksum/verifier 使用。
+默认 checksum 文件位于插件包同级目录，例如 `sample-workflow.zip.sha256`。trust manifest 第一阶段也使用同级旁路文件，例如 `sample-workflow.zip.pf4boot-trust.json`：
+
+```json
+{
+  "formatVersion": 1,
+  "pluginId": "sample-workflow",
+  "pluginVersion": "3.0.0-SNAPSHOT",
+  "packageSha256": "lowercase-hex-sha256",
+  "signature": {
+    "algorithm": "SHA256withRSA",
+    "keyId": "local-dev-key",
+    "value": "base64-signature"
+  },
+  "capabilities": {
+    "provides": [
+      {
+        "name": "jpa.consumer",
+        "version": "1",
+        "scope": "PLUGIN",
+        "attributes": {
+          "datasource": "orderDs"
+        }
+      }
+    ],
+    "requires": [
+      {
+        "name": "jpa.datasource",
+        "versionRange": "[1,2)",
+        "required": true,
+        "attributes": {
+          "datasource": "orderDs",
+          "entityPackages": "net.xdob.sample.model.userbook",
+          "repositoryPackages": "net.xdob.sample.userbook.repository"
+        }
+      }
+    ]
+  }
+}
+```
+
+生产迁移建议：
+
+1. `DISABLED`：先部署不带 manifest 的历史插件，确认业务行为不变。
+2. `WARN`：为新包生成 `.sha256` 和 `.pf4boot-trust.json`，观察缺失、摘要不一致、签名元数据和能力缺失告警。
+3. `ENFORCE`：只在所有上线插件都具备 manifest、checksum 和必要能力声明后启用；启用前先在预发环境跑部署预检。
+
+注意：`signature.value`、token、私钥路径和完整堆栈不得写入 HTTP 响应、审计记录或 operation store。框架会做基础脱敏，但插件发布流程也应避免把私钥或原始凭证放进 manifest。
 
 ## 只读观测
 

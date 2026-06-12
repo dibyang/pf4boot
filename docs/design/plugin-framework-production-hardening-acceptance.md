@@ -30,8 +30,8 @@
 | P1-AC2：默认配置不阻断历史无签名插件 | Done | `DefaultPluginPackageTrustVerifierTest.disabledModeIgnoresMissingManifest` |
 | P1-AC3：WARN 模式能记录缺失清单、签名元数据问题、信任根缺失 | Done | `DefaultPluginPackageTrustVerifierTest.warnModeRecordsMissingManifest`、`warnModeRecordsMissingTrustRootForSignatureMetadata` |
 | P1-AC4：ENFORCE 模式能阻断不可信插件包 | Done | `DefaultPluginPackageTrustVerifierTest.enforceModeRejectsMissingManifest`、`enforceModeRejectsManifestChecksumMismatch` |
-| P1-AC5：管理接口错误响应不泄露 token、私钥路径、完整堆栈或敏感路径 | Planned | 待补充 |
-| P1-AC6：开发指南包含插件包 manifest 示例和 WARN 到 ENFORCE 的迁移步骤 | Planned | 待补充 |
+| P1-AC5：管理接口错误响应不泄露 token、私钥路径、完整堆栈或敏感路径 | Done | `PluginManagementExceptionHandlerTest.sanitizesFailureMessage`、`PluginManagementResponseSanitizerTest.safeTextRedactsSecretsPathsAndStackFrames`、`PluginManagementControllerTest.deploymentResponseAndAuditMessageAreSanitized`；已执行 `.\gradlew.bat :pf4boot-management-starter:test` |
+| P1-AC6：开发指南包含插件包 manifest 示例和 WARN 到 ENFORCE 的迁移步骤 | Done | `docs/design/plugin-developer-guide.md` 和英文版新增 `.pf4boot-trust.json` 示例、`DISABLED/WARN/ENFORCE` 迁移步骤 |
 
 ## P2 操作/部署/审计持久化
 
@@ -43,7 +43,7 @@
 | P2-AC3：文件 recorder 支持追加写入，损坏记录不会被识别为成功 | Done | `FilePluginOperationStoreTest.skipCorruptedLineWhenReloading` |
 | P2-AC4：相同幂等 key 在宿主重启后仍能返回已有结果或冲突 | Done | `FilePluginOperationStoreTest.appendAndReadLatestRecordAfterRestart`、`saveIfIdempotencyKeyAbsentReturnsExistingRecord` |
 | P2-AC5：执行中操作记录在重启后可被恢复扫描识别，部署记录可跨重启查询 | Done | `FilePluginOperationStoreTest.scanRecoverableRecordsReturnsOnlyRunningStates`、`FilePluginDeploymentRecordStoreTest.appendAndReadDeploymentRecordAfterRestart` |
-| P2-AC6：审计记录不包含 token、完整敏感路径和完整异常堆栈 | Planned | 待补充 |
+| P2-AC6：审计记录不包含 token、完整敏感路径和完整异常堆栈 | Done | `PluginManagementIdempotencyServiceTest.markFinishedSanitizesPersistedMessages` 覆盖 operation store 持久化消息脱敏；`PluginManagementControllerTest.deploymentResponseAndAuditMessageAreSanitized` 覆盖审计消息脱敏；已执行 `.\gradlew.bat :pf4boot-management-starter:test` |
 
 ## P3 生命周期并发与资源泄漏验证
 

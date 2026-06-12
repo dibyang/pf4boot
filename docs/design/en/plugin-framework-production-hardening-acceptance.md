@@ -30,8 +30,8 @@ After each completed task, add evidence such as commit hash, verification comman
 | P1-AC2: Default configuration does not block historical unsigned plugins | Done | `DefaultPluginPackageTrustVerifierTest.disabledModeIgnoresMissingManifest` |
 | P1-AC3: WARN mode records missing manifest, signature metadata issues, and missing trust root | Done | `DefaultPluginPackageTrustVerifierTest.warnModeRecordsMissingManifest`, `warnModeRecordsMissingTrustRootForSignatureMetadata` |
 | P1-AC4: ENFORCE mode blocks untrusted plugin packages | Done | `DefaultPluginPackageTrustVerifierTest.enforceModeRejectsMissingManifest`, `enforceModeRejectsManifestChecksumMismatch` |
-| P1-AC5: Management errors do not leak tokens, private key paths, full stacks, or sensitive paths | Planned | TBD |
-| P1-AC6: Developer guide includes manifest examples and WARN-to-ENFORCE migration | Planned | TBD |
+| P1-AC5: Management errors do not leak tokens, private key paths, full stacks, or sensitive paths | Done | `PluginManagementExceptionHandlerTest.sanitizesFailureMessage`, `PluginManagementResponseSanitizerTest.safeTextRedactsSecretsPathsAndStackFrames`, `PluginManagementControllerTest.deploymentResponseAndAuditMessageAreSanitized`; ran `.\gradlew.bat :pf4boot-management-starter:test` |
+| P1-AC6: Developer guide includes manifest examples and WARN-to-ENFORCE migration | Done | `docs/design/plugin-developer-guide.md` and English translation now include `.pf4boot-trust.json` example and `DISABLED/WARN/ENFORCE` migration steps |
 
 ## P2 Operation/Deployment/Audit Persistence
 
@@ -43,7 +43,7 @@ After each completed task, add evidence such as commit hash, verification comman
 | P2-AC3: File recorder supports append writes and does not treat corrupted records as success | Done | `FilePluginOperationStoreTest.skipCorruptedLineWhenReloading` |
 | P2-AC4: The same idempotency key returns the existing result or conflict after host restart | Done | `FilePluginOperationStoreTest.appendAndReadLatestRecordAfterRestart`, `saveIfIdempotencyKeyAbsentReturnsExistingRecord` |
 | P2-AC5: Running operation records can be recognized by recovery scanning after restart, and deployment records can be queried across restart | Done | `FilePluginOperationStoreTest.scanRecoverableRecordsReturnsOnlyRunningStates`, `FilePluginDeploymentRecordStoreTest.appendAndReadDeploymentRecordAfterRestart` |
-| P2-AC6: Audit records do not include tokens, full sensitive paths, or full exception stacks | Planned | TBD |
+| P2-AC6: Audit records do not include tokens, full sensitive paths, or full exception stacks | Done | `PluginManagementIdempotencyServiceTest.markFinishedSanitizesPersistedMessages` covers operation store sanitization; `PluginManagementControllerTest.deploymentResponseAndAuditMessageAreSanitized` covers audit message sanitization; ran `.\gradlew.bat :pf4boot-management-starter:test` |
 
 ## P3 Lifecycle Concurrency And Leak Verification
 

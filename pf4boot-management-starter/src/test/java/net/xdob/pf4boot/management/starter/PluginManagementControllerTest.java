@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
@@ -162,6 +163,25 @@ public class PluginManagementControllerTest {
     assertEquals(1, auditRecorder.events.size());
     assertEquals(PluginManagementOperation.DEPLOYMENT_REPLACE, auditRecorder.events.get(0).getOperation());
     assertEquals(PluginManagementErrorCode.FORBIDDEN.getCode(), auditRecorder.events.get(0).getCode());
+  }
+
+  @Test
+  public void deploymentResponseAndAuditMessageAreSanitized() {
+    Pf4bootManagementProperties properties = properties();
+    CapturingAuditRecorder auditRecorder = new CapturingAuditRecorder();
+    PluginManagementController controller =
+        controller(properties, new InvocationRecorder().createPluginManager(), new SensitiveDeploymentService(),
+            new InMemoryPluginDeploymentRecordStore(), auditRecorder);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/replace");
+    PluginDeploymentRequest body = deploymentRequest("sample-workflow", "plugin.jar");
+    body.setDryRun(false);
+
+    PluginAdminResponse<DeploymentRecord> response = controller.replace(body, request);
+
+    assertNotNull(response);
+    assertEquals(1, auditRecorder.events.size());
+    assertSanitized(response.getMessage());
+    assertSanitized(auditRecorder.events.get(0).getMessage());
   }
 
   @Test
@@ -497,6 +517,27 @@ public class PluginManagementControllerTest {
           "replace ok",
           null);
     }
+  }
+
+  private static class SensitiveDeploymentService extends RecordingDeploymentService {
+    @Override
+    public DeploymentRecord replace(String targetPluginId, java.nio.file.Path stagedPluginPath) {
+      return new DeploymentRecord(
+          "sensitive-deployment",
+          targetPluginId,
+          DeploymentState.SUCCEEDED,
+          1L,
+          1L,
+          "replaced from D:\\secret\\plugin.zip token=sample-token\n"
+              + "    at com.example.Secret.run(Secret.java:1)",
+          null);
+    }
+  }
+
+  private void assertSanitized(String value) {
+    assertFalse(value.contains("sample-token"));
+    assertFalse(value.contains("D:\\secret\\plugin.zip"));
+    assertFalse(value.contains("com.example.Secret.run"));
   }
 
   private static class InvocationRecorder {

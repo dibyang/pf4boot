@@ -875,7 +875,7 @@ public class PluginManagementController {
     event.setOperation(operation);
     event.setSuccess("OK".equals(code));
     event.setCode(code);
-    event.setMessage(message);
+    event.setMessage(PluginManagementResponseSanitizer.safeText(message));
     event.setTimestamp(System.currentTimeMillis());
     if (principal != null) {
       event.setPrincipalId(principal.getPrincipalId());
@@ -1021,7 +1021,9 @@ public class PluginManagementController {
   }
 
   private String messageForDeployment(DeploymentRecord record) {
-    return record == null ? "deployment failed" : String.valueOf(record.getMessage());
+    return record == null
+        ? "deployment failed"
+        : PluginManagementResponseSanitizer.safeText(String.valueOf(record.getMessage()));
   }
 
   private String summary(PluginRuntimeSnapshot snapshot) {

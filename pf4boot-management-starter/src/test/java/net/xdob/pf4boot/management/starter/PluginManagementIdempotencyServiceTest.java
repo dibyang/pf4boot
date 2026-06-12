@@ -10,6 +10,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
@@ -60,6 +61,32 @@ public class PluginManagementIdempotencyServiceTest {
     PluginManagementRequest request = request("k1", "p1");
     assertNull(service.begin(request, PluginManagementOperation.PLUGIN_START, "admin", "h1", "op-1", null));
     assertNull(service.begin(request, PluginManagementOperation.PLUGIN_START, "admin", "h2", "op-2", null));
+  }
+
+  @Test
+  public void markFinishedSanitizesPersistedMessages() {
+    Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
+    properties.setRequireIdempotencyKey(true);
+    PluginOperationStore store = new InMemoryPluginOperationStore();
+    PluginManagementIdempotencyService service = new PluginManagementIdempotencyService(properties, store);
+    PluginManagementRequest request = request("k1", "p1");
+
+    service.begin(request, PluginManagementOperation.PLUGIN_START, "admin", "h1", "op-1", null);
+    service.markFinished(
+        store.findById("op-1"),
+        false,
+        PluginManagementErrorCode.OPERATION_FAILED.getCode(),
+        "failed at D:\\secret\\plugin.zip token=sample-token\n\tat com.example.Secret.run(Secret.java:1)",
+        "privateKey=/etc/pf4boot/private.pem password=secret");
+
+    String message = store.findById("op-1").getResponseMessage();
+    String summary = store.findById("op-1").getResponseBodySummary();
+    assertFalse(message.contains("sample-token"));
+    assertFalse(message.contains("D:\\secret\\plugin.zip"));
+    assertFalse(message.contains("com.example.Secret.run"));
+    assertFalse(summary.contains("/etc/pf4boot/private.pem"));
+    assertFalse(summary.contains("secret"));
+    assertEquals(PluginManagementErrorCode.OPERATION_FAILED.getCode(), store.findById("op-1").getResponseCode());
   }
 
   @Test
