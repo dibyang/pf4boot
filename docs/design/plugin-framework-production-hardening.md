@@ -224,6 +224,63 @@ work/pf4boot/
 5. P1/P2/P3 的实现不得修改现有插件 descriptor 的必填字段；需要新字段时放在旁路 manifest。
 6. 所有新 public 类型必须有 JavaDoc 或文档表格说明语义；实现类只在复杂逻辑处写必要注释。
 
+### 面向小模型的实施手册
+
+本节用于约束后续由较小模型分阶段实施时的动作顺序。实施模型不得跳过本节检查，也不得把多个阶段混在一个提交里。
+
+#### 每次实施前必须读取
+
+| 目的 | 必读文件 |
+| --- | --- |
+| 项目边界 | `AGENTS.md`、`docs/constraints/README.md` |
+| 当前阶段设计 | 本文件对应章节、`plugin-framework-production-hardening-plan.md` 的阶段任务 |
+| 验收状态 | `plugin-framework-production-hardening-acceptance.md` |
+| 模块依赖 | `settings.gradle`、目标模块 `build.gradle` |
+| 相邻实现 | 目标类及其测试类，例如 `Pf4bootPluginManagerImpl`、`DefaultPluginDeploymentService`、对应 `*Test` |
+
+如果上述文件与当前代码不一致，以当前代码为准补充最小设计说明，再继续编码；不要直接重写已有实现。
+
+#### 标准实施循环
+
+1. 用 `git status --short` 确认工作区，记录已有未提交改动是否属于本阶段。
+2. 用 `rg` 搜索目标接口、配置项、错误码和测试类，确认已有类型能否复用。
+3. 先改 API 或 DTO，再改 runtime 实现，再改 starter 自动配置，最后改 sample 和文档。
+4. 每完成一个可独立验证的小点，运行最窄 Gradle 命令。
+5. 更新验收文档：只把已有命令或测试证据的条目标为 `Done`；未执行不得标 Done。
+6. 检查中文文档 UTF-8、`git diff --check` 和敏感信息泄露。
+7. 本地提交，提交信息必须能对应一个阶段或一个明确子任务。
+
+#### 代码入口定位表
+
+| 需要接入的行为 | 优先定位方式 | 常见入口 |
+| --- | --- | --- |
+| 插件包加载前校验 | `rg "PluginPackageVerifier|loadPlugin"` | `Pf4bootPluginManagerImpl` |
+| 热替换预检 | `rg "planReplacement|DeploymentCheckResult"` | `DefaultPluginDeploymentService` |
+| 管理 HTTP 写操作 | `rg "X-PF4Boot-Admin-Token|Idempotency|PluginManagement"` | `pf4boot-management-starter` Controller/Service |
+| Spring Boot 配置 | `rg "Pf4bootProperties|ConfigurationProperties"` | `Pf4bootProperties`、各 starter auto configuration |
+| Actuator 只读观测 | `rg "Endpoint|RuntimeInspector|Snapshot"` | `pf4boot-actuator` |
+| JPA 共享事务 | `rg "JpaDomain|EntityManagerFactory|TransactionManager"` | `pf4boot-jpa`、`pf4boot-jpa-starter`、`pf4boot-jpa-domain-starter` |
+| 示例打包与运行 | `rg "assembleSamplePlugins|cross-plugin-jpa"` | `samples/cross-plugin-jpa` |
+
+#### 决策规则
+
+| 分歧 | 默认选择 | 需要升级讨论的情况 |
+| --- | --- | --- |
+| 新增公共类型还是复用已有类型 | 复用已有同语义类型 | 复用会改变历史语义或破坏二进制兼容 |
+| 新增依赖还是手写轻量逻辑 | 优先不用新依赖 | 解析/校验逻辑复杂到容易产生安全问题 |
+| WARN 还是 ENFORCE 默认 | 默认 `DISABLED` 或 `WARN` | 用户明确要求新应用强治理模板 |
+| 文件持久化失败 | fail closed | 只读查询路径可以降级为空结果并记录 warning |
+| 版本范围解析 | 第一阶段最小实现并记录限制 | 需要阻断生产部署且 PF4J 无法复用 |
+| sample 是否必须覆盖 | 涉及运行时流程就必须覆盖最小 smoke | 仅纯 API 模型且已有单元测试足够 |
+
+#### 不允许的落地方式
+
+- 不允许为了通过测试把校验、鉴权、幂等或 token 检查关闭。
+- 不允许在 `pf4boot-core` 反向依赖 starter、actuator 或 sample。
+- 不允许在默认配置下阻断历史插件启动。
+- 不允许把测试用 fake、硬编码路径或本机私有配置写入生产代码。
+- 不允许把跨数据源事务作为能力声明或 smoke 的隐含成功条件。
+
 ## 接口设计
 
 ### 插件包信任链

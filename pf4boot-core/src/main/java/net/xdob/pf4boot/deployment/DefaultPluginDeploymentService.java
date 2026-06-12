@@ -8,6 +8,12 @@ import net.xdob.pf4boot.PluginPackageVerificationMode;
 import net.xdob.pf4boot.PluginPackageVerificationResult;
 import net.xdob.pf4boot.PluginPackageVerifier;
 import net.xdob.pf4boot.Pf4bootPlugin;
+import net.xdob.pf4boot.capability.DefaultPluginCapabilityResolver;
+import net.xdob.pf4boot.capability.PluginCapability;
+import net.xdob.pf4boot.capability.PluginCapabilityDescriptor;
+import net.xdob.pf4boot.capability.PluginCapabilityPrecheck;
+import net.xdob.pf4boot.capability.PluginCapabilityPrecheckResult;
+import net.xdob.pf4boot.capability.PluginCapabilityResolver;
 import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
 import org.pf4j.PluginDependency;
 import org.pf4j.PluginDescriptor;
@@ -42,6 +48,8 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
   private final List<PluginCleanupVerifier> cleanupVerifiers;
   private final List<PluginHealthVerifier> healthVerifiers;
   private final List<PluginDeploymentRecorder> deploymentRecorders;
+  private final PluginCapabilityResolver capabilityResolver;
+  private final PluginCapabilityPrecheck capabilityPrecheck;
 
   public DefaultPluginDeploymentService(Pf4bootPluginManager pluginManager, Pf4bootProperties properties) {
     this(pluginManager, properties, Collections.emptyList());
@@ -91,6 +99,9 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
     this.cleanupVerifiers = unmodifiableCopy(cleanupVerifiers);
     this.healthVerifiers = unmodifiableCopy(healthVerifiers);
     this.deploymentRecorders = unmodifiableCopy(deploymentRecorders);
+    this.capabilityResolver = new DefaultPluginCapabilityResolver(
+        null, this.properties.getPluginPackageTrustManifestExtension());
+    this.capabilityPrecheck = new PluginCapabilityPrecheck();
   }
 
   private List<PluginPackageVerifier> createPluginPackageVerifiers(
@@ -126,6 +137,7 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
     checkPackage(stagedPluginPath, stagedDescriptor, checks);
     checkSystemCompatibility(stagedDescriptor, checks);
     checkDependencies(stagedDescriptor, checks);
+    checkCapabilities(stagedPluginPath, stagedDescriptor, checks);
     checkVersionProgress(currentPlugin, stagedDescriptor, checks);
 
     List<String> stopOrder = stopOrder(targetPluginId);
@@ -594,6 +606,86 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
             "DEPENDENCY_COMPATIBLE", "Dependency is available: " + dependency.getPluginId()));
       }
     }
+  }
+
+  private void checkCapabilities(
+      Path stagedPluginPath,
+      PluginDescriptor stagedDescriptor,
+      List<DeploymentCheckResult> checks) {
+    if (stagedDescriptor == null) {
+      return;
+    }
+    PluginPackageVerificationMode mode = properties.getPluginCapabilityPrecheckMode();
+    if (mode == null || PluginPackageVerificationMode.DISABLED.equals(mode)) {
+      return;
+    }
+    PluginCapabilityDescriptor stagedCapabilities;
+    try {
+      stagedCapabilities = capabilityResolver.resolve(stagedPluginPath, stagedDescriptor);
+    } catch (RuntimeException e) {
+      addCapabilityResult(checks, capabilityExceptionResult(
+          mode,
+          "PFC-001",
+          "Plugin capability manifest invalid: " + safeMessage(e)));
+      return;
+    }
+    List<PluginCapabilityPrecheckResult> results = capabilityPrecheck.check(
+        stagedCapabilities,
+        availableCapabilities(stagedDescriptor.getPluginId()),
+        mode);
+    for (PluginCapabilityPrecheckResult result : results) {
+      addCapabilityResult(checks, result);
+    }
+  }
+
+  private List<PluginCapability> availableCapabilities(String targetPluginId) {
+    List<PluginCapabilityDescriptor> descriptors = new ArrayList<>();
+    for (PluginWrapper plugin : pluginManager.getPlugins()) {
+      if (plugin == null || plugin.getDescriptor() == null || plugin.getPluginPath() == null) {
+        continue;
+      }
+      if (targetPluginId != null && targetPluginId.equals(plugin.getPluginId())) {
+        continue;
+      }
+      try {
+        descriptors.add(capabilityResolver.resolve(plugin.getPluginPath(), plugin.getDescriptor()));
+      } catch (RuntimeException ignored) {
+        // 已加载插件的历史 manifest 解析失败不应影响当前插件预检；异常会在该插件自身部署时暴露。
+      }
+    }
+    return capabilityResolver.providedCapabilities(descriptors);
+  }
+
+  private void addCapabilityResult(
+      List<DeploymentCheckResult> checks,
+      PluginCapabilityPrecheckResult result) {
+    if (result == null) {
+      return;
+    }
+    if (!result.isValid()) {
+      checks.add(DeploymentCheckResult.error(result.getCode(), result.getMessage()));
+    } else if (result.isWarning()) {
+      checks.add(DeploymentCheckResult.warn(result.getCode(), result.getMessage()));
+    } else {
+      checks.add(DeploymentCheckResult.info("CAPABILITY_PRECHECK_PASSED", result.getMessage()));
+    }
+  }
+
+  private String safeMessage(RuntimeException e) {
+    if (e == null || e.getMessage() == null) {
+      return e == null ? "unknown error" : e.getClass().getSimpleName();
+    }
+    return e.getMessage();
+  }
+
+  private PluginCapabilityPrecheckResult capabilityExceptionResult(
+      PluginPackageVerificationMode mode,
+      String code,
+      String message) {
+    if (PluginPackageVerificationMode.ENFORCE.equals(mode)) {
+      return PluginCapabilityPrecheckResult.fail(code, message);
+    }
+    return PluginCapabilityPrecheckResult.warn(code, message);
   }
 
   private void checkVersionProgress(

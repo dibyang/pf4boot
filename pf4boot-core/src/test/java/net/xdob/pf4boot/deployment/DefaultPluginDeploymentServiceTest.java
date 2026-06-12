@@ -6,6 +6,7 @@ import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManagerImpl;
 import net.xdob.pf4boot.Pf4bootPluginSupport;
 import net.xdob.pf4boot.Pf4bootPluginWrapper;
+import net.xdob.pf4boot.PluginPackageVerificationMode;
 import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
 import org.junit.After;
@@ -113,6 +114,65 @@ public class DefaultPluginDeploymentServiceTest {
     assertFalse(record.getPlan().isExecutable());
     assertTrue(record.getPlan().getCheckResults().stream()
         .anyMatch(result -> "REQUIRED_DEPENDENCY_MISSING".equals(result.getCode())));
+  }
+
+  @Test
+  public void planReplacementReportsMissingDatasourceCapabilityAsWarning() throws Exception {
+    pluginManager.addResolvedPlugin("consumer");
+    Path stagedPath = stageDescriptor(descriptor("consumer", "2.0.0"));
+    writeCapabilityManifest(stagedPath, "consumer", requiresDatasource("orderDs"));
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCapabilityPrecheckMode(PluginPackageVerificationMode.WARN);
+
+    DeploymentRecord record = service(properties).planReplacement("consumer", stagedPath);
+
+    assertEquals(DeploymentState.PRECHECKED, record.getState());
+    assertTrue(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PFC-002".equals(result.getCode())
+            && !result.isError()
+            && result.getMessage().contains("orderDs")));
+  }
+
+  @Test
+  public void planReplacementRejectsMissingDatasourceCapabilityInEnforceMode() throws Exception {
+    pluginManager.addResolvedPlugin("consumer");
+    Path stagedPath = stageDescriptor(descriptor("consumer", "2.0.0"));
+    writeCapabilityManifest(stagedPath, "consumer", requiresDatasource("orderDs"));
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCapabilityPrecheckMode(PluginPackageVerificationMode.ENFORCE);
+
+    DeploymentRecord record = service(properties).planReplacement("consumer", stagedPath);
+
+    assertEquals(DeploymentState.FAILED, record.getState());
+    assertFalse(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PFC-002".equals(result.getCode())
+            && result.isError()
+            && result.getMessage().contains("orderDs")));
+  }
+
+  @Test
+  public void planReplacementAcceptsDatasourceCapabilityFromAnotherPlugin() throws Exception {
+    pluginManager.addResolvedPlugin("provider", PluginState.STARTED);
+    writeCapabilityManifest(
+        pluginManager.getPlugin("provider").getPluginPath(),
+        "provider",
+        providesDatasource("orderDs"));
+    pluginManager.addResolvedPlugin("consumer", PluginState.STARTED, "provider");
+    Path stagedPath = stageDescriptor(descriptor("consumer", "2.0.0"));
+    writeCapabilityManifest(stagedPath, "consumer", requiresDatasource("orderDs"));
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCapabilityPrecheckMode(PluginPackageVerificationMode.ENFORCE);
+
+    DeploymentRecord record = service(properties).planReplacement("consumer", stagedPath);
+
+    assertEquals(DeploymentState.PRECHECKED, record.getState());
+    assertTrue(record.getPlan().isExecutable());
+    assertFalse(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PFC-002".equals(result.getCode())));
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "CAPABILITY_PRECHECK_PASSED".equals(result.getCode())));
   }
 
   @Test
@@ -326,6 +386,10 @@ public class DefaultPluginDeploymentServiceTest {
     return new DefaultPluginDeploymentService(pluginManager, new Pf4bootProperties(), Collections.emptyList());
   }
 
+  private DefaultPluginDeploymentService service(Pf4bootProperties properties) {
+    return new DefaultPluginDeploymentService(pluginManager, properties, Collections.emptyList());
+  }
+
   private DefaultPluginDeploymentService service(
       PluginTrafficDrainer drainer,
       PluginCleanupVerifier verifier) {
@@ -370,6 +434,55 @@ public class DefaultPluginDeploymentServiceTest {
     Path stagedPath = Files.createDirectory(pluginsRoot.resolve(descriptor.getPluginId() + "-staged"));
     pluginManager.addStagedDescriptor(stagedPath, descriptor);
     return stagedPath;
+  }
+
+  private void writeCapabilityManifest(Path pluginPath, String pluginId, String capabilitiesJson) throws Exception {
+    String manifest = "{"
+        + "\"pluginId\":\"" + pluginId + "\","
+        + "\"pluginVersion\":\"1.0.0\","
+        + "\"packageSha256\":\"abc\","
+        + "\"capabilities\":" + capabilitiesJson
+        + "}";
+    Files.write(pluginPath.resolveSibling(pluginPath.getFileName().toString() + ".pf4boot-trust.json"),
+        manifest.getBytes("UTF-8"));
+  }
+
+  private String providesDatasource(String datasource) {
+    return "{"
+        + "\"provides\":[{"
+        + "\"name\":\"jpa.datasource\","
+        + "\"version\":\"1\","
+        + "\"scope\":\"DATASOURCE\","
+        + "\"attributes\":{"
+        + "\"datasource\":\"" + datasource + "\","
+        + "\"transactionManager\":\"" + datasource + "TransactionManager\""
+        + "}"
+        + "}],"
+        + "\"requires\":[]"
+        + "}";
+  }
+
+  private String requiresDatasource(String datasource) {
+    return "{"
+        + "\"provides\":[{"
+        + "\"name\":\"jpa.consumer\","
+        + "\"version\":\"1\","
+        + "\"scope\":\"PLUGIN\","
+        + "\"attributes\":{"
+        + "\"datasource\":\"" + datasource + "\""
+        + "}"
+        + "}],"
+        + "\"requires\":[{"
+        + "\"name\":\"jpa.datasource\","
+        + "\"versionRange\":\"[1,2)\","
+        + "\"required\":true,"
+        + "\"attributes\":{"
+        + "\"datasource\":\"" + datasource + "\","
+        + "\"entityPackages\":\"com.example." + datasource + ".domain\","
+        + "\"repositoryPackages\":\"com.example." + datasource + ".repository\""
+        + "}"
+        + "}]"
+        + "}";
   }
 
   private DefaultPluginDescriptor descriptor(String pluginId, String version) {

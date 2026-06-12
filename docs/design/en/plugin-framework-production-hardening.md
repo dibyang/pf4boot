@@ -224,6 +224,63 @@ HTTP errors may contain only the error code, safe summary, and request/operation
 5. P1/P2/P3 must not change required fields in existing plugin descriptors; use sidecar manifests for new metadata.
 6. Every new public type must have JavaDoc or a design table explaining its semantics.
 
+### Implementation Playbook For Smaller Models
+
+This section constrains follow-up implementation by smaller coding models. Do not skip these checks, and do not mix multiple phases into one commit.
+
+#### Required Reading Before Each Task
+
+| Purpose | Files |
+| --- | --- |
+| Project boundaries | `AGENTS.md`, `docs/constraints/README.md` |
+| Current phase design | This document section and the matching phase in `plugin-framework-production-hardening-plan.md` |
+| Acceptance state | `plugin-framework-production-hardening-acceptance.md` |
+| Module dependencies | `settings.gradle`, target module `build.gradle` |
+| Neighboring implementation | Target classes and tests, such as `Pf4bootPluginManagerImpl`, `DefaultPluginDeploymentService`, and related `*Test` classes |
+
+If these files disagree with current code, current code wins. Add the smallest design note needed and continue; do not rewrite existing behavior blindly.
+
+#### Standard Implementation Loop
+
+1. Run `git status --short` and identify whether existing uncommitted changes belong to this phase.
+2. Use `rg` to find target interfaces, properties, error codes, and tests before adding new types.
+3. Change API/DTOs first, runtime implementation second, starter wiring third, samples and docs last.
+4. After each independently verifiable point, run the narrowest Gradle command.
+5. Update acceptance docs: mark an item `Done` only when evidence exists.
+6. Check Chinese docs for UTF-8, run `git diff --check`, and inspect for sensitive data leaks.
+7. Commit locally with a message that maps to one phase or one clear subtask.
+
+#### Runtime Entry Points
+
+| Behavior | Preferred Search | Typical Entry |
+| --- | --- | --- |
+| Pre-load package verification | `rg "PluginPackageVerifier|loadPlugin"` | `Pf4bootPluginManagerImpl` |
+| Hot replacement precheck | `rg "planReplacement|DeploymentCheckResult"` | `DefaultPluginDeploymentService` |
+| Management HTTP writes | `rg "X-PF4Boot-Admin-Token|Idempotency|PluginManagement"` | `pf4boot-management-starter` controllers/services |
+| Spring Boot properties | `rg "Pf4bootProperties|ConfigurationProperties"` | `Pf4bootProperties`, starter auto-configurations |
+| Actuator read-only observation | `rg "Endpoint|RuntimeInspector|Snapshot"` | `pf4boot-actuator` |
+| Shared JPA transactions | `rg "JpaDomain|EntityManagerFactory|TransactionManager"` | `pf4boot-jpa`, `pf4boot-jpa-starter`, `pf4boot-jpa-domain-starter` |
+| Sample packaging/runtime | `rg "assembleSamplePlugins|cross-plugin-jpa"` | `samples/cross-plugin-jpa` |
+
+#### Decision Rules
+
+| Conflict | Default Choice | Escalate When |
+| --- | --- | --- |
+| Add public type or reuse existing type | Reuse an equivalent existing type | Reuse changes historical semantics or binary compatibility |
+| Add dependency or use lightweight local logic | Avoid new dependency | Parser/verification logic becomes security-sensitive or fragile |
+| WARN or ENFORCE default | Use `DISABLED` or `WARN` | The user explicitly asks for a strict new-application template |
+| File persistence failure | Fail closed | Read-only query paths may return empty results with warning |
+| Version range parsing | Minimal first-stage implementation with documented limits | Production blocking needs full range semantics and PF4J cannot be reused |
+| Sample coverage | Add minimal smoke for runtime behavior | Pure API model changes are already covered by unit tests |
+
+#### Forbidden Implementation Patterns
+
+- Do not disable verification, authorization, idempotency, or token checks to make tests pass.
+- Do not make `pf4boot-core` depend on starters, actuator, or samples.
+- Do not block historical plugin startup by default.
+- Do not put test fakes, hard-coded local paths, or private local configuration into production code.
+- Do not make cross-datasource transactions an implicit success condition for capability declarations or smoke.
+
 ## Interface Design
 
 ### Package Trust Chain

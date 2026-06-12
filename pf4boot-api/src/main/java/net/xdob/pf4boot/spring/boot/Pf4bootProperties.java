@@ -41,6 +41,10 @@ public class Pf4bootProperties {
    */
   private PluginPackageVerificationMode pluginPackageTrustMode = PluginPackageVerificationMode.DISABLED;
   /**
+   * Plugin capability precheck mode before deployment replacement.
+   */
+  private PluginPackageVerificationMode pluginCapabilityPrecheckMode = PluginPackageVerificationMode.DISABLED;
+  /**
    * Plugin trust manifest file extension.
    */
   private String pluginPackageTrustManifestExtension = ".pf4boot-trust.json";
@@ -159,6 +163,16 @@ public class Pf4bootProperties {
     this.pluginPackageTrustMode = pluginPackageTrustMode == null
         ? PluginPackageVerificationMode.DISABLED
         : pluginPackageTrustMode;
+  }
+
+  public PluginPackageVerificationMode getPluginCapabilityPrecheckMode() {
+    return pluginCapabilityPrecheckMode;
+  }
+
+  public void setPluginCapabilityPrecheckMode(PluginPackageVerificationMode pluginCapabilityPrecheckMode) {
+    this.pluginCapabilityPrecheckMode = pluginCapabilityPrecheckMode == null
+        ? PluginPackageVerificationMode.DISABLED
+        : pluginCapabilityPrecheckMode;
   }
 
   public String getPluginPackageTrustManifestExtension() {

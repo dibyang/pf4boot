@@ -16,13 +16,51 @@
 
 | 阶段 | 主题 | 状态 | 主要产物 |
 | --- | --- | --- | --- |
-| P0 | 设计与追踪基线 | Planned | 设计、规划、验收文档和索引 |
-| P1 | 插件包签名与信任链 | Planned | SPI、结果模型、WARN 模式、manifest 样例 |
-| P2 | 操作/部署/审计持久化 | Planned | recorder SPI、文件实现、恢复扫描 |
-| P3 | 生命周期并发与资源泄漏验证 | Planned | 生命周期锁测试、清理报告、失败注入 |
-| P4 | 能力声明与兼容矩阵 | Planned | capability manifest、预检、JPA 多数据源声明 |
+| P0 | 设计与追踪基线 | Done | 设计、规划、验收文档和索引 |
+| P1 | 插件包签名与信任链 | In Progress | SPI、结果模型、WARN 模式、manifest 样例 |
+| P2 | 操作/部署/审计持久化 | In Progress | recorder SPI、文件实现、恢复扫描 |
+| P3 | 生命周期并发与资源泄漏验证 | In Progress | 生命周期锁测试、清理报告、失败注入 |
+| P4 | 能力声明与兼容矩阵 | Done | capability manifest、预检、JPA 多数据源声明 |
 | P5 | 管理 smoke 与观测闭环 | Planned | 管理 smoke、Actuator 诊断、metrics |
 | P6 | 后续决策专题 | Planned | JPA 运行时刷新和跨数据源事务决策文档 |
+
+## 面向小模型的任务拆分规则
+
+为了让较小模型可以稳定实施，本规划中的任务按“一个任务卡只改变一个清晰边界”执行。除非用户明确要求，否则不要跨阶段混合提交。
+
+### 任务卡模板
+
+每个实施任务开始前，先在回复或提交说明中明确以下信息：
+
+| 字段 | 要求 |
+| --- | --- |
+| 任务 ID | 使用本规划中的阶段编号，例如 `P4-1a` |
+| 输入文件 | 至少列出要先读取的设计、代码和测试文件 |
+| 允许修改 | 明确允许修改的模块和包路径 |
+| 禁止修改 | 明确禁止修改的模块、默认行为或安全边界 |
+| 完成证据 | 需要通过的测试命令、文档检查或 smoke 证据 |
+| 回滚口径 | 出错时哪些改动可以直接回退，哪些需要保留诊断记录 |
+
+### 通用执行检查清单
+
+- [ ] 已读取 `docs/constraints/README.md` 和本阶段设计章节。
+- [ ] 已确认 `git status --short` 中的未提交改动是否属于当前任务。
+- [ ] 已用 `rg` 找到已有接口、配置和测试，不重复造同语义类型。
+- [ ] 已先写或更新单元测试，再接入运行时流程。
+- [ ] 已保持默认行为兼容历史插件。
+- [ ] 已更新中文文档和英文翻译；只有有证据的验收项才标 `Done`。
+- [ ] 已运行最小 Gradle 验证；若失败，记录命令、错误摘要和下一步。
+
+### 阶段依赖
+
+| 当前任务 | 依赖 | 说明 |
+| --- | --- | --- |
+| P1 | P0 | 信任链模型和 manifest 格式必须先冻结 |
+| P2 | P0 | 持久化 store 可并行于 P1，但管理接入时要复用 P1 的安全摘要约束 |
+| P3 | P1、P2 可选 | 生命周期诊断可独立做，部署失败记录接入需要 P2 |
+| P4 | P1 | 能力声明第一阶段复用 trust manifest；如果 P1 未完成，只能先做 API 和解析测试 |
+| P5 | P1-P4 | smoke 需要信任、持久化、生命周期和能力预检至少有最小实现 |
+| P6 | P0 | P6 是设计专题，不阻塞 P1-P5 编码 |
 
 ## P0 设计与追踪基线
 
@@ -99,6 +137,18 @@
 | P1-4 | 增加 `DISABLED/WARN/ENFORCE` 配置和安全错误摘要 | `pf4boot-starter`、`pf4boot-management-starter` | `.\gradlew.bat :pf4boot-management-starter:test` |
 | P1-5 | 补开发指南：如何给插件包补 manifest、如何从 WARN 切到 ENFORCE | `docs/design/plugin-developer-guide.md` 和英文版 | 文档自检 |
 
+### 小任务卡
+
+| ID | 输入文件 | 允许修改 | 关键步骤 | 完成证据 |
+| --- | --- | --- | --- | --- |
+| P1-1a | `Pf4bootProperties`、现有 `PluginPackageVerifier` | `pf4boot-api` | 定义 trust request/result/status/root provider/manifest/signature metadata；所有 public 类型补 JavaDoc | `.\gradlew.bat :pf4boot-api:compileJava` |
+| P1-1b | `Pf4bootProperties` | `pf4boot-api` | 增加 trust mode、manifest extension、trust roots；null setter 回退默认值 | `.\gradlew.bat :pf4boot-api:compileJava` |
+| P1-2a | `Pf4bootPluginManagerImpl`、相关生命周期测试 | `pf4boot-core` | 在 classloader 创建前执行 trust 校验；`ENFORCE` 失败不得创建 plugin classloader | `.\gradlew.bat :pf4boot-core:test --tests "*Pf4bootPluginManagerLifecycleTest*"` |
+| P1-2b | `DefaultPluginDeploymentService` | `pf4boot-core` | 在部署预检中加入 trust check，并映射为 `DeploymentCheckResult` | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginDeploymentServiceTest*"` |
+| P1-3a | trust manifest loader 测试 | `pf4boot-core` | 支持外置 sidecar manifest，解析失败给安全错误码 | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginTrustManifestLoaderTest*"` |
+| P1-4a | management controller/service 测试 | `pf4boot-management-starter` | HTTP 错误只返回安全摘要，不泄露签名、token、堆栈 | `.\gradlew.bat :pf4boot-management-starter:test` |
+| P1-5a | 开发指南中英文版 | `docs/design/plugin-developer-guide.md`、英文版 | 增加 manifest 示例、WARN 到 ENFORCE 切换步骤、排错表 | 文档 diff 和 U+FFFD 检查 |
+
 ### 设计约束
 
 - 不把 KMS、CA、JAR signing 工具作为强依赖。
@@ -154,6 +204,17 @@
 | P2-3 | 提供文件 recorder，实现原子写入和恢复扫描 | `pf4boot-core` 或独立 support 包 | targeted test |
 | P2-4 | 管理接口接入持久化幂等、审计和部署记录 | `pf4boot-management-starter` | `.\gradlew.bat :pf4boot-management-starter:test` |
 | P2-5 | 增加崩溃恢复文档和样例配置 | `docs/design`、`samples/*` | 文档和 sample 检查 |
+
+### 小任务卡
+
+| ID | 输入文件 | 允许修改 | 关键步骤 | 完成证据 |
+| --- | --- | --- | --- | --- |
+| P2-1a | 现有 `PluginOperationStore`、`PluginOperationRecord` | `pf4boot-api` 或现有管理 API 包 | 优先扩展现有 store；补 query、recoverable scan、幂等冲突字段 | `.\gradlew.bat :pf4boot-api:compileJava` 或对应模块 compile |
+| P2-2a | `InMemoryPluginOperationStore` 测试 | `pf4boot-management-starter` 或现有 store 所在模块 | 保持内存实现兼容新增接口 | targeted test |
+| P2-3a | 文件 store 设计章节 | store 所在模块 | JSON Lines append/read/latest/corrupted-line skip | `.\gradlew.bat :pf4boot-management-starter:test --tests "*FilePluginOperationStoreTest*"` |
+| P2-3b | deployment record store | `pf4boot-core` 或 management store 包 | 部署记录跨重启读取，半写不当成功 | targeted test |
+| P2-4a | management idempotency service | `pf4boot-management-starter` | 相同 key replay，不同 requestHash 返回 409；store 写失败 fail closed | `.\gradlew.bat :pf4boot-management-starter:test` |
+| P2-5a | 本设计和开发指南 | `docs/design`、必要 sample 配置 | 写入恢复扫描、目录清理、故障排查步骤 | 文档检查 |
 
 ### 设计约束
 
@@ -211,6 +272,17 @@
 | P3-3 | 补 Web mapping、interceptor、scheduler、share bean 的 stop 后断言 | `pf4boot-web-starter`、`pf4boot-core` | targeted test |
 | P3-4 | 增加热替换失败注入：加载失败、启动失败、health check 失败、回滚失败 | `pf4boot-core`、`pf4boot-management-starter` | targeted test |
 | P3-5 | 在复杂样例中增加可触发失败的演示插件 | `samples/cross-plugin-jpa` | sample smoke |
+
+### 小任务卡
+
+| ID | 输入文件 | 允许修改 | 关键步骤 | 完成证据 |
+| --- | --- | --- | --- | --- |
+| P3-1a | `Pf4bootPluginManagerImpl`、生命周期测试 | `pf4boot-core` | 确认现有锁；如不足，增加按 pluginId 的锁注册表 | `.\gradlew.bat :pf4boot-core:test --tests "*Lifecycle*"` |
+| P3-2a | share bean/web/scheduler 管理器 | `pf4boot-api`、`pf4boot-core` | 定义 cleanup report 和 diagnostic，只读收集资源计数 | `.\gradlew.bat :pf4boot-core:test` |
+| P3-3a | Web mapping/interceptor 测试 | `pf4boot-web-starter` | stop 后 mapping/interceptor 清理断言 | `.\gradlew.bat :pf4boot-web-starter:test` |
+| P3-3b | scheduler/share bean 测试 | `pf4boot-core` | stop 后 scheduler/share bean 清理断言 | `.\gradlew.bat :pf4boot-core:test` |
+| P3-4a | deployment service 测试 | `pf4boot-core` | health check fail、新插件启动 fail、rollback fail 状态覆盖 | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginDeploymentServiceTest*"` |
+| P3-5a | `samples/cross-plugin-jpa` | sample 模块 | 增加失败演示插件或配置，不影响正常 smoke | sample smoke |
 
 ### 设计约束
 
@@ -306,6 +378,27 @@
 | P4-4 | JPA 数据源插件声明 `jpa.datasource`，消费者声明 `jpa.consumer` | `pf4boot-jpa*`、`samples/cross-plugin-jpa` | JPA sample smoke |
 | P4-5 | 建立框架版本、Java 版本、PF4Boot 能力版本的兼容矩阵 | `docs/design` | 文档自检 |
 
+### 小任务卡
+
+| ID | 输入文件 | 允许修改 | 关键步骤 | 完成证据 |
+| --- | --- | --- | --- | --- |
+| P4-1a | `PluginTrustManifest`、manifest loader 测试 | `pf4boot-api`、`pf4boot-core` | 新增 capability model；从 trust manifest 的 `capabilities` 解析 provides/requires | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginTrustManifestLoaderTest*"` |
+| P4-1b | `Pf4bootProperties` | `pf4boot-api` | 增加 `pluginCapabilityPrecheckMode`，null 回退 `DISABLED` | `.\gradlew.bat :pf4boot-api:compileJava` |
+| P4-2a | capability resolver 测试 | `pf4boot-core` | 合并 host、已启动插件、待部署插件能力；缺 manifest 返回空 descriptor | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginCapabilityResolverTest*"` |
+| P4-3a | `DefaultPluginDeploymentService` | `pf4boot-core` | plan/replace 预检加入能力缺失判断；`WARN` 生成 warning，`ENFORCE` 生成 error | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginDeploymentServiceTest*"` |
+| P4-4a | `samples/cross-plugin-jpa`、JPA 设计 | sample 模块、必要 JPA 文档 | provider 声明 `jpa.datasource`，consumer 按 datasource 声明 entity/repository 包 | sample 打包或 smoke |
+| P4-5a | 本设计、验收文档 | `docs/design` 和英文版 | 写明 Java/PF4Boot/Spring Boot/capability/plugin dependency 矩阵和错误码 | 文档检查 |
+
+### 兼容矩阵第一阶段字段
+
+| 字段 | 来源 | 第一阶段处理 | 严格模式处理 |
+| --- | --- | --- | --- |
+| `javaVersion` | manifest `compatibility.javaVersion` | 与当前 `java.specification.version` 做字符串或最小比较 | 不匹配返回 `PFC-003` 或 compatibility error |
+| `pf4bootVersionRange` | manifest | 文档和 DTO 保留字段；可先只记录 warning | 后续接入版本范围 parser |
+| `springBootVersionRange` | manifest | 文档和 DTO 保留字段；可先只记录 warning | 后续接入版本范围 parser |
+| `capability.versionRange` | requirement | 先匹配 capability name 和 attributes，versionRange 只进入诊断 | 后续阻断版本不匹配 |
+| PF4J plugin dependency | `PluginDescriptor` | 继续使用 PF4J 现有依赖解析 | 不由 capability 替代 |
+
 ### 设计约束
 
 - 能力声明不替代 PF4J 依赖关系，只作为预检和诊断补充。
@@ -364,6 +457,27 @@
 | P5-4 | 复杂样例覆盖正常交易、事务回滚、依赖数据源缺失、热替换失败回滚 | `samples/cross-plugin-jpa` | runtime smoke |
 | P5-5 | 文档补齐 smoke 启动、调用和排障步骤 | `docs/design/plugin-developer-guide.md` 和英文版 | 文档自检 |
 
+### 小任务卡
+
+| ID | 输入文件 | 允许修改 | 关键步骤 | 完成证据 |
+| --- | --- | --- | --- | --- |
+| P5-1a | sample host build scripts | `samples/cross-plugin-jpa` | 增加一条打包命令，输出待部署插件路径 | sample assemble 命令 |
+| P5-1b | sample host 启动脚本/测试 | `samples/cross-plugin-jpa` | 启动 host、轮询 ready、失败时打印日志尾部 | smoke 命令 |
+| P5-2a | actuator inspector/endpoint 测试 | `pf4boot-actuator` | 只读暴露 trust/capability/deployment/cleanup 摘要 | `.\gradlew.bat :pf4boot-actuator:test` |
+| P5-3a | management metrics 测试 | `pf4boot-management-starter`、`pf4boot-actuator` | 请求数、拒绝数、幂等命中、耗时、回滚计数 | targeted test |
+| P5-4a | sample workflows | `samples/cross-plugin-jpa` | 正常交易、事务回滚、缺 datasource、热替换失败回滚 | runtime smoke |
+| P5-5a | 开发指南中英文版 | `docs/design/plugin-developer-guide.md`、英文版 | smoke 命令、token/idempotency header、清理和排障 | 文档检查 |
+
+### smoke 必须输出的证据
+
+| 证据 | 最低要求 |
+| --- | --- |
+| 启动日志 | host ready 时间、端口、插件列表 |
+| HTTP 响应 | 成功和失败场景的 status、error code、operation/deployment id |
+| 持久化记录 | operation/deployment 最新记录摘要 |
+| Actuator | 插件状态、trust/capability warning、cleanup summary |
+| 清理结果 | 进程已退出、临时目录或测试数据库已删除/可复用 |
+
 ### 设计约束
 
 - smoke 脚本不得依赖外部商业服务或私有凭证。
@@ -390,6 +504,15 @@
 | P6-2 | 跨数据源事务策略评估：禁止、Saga、Outbox、XA 可选模块 | JPA/事务能力 | 独立设计文档 |
 | P6-3 | 插件市场/仓库治理评估：远程仓库、签名发布、灰度分发 | packaging/management | 独立设计文档 |
 | P6-4 | 控制台 UI 边界评估 | management | 独立设计文档 |
+
+### 小任务卡
+
+| ID | 输入文件 | 允许修改 | 关键步骤 | 完成证据 |
+| --- | --- | --- | --- | --- |
+| P6-1a | JPA 相关设计和实现 | `docs/design/*jpa*`、英文版 | 对比禁止刷新、重建 EMF、重启 domain plugin 三种路径，给推荐方案 | 独立设计文档 |
+| P6-2a | 跨插件事务设计 | `docs/design/*transaction*`、英文版 | 对比禁止、Saga、Outbox、可选 XA；明确本阶段不支持跨数据源本地事务 | 独立设计文档 |
+| P6-3a | trust/packaging/management 设计 | `docs/design`、英文版 | 插件仓库、签名发布、灰度分发、回滚治理边界 | 独立设计文档 |
+| P6-4a | management API 设计 | `docs/design`、英文版 | 明确是否做 UI、UI 与 HTTP API/Actuator 的边界 | 独立设计文档 |
 
 ### 退出条件
 

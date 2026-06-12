@@ -62,13 +62,13 @@ After each completed task, add evidence such as commit hash, verification comman
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
 | P4-AC0: Design and plan define capability manifest model, multi-datasource package-scan example, precheck modes, and required tests | Done | `docs/design/plugin-framework-production-hardening.md` manifest example; `docs/design/plugin-framework-production-hardening-plan.md` P4 multi-datasource example |
-| P4-AC1: Capability manifest model and parsing rules compile | Planned | TBD |
-| P4-AC2: Historical plugins without manifests remain compatible or WARN by default | Planned | TBD |
-| P4-AC3: Deployment precheck detects missing capabilities and returns readable errors | Planned | TBD |
-| P4-AC4: JPA datasource plugins can declare `jpa.datasource` | Planned | TBD |
-| P4-AC5: JPA consumer plugins can declare `jpa.consumer` and grouped entity/Repository package scans | Planned | TBD |
-| P4-AC6: Plugins depending on multiple datasources can report which package scan belongs to which datasource | Planned | TBD |
-| P4-AC7: Compatibility matrix covers framework version, Java version, capability version, and plugin dependency ranges | Planned | TBD |
+| P4-AC1: Capability manifest model and parsing rules compile | Done | Added `net.xdob.pf4boot.capability.*`; ran `.\gradlew.bat :pf4boot-core:test --tests "net.xdob.pf4boot.DefaultPluginTrustManifestLoaderTest" --tests "net.xdob.pf4boot.capability.*" --tests "net.xdob.pf4boot.deployment.DefaultPluginDeploymentServiceTest"` |
+| P4-AC2: Historical plugins without manifests remain compatible or WARN by default | Done | `DefaultPluginCapabilityResolverTest.missingManifestReturnsEmptyDescriptorForHistoricalPlugin`; default `pluginCapabilityPrecheckMode=DISABLED` |
+| P4-AC3: Deployment precheck detects missing capabilities and returns readable errors | Done | `DefaultPluginDeploymentServiceTest.planReplacementReportsMissingDatasourceCapabilityAsWarning`, `planReplacementRejectsMissingDatasourceCapabilityInEnforceMode` |
+| P4-AC4: JPA datasource plugins can declare `jpa.datasource` | Done | `DefaultPluginCapabilityResolverTest.readsCapabilitiesFromTrustManifest` parses provider `jpa.datasource`, `datasource`, and `transactionManager` |
+| P4-AC5: JPA consumer plugins can declare `jpa.consumer` and grouped entity/Repository package scans | Done | `DefaultPluginDeploymentServiceTest` consumer manifest declares `jpa.consumer` and `entityPackages`/`repositoryPackages`; `PluginCapabilityPrecheckTest.ignoresJpaConsumerPackageScanAttributesWhenMatchingProvider` |
+| P4-AC6: Plugins depending on multiple datasources can report which package scan belongs to which datasource | Done | `DefaultPluginCapabilityResolverTest.readsCapabilitiesFromTrustManifest` covers `orderDs` and `billingDs` datasource/entity/repository package groups |
+| P4-AC7: Compatibility matrix covers framework version, Java version, capability version, and plugin dependency ranges | Done | `docs/design/plugin-framework-production-hardening-plan.md` first-stage compatibility matrix; capability versions are diagnostic first, PF4J plugin dependencies remain PF4J-owned |
 
 ## P5 Management Smoke And Observability Closure
 

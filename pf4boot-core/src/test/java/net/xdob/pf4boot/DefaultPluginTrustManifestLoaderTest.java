@@ -28,6 +28,16 @@ public class DefaultPluginTrustManifestLoaderTest {
     assertNotNull(manifest.getSignature());
     assertEquals("SHA256withRSA", manifest.getSignature().getAlgorithm());
     assertEquals("local-dev-key", manifest.getSignature().getKeyId());
+    assertEquals(1, manifest.getProvidedCapabilities().size());
+    assertEquals("jpa.datasource", manifest.getProvidedCapabilities().get(0).getName());
+    assertEquals("orderDs",
+        manifest.getProvidedCapabilities().get(0).getAttributes().get("datasource"));
+    assertEquals(1, manifest.getRequiredCapabilities().size());
+    assertEquals("jpa.datasource", manifest.getRequiredCapabilities().get(0).getName());
+    assertEquals("billingDs",
+        manifest.getRequiredCapabilities().get(0).getAttributes().get("datasource"));
+    assertEquals("com.example.billing.repository",
+        manifest.getRequiredCapabilities().get(0).getAttributes().get("repositoryPackages"));
   }
 
   @Test
@@ -58,6 +68,27 @@ public class DefaultPluginTrustManifestLoaderTest {
         + "\"algorithm\":\"SHA256withRSA\","
         + "\"keyId\":\"local-dev-key\","
         + "\"value\":\"signature-value\""
+        + "},"
+        + "\"capabilities\":{"
+        + "\"provides\":[{"
+        + "\"name\":\"jpa.datasource\","
+        + "\"version\":\"1\","
+        + "\"scope\":\"DATASOURCE\","
+        + "\"attributes\":{"
+        + "\"datasource\":\"orderDs\","
+        + "\"transactionManager\":\"orderTransactionManager\""
+        + "}"
+        + "}],"
+        + "\"requires\":[{"
+        + "\"name\":\"jpa.datasource\","
+        + "\"versionRange\":\"[1,2)\","
+        + "\"required\":true,"
+        + "\"attributes\":{"
+        + "\"datasource\":\"billingDs\","
+        + "\"entityPackages\":\"com.example.billing.domain\","
+        + "\"repositoryPackages\":\"com.example.billing.repository\""
+        + "}"
+        + "}]"
         + "}"
         + "}";
   }

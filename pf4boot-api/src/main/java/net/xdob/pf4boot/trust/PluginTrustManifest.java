@@ -1,7 +1,17 @@
 package net.xdob.pf4boot.trust;
 
+import net.xdob.pf4boot.capability.PluginCapability;
+import net.xdob.pf4boot.capability.PluginCapabilityRequirement;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
- * `.pf4boot-trust.json` 清单模型。
+ * 插件旁路信任清单模型。
+ *
+ * <p>第一阶段该清单同时承载包摘要、签名元数据和能力声明，避免为 capability 再引入
+ * 第二个旁路文件。</p>
  */
 public class PluginTrustManifest {
 
@@ -9,6 +19,8 @@ public class PluginTrustManifest {
   private String pluginVersion;
   private String packageSha256;
   private PluginSignatureMetadata signature;
+  private List<PluginCapability> providedCapabilities = new ArrayList<>();
+  private List<PluginCapabilityRequirement> requiredCapabilities = new ArrayList<>();
 
   public String getPluginId() {
     return pluginId;
@@ -40,5 +52,25 @@ public class PluginTrustManifest {
 
   public void setSignature(PluginSignatureMetadata signature) {
     this.signature = signature;
+  }
+
+  public List<PluginCapability> getProvidedCapabilities() {
+    return Collections.unmodifiableList(providedCapabilities);
+  }
+
+  public void setProvidedCapabilities(List<PluginCapability> providedCapabilities) {
+    this.providedCapabilities = providedCapabilities == null
+        ? new ArrayList<PluginCapability>()
+        : new ArrayList<>(providedCapabilities);
+  }
+
+  public List<PluginCapabilityRequirement> getRequiredCapabilities() {
+    return Collections.unmodifiableList(requiredCapabilities);
+  }
+
+  public void setRequiredCapabilities(List<PluginCapabilityRequirement> requiredCapabilities) {
+    this.requiredCapabilities = requiredCapabilities == null
+        ? new ArrayList<PluginCapabilityRequirement>()
+        : new ArrayList<>(requiredCapabilities);
   }
 }

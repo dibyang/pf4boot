@@ -62,13 +62,13 @@
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
 | P4-AC0：设计和规划已明确 capability manifest 模型、多数据源包扫描声明示例、预检模式和必测用例 | Done | `docs/design/plugin-framework-production-hardening.md` 的 manifest 示例；`docs/design/plugin-framework-production-hardening-plan.md` 的 P4 多数据源能力声明示例 |
-| P4-AC1：capability manifest 模型和解析规则编译通过 | Planned | 待补充 |
-| P4-AC2：缺失 manifest 的历史插件默认兼容或 WARN，不被默认阻断 | Planned | 待补充 |
-| P4-AC3：管理部署预检能识别缺失能力并返回可读错误 | Planned | 待补充 |
-| P4-AC4：JPA 数据源插件能声明 `jpa.datasource` | Planned | 待补充 |
-| P4-AC5：JPA 消费插件能声明 `jpa.consumer`，并按实体/Repository 包路径分组 | Planned | 待补充 |
-| P4-AC6：插件依赖多个数据源时，预检能指出每个包扫描路径所属数据源 | Planned | 待补充 |
-| P4-AC7：兼容矩阵覆盖框架版本、Java 版本、能力版本和插件依赖范围 | Planned | 待补充 |
+| P4-AC1：capability manifest 模型和解析规则编译通过 | Done | 新增 `net.xdob.pf4boot.capability.*`；已执行 `.\gradlew.bat :pf4boot-core:test --tests "net.xdob.pf4boot.DefaultPluginTrustManifestLoaderTest" --tests "net.xdob.pf4boot.capability.*" --tests "net.xdob.pf4boot.deployment.DefaultPluginDeploymentServiceTest"` |
+| P4-AC2：缺失 manifest 的历史插件默认兼容或 WARN，不被默认阻断 | Done | `DefaultPluginCapabilityResolverTest.missingManifestReturnsEmptyDescriptorForHistoricalPlugin`；默认 `pluginCapabilityPrecheckMode=DISABLED` |
+| P4-AC3：管理部署预检能识别缺失能力并返回可读错误 | Done | `DefaultPluginDeploymentServiceTest.planReplacementReportsMissingDatasourceCapabilityAsWarning`、`planReplacementRejectsMissingDatasourceCapabilityInEnforceMode` |
+| P4-AC4：JPA 数据源插件能声明 `jpa.datasource` | Done | `DefaultPluginCapabilityResolverTest.readsCapabilitiesFromTrustManifest` 解析 provider `jpa.datasource`、`datasource`、`transactionManager` |
+| P4-AC5：JPA 消费插件能声明 `jpa.consumer`，并按实体/Repository 包路径分组 | Done | `DefaultPluginDeploymentServiceTest` 的 consumer manifest 声明 `jpa.consumer` 和 `entityPackages`/`repositoryPackages`；`PluginCapabilityPrecheckTest.ignoresJpaConsumerPackageScanAttributesWhenMatchingProvider` |
+| P4-AC6：插件依赖多个数据源时，预检能指出每个包扫描路径所属数据源 | Done | `DefaultPluginCapabilityResolverTest.readsCapabilitiesFromTrustManifest` 覆盖 `orderDs`、`billingDs` 两组 datasource/entity/repository 包声明 |
+| P4-AC7：兼容矩阵覆盖框架版本、Java 版本、能力版本和插件依赖范围 | Done | `docs/design/plugin-framework-production-hardening-plan.md` 的“兼容矩阵第一阶段字段”；能力版本第一阶段进入诊断，PF4J plugin dependency 继续由 PF4J 解析 |
 
 ## P5 管理 smoke 与观测闭环
 

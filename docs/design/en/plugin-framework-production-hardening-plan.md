@@ -16,13 +16,51 @@ This plan tracks the work described in [plugin-framework-production-hardening.md
 
 | Phase | Topic | Status | Deliverables |
 | --- | --- | --- | --- |
-| P0 | Design and tracking baseline | Planned | Design, plan, acceptance docs, indexes |
-| P1 | Package signing and trust chain | Planned | SPI, result model, WARN mode, manifest example |
-| P2 | Operation/deployment/audit persistence | Planned | Recorder SPI, file implementation, recovery scan |
-| P3 | Lifecycle concurrency and leak verification | Planned | Lifecycle lock tests, cleanup reports, failure injection |
-| P4 | Capability manifests and compatibility matrix | Planned | Capability manifest, precheck, JPA multi-datasource declarations |
+| P0 | Design and tracking baseline | Done | Design, plan, acceptance docs, indexes |
+| P1 | Package signing and trust chain | In Progress | SPI, result model, WARN mode, manifest example |
+| P2 | Operation/deployment/audit persistence | In Progress | Recorder SPI, file implementation, recovery scan |
+| P3 | Lifecycle concurrency and leak verification | In Progress | Lifecycle lock tests, cleanup reports, failure injection |
+| P4 | Capability manifests and compatibility matrix | Done | Capability manifest, precheck, JPA multi-datasource declarations |
 | P5 | Management smoke and observability closure | Planned | Management smoke, Actuator diagnostics, metrics |
 | P6 | Follow-up decision topics | Planned | JPA runtime refresh and cross-datasource transaction decision docs |
+
+## Task Breakdown Rules For Smaller Models
+
+To make the plan executable by smaller models, each task should change one clear boundary. Unless the user explicitly asks otherwise, do not mix multiple phases into one commit.
+
+### Task Card Template
+
+Before starting a task, state the following in the response or commit notes:
+
+| Field | Requirement |
+| --- | --- |
+| Task ID | Use this plan's phase ID, for example `P4-1a` |
+| Input files | List the design, code, and tests that must be read first |
+| Allowed edits | Name the modules and package paths that may be changed |
+| Forbidden edits | Name modules, defaults, or security boundaries that must not change |
+| Evidence | Required test command, doc check, or smoke evidence |
+| Rollback rule | Which changes can be reverted directly and which diagnostic records must be preserved |
+
+### Common Execution Checklist
+
+- [ ] Read `docs/constraints/README.md` and the current phase design section.
+- [ ] Confirm whether `git status --short` changes belong to the current task.
+- [ ] Use `rg` to find existing interfaces, properties, and tests before adding equivalent types.
+- [ ] Add or update unit tests before wiring runtime flows.
+- [ ] Keep default behavior compatible with historical plugins.
+- [ ] Update Chinese docs and English translations; mark acceptance items `Done` only with evidence.
+- [ ] Run the narrowest Gradle verification; if it fails, record the command, error summary, and next step.
+
+### Phase Dependencies
+
+| Task | Depends On | Notes |
+| --- | --- | --- |
+| P1 | P0 | Trust models and manifest format must be frozen first |
+| P2 | P0 | Persistence can run in parallel with P1, but management wiring reuses P1 safe-summary rules |
+| P3 | P1/P2 optional | Lifecycle diagnostics can start independently; deployment failure records need P2 |
+| P4 | P1 | First-stage capabilities reuse the trust manifest; without P1, only API and parser tests should be done |
+| P5 | P1-P4 | Smoke needs minimal trust, persistence, lifecycle, and capability behavior |
+| P6 | P0 | P6 is design-only and does not block P1-P5 coding |
 
 ## P0 Design And Tracking Baseline
 
@@ -99,6 +137,18 @@ Extend the current checksum/verifier foundation with signature and trust-chain v
 | P1-4 | Add `DISABLED/WARN/ENFORCE` configuration and safe error summaries | `pf4boot-starter`, `pf4boot-management-starter` | `.\gradlew.bat :pf4boot-management-starter:test` |
 | P1-5 | Document plugin package manifest and WARN-to-ENFORCE migration | Developer guide and English translation | Doc check |
 
+### Small Task Cards
+
+| ID | Input Files | Allowed Edits | Key Steps | Evidence |
+| --- | --- | --- | --- | --- |
+| P1-1a | `Pf4bootProperties`, existing `PluginPackageVerifier` | `pf4boot-api` | Define trust request/result/status/root provider/manifest/signature metadata; add JavaDoc for public types | `.\gradlew.bat :pf4boot-api:compileJava` |
+| P1-1b | `Pf4bootProperties` | `pf4boot-api` | Add trust mode, manifest extension, and trust roots; null setters fall back to defaults | `.\gradlew.bat :pf4boot-api:compileJava` |
+| P1-2a | `Pf4bootPluginManagerImpl`, lifecycle tests | `pf4boot-core` | Run trust verification before classloader creation; `ENFORCE` failures must not create plugin classloaders | `.\gradlew.bat :pf4boot-core:test --tests "*Pf4bootPluginManagerLifecycleTest*"` |
+| P1-2b | `DefaultPluginDeploymentService` | `pf4boot-core` | Add trust checks to deployment precheck and map them to `DeploymentCheckResult` | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginDeploymentServiceTest*"` |
+| P1-3a | Trust manifest loader tests | `pf4boot-core` | Support sidecar manifests and safe parse errors | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginTrustManifestLoaderTest*"` |
+| P1-4a | Management controller/service tests | `pf4boot-management-starter` | HTTP errors expose safe summaries only, not signatures, tokens, or stacks | `.\gradlew.bat :pf4boot-management-starter:test` |
+| P1-5a | Developer guide in both languages | `docs/design/plugin-developer-guide.md`, English translation | Add manifest example, WARN-to-ENFORCE steps, troubleshooting table | Doc diff and U+FFFD check |
+
 ### Constraints
 
 - Do not hard depend on KMS, CA, or JAR signing tools.
@@ -154,6 +204,17 @@ Make management operations, deployment records, audit events, and idempotency re
 | P2-3 | Provide a file recorder with atomic writes and recovery scan | `pf4boot-core` or a support module | Targeted test |
 | P2-4 | Connect management idempotency, audit, and deployment records to persistence | `pf4boot-management-starter` | `.\gradlew.bat :pf4boot-management-starter:test` |
 | P2-5 | Add crash recovery docs and sample configuration | `docs/design`, `samples/*` | Doc and sample check |
+
+### Small Task Cards
+
+| ID | Input Files | Allowed Edits | Key Steps | Evidence |
+| --- | --- | --- | --- | --- |
+| P2-1a | Existing `PluginOperationStore`, `PluginOperationRecord` | `pf4boot-api` or existing management API package | Prefer extending the existing store; add query, recoverable scan, and idempotency conflict fields | `.\gradlew.bat :pf4boot-api:compileJava` or module compile |
+| P2-2a | `InMemoryPluginOperationStore` tests | Store module | Keep in-memory behavior compatible with the expanded interface | Targeted test |
+| P2-3a | File store design section | Store module | JSON Lines append/read/latest/corrupted-line skip | `.\gradlew.bat :pf4boot-management-starter:test --tests "*FilePluginOperationStoreTest*"` |
+| P2-3b | Deployment record store | `pf4boot-core` or management store package | Read deployment records across restart; never treat partial writes as success | Targeted test |
+| P2-4a | Management idempotency service | `pf4boot-management-starter` | Same key replays, different requestHash returns 409, store write failures fail closed | `.\gradlew.bat :pf4boot-management-starter:test` |
+| P2-5a | This design and developer guide | `docs/design`, required sample config | Add recovery scan, directory cleanup, and troubleshooting steps | Doc check |
 
 ### Constraints
 
@@ -211,6 +272,17 @@ Add tests and diagnostics for lifecycle mutual exclusion, dependency-chain repla
 | P3-3 | Assert Web mappings, interceptors, schedulers, and shared beans after stop | `pf4boot-web-starter`, `pf4boot-core` | Targeted test |
 | P3-4 | Add failure injection for load, startup, health check, and rollback failures | `pf4boot-core`, `pf4boot-management-starter` | Targeted test |
 | P3-5 | Add a failure-demo plugin to the complex sample | `samples/cross-plugin-jpa` | Sample smoke |
+
+### Small Task Cards
+
+| ID | Input Files | Allowed Edits | Key Steps | Evidence |
+| --- | --- | --- | --- | --- |
+| P3-1a | `Pf4bootPluginManagerImpl`, lifecycle tests | `pf4boot-core` | Confirm current locking; add a per-plugin lock registry if needed | `.\gradlew.bat :pf4boot-core:test --tests "*Lifecycle*"` |
+| P3-2a | Share bean/web/scheduler managers | `pf4boot-api`, `pf4boot-core` | Define cleanup report and read-only diagnostic resource counts | `.\gradlew.bat :pf4boot-core:test` |
+| P3-3a | Web mapping/interceptor tests | `pf4boot-web-starter` | Assert mappings/interceptors are cleaned after stop | `.\gradlew.bat :pf4boot-web-starter:test` |
+| P3-3b | Scheduler/share bean tests | `pf4boot-core` | Assert schedulers/share beans are cleaned after stop | `.\gradlew.bat :pf4boot-core:test` |
+| P3-4a | Deployment service tests | `pf4boot-core` | Cover health check failure, new plugin startup failure, and rollback failure states | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginDeploymentServiceTest*"` |
+| P3-5a | `samples/cross-plugin-jpa` | Sample modules | Add a failure demo plugin or config without breaking normal smoke | Sample smoke |
 
 ### Constraints
 
@@ -306,6 +378,27 @@ Let plugins declare capabilities and requirements before deployment, so the host
 | P4-4 | Let JPA datasource plugins declare `jpa.datasource` and consumers declare `jpa.consumer` | `pf4boot-jpa*`, `samples/cross-plugin-jpa` | JPA sample smoke |
 | P4-5 | Add framework, Java, and PF4Boot capability compatibility matrix | `docs/design` | Doc check |
 
+### Small Task Cards
+
+| ID | Input Files | Allowed Edits | Key Steps | Evidence |
+| --- | --- | --- | --- | --- |
+| P4-1a | `PluginTrustManifest`, manifest loader tests | `pf4boot-api`, `pf4boot-core` | Add capability model; parse `capabilities` provides/requires from trust manifest | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginTrustManifestLoaderTest*"` |
+| P4-1b | `Pf4bootProperties` | `pf4boot-api` | Add `pluginCapabilityPrecheckMode`; null falls back to `DISABLED` | `.\gradlew.bat :pf4boot-api:compileJava` |
+| P4-2a | Capability resolver tests | `pf4boot-core` | Merge host, started plugin, and candidate package capabilities; missing manifest returns empty descriptor | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginCapabilityResolverTest*"` |
+| P4-3a | `DefaultPluginDeploymentService` | `pf4boot-core` | Add missing-capability precheck; `WARN` creates warning, `ENFORCE` creates error | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginDeploymentServiceTest*"` |
+| P4-4a | `samples/cross-plugin-jpa`, JPA designs | Sample modules and required JPA docs | Provider declares `jpa.datasource`; consumer declares entity/repository packages per datasource | Sample packaging or smoke |
+| P4-5a | This design and acceptance docs | `docs/design` and English translation | Define Java/PF4Boot/Spring Boot/capability/plugin dependency matrix and error codes | Doc check |
+
+### First-Stage Compatibility Matrix Fields
+
+| Field | Source | First-Stage Handling | Strict Handling |
+| --- | --- | --- | --- |
+| `javaVersion` | manifest `compatibility.javaVersion` | Compare with current `java.specification.version` using string or minimal comparison | Return `PFC-003` or compatibility error on mismatch |
+| `pf4bootVersionRange` | manifest | Keep in docs/DTOs; warning only initially | Add range parser later |
+| `springBootVersionRange` | manifest | Keep in docs/DTOs; warning only initially | Add range parser later |
+| `capability.versionRange` | requirement | Match capability name and attributes; include versionRange in diagnostics only | Block version mismatch later |
+| PF4J plugin dependency | `PluginDescriptor` | Continue using PF4J dependency resolution | Capability must not replace it |
+
 ### Constraints
 
 - Capability manifests supplement, not replace, PF4J dependencies.
@@ -364,6 +457,27 @@ Use the sample host to verify management APIs, read-only observability, deployme
 | P5-4 | Cover successful transaction, rollback, missing datasource, and failed hot replacement in complex sample | `samples/cross-plugin-jpa` | Runtime smoke |
 | P5-5 | Document smoke startup, calls, and troubleshooting | Developer guide and English translation | Doc check |
 
+### Small Task Cards
+
+| ID | Input Files | Allowed Edits | Key Steps | Evidence |
+| --- | --- | --- | --- | --- |
+| P5-1a | Sample host build scripts | `samples/cross-plugin-jpa` | Add one packaging command and print deployable plugin paths | Sample assemble command |
+| P5-1b | Sample host startup script/test | `samples/cross-plugin-jpa` | Start host, poll ready, print log tail on failure | Smoke command |
+| P5-2a | Actuator inspector/endpoint tests | `pf4boot-actuator` | Read-only trust/capability/deployment/cleanup summaries | `.\gradlew.bat :pf4boot-actuator:test` |
+| P5-3a | Management metrics tests | `pf4boot-management-starter`, `pf4boot-actuator` | Request count, rejection count, idempotency hit, duration, rollback metrics | Targeted test |
+| P5-4a | Sample workflows | `samples/cross-plugin-jpa` | Successful transaction, rollback, missing datasource, failed replacement rollback | Runtime smoke |
+| P5-5a | Developer guide in both languages | `docs/design/plugin-developer-guide.md`, English translation | Smoke command, token/idempotency headers, cleanup and troubleshooting | Doc check |
+
+### Required Smoke Evidence
+
+| Evidence | Minimum Requirement |
+| --- | --- |
+| Startup log | Host ready time, port, plugin list |
+| HTTP response | Status, error code, operation/deployment id for success and failure cases |
+| Persistent record | Latest operation/deployment summary |
+| Actuator | Plugin state, trust/capability warning, cleanup summary |
+| Cleanup result | Process exited, temporary directories or test databases removed/reusable |
+
 ### Constraints
 
 - Smoke must not require private credentials or external commercial services.
@@ -390,6 +504,15 @@ Create decision documents for architectural questions that should not block P1-P
 | P6-2 | Evaluate cross-datasource transaction strategies: forbidden, Saga, Outbox, optional XA module | JPA/transaction capability | Standalone design |
 | P6-3 | Evaluate plugin marketplace/repository governance | packaging/management | Standalone design |
 | P6-4 | Evaluate management console UI boundaries | management | Standalone design |
+
+### Small Task Cards
+
+| ID | Input Files | Allowed Edits | Key Steps | Evidence |
+| --- | --- | --- | --- | --- |
+| P6-1a | JPA designs and implementation | `docs/design/*jpa*`, English translation | Compare no refresh, EMF rebuild, and domain-plugin restart; recommend one path | Standalone design |
+| P6-2a | Cross-plugin transaction designs | `docs/design/*transaction*`, English translation | Compare forbidden, Saga, Outbox, optional XA; state that cross-datasource local transactions are unsupported now | Standalone design |
+| P6-3a | Trust/packaging/management designs | `docs/design`, English translation | Define plugin repository, signed release, staged rollout, rollback governance boundaries | Standalone design |
+| P6-4a | Management API designs | `docs/design`, English translation | Decide whether UI is in scope and separate UI/API/Actuator boundaries | Standalone design |
 
 ### Exit Criteria
 
