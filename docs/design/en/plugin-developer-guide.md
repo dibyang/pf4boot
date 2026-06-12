@@ -81,15 +81,30 @@ Note: `signature.value`, tokens, private key paths, and full stacks must not be 
 
 ## Read-Only Observability
 
-After the host explicitly adds `pf4boot-actuator`, the read-only actuator endpoint `pf4bootplugins` is registered.
+After the host explicitly adds `pf4boot-actuator`, the read-only actuator endpoints `pf4bootplugins` and `pf4bootgovernance` are registered.
 
-This endpoint only returns plugin snapshots. It does not expose start, stop, reload, or delete operations. Snapshots include plugin ID, version, state, path, recent error, dependencies, start duration, and a resource-count placeholder.
+These endpoints only return plugin snapshots and governance summaries. They do not expose start, stop, reload, or delete operations. `pf4bootplugins` snapshots include plugin ID, version, state, path, recent error, dependencies, start duration, and a resource-count placeholder. `pf4bootgovernance` summarizes trust/capability configuration, deployment summaries, cleanup diagnostics, and warnings.
+
+Expose the endpoints using standard Spring Boot Actuator configuration, for example:
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,pf4bootplugins,pf4bootgovernance
+```
 
 Adding `pf4boot-actuator` also conditionally registers Micrometer metrics:
 
 - `pf4boot.plugins`
 - `pf4boot.plugins.started`
 - `pf4boot.plugins.failed`
+- `pf4boot.management.request.total`
+- `pf4boot.management.rejected.total`
+- `pf4boot.management.idempotency.hit.total`
+
+If `/actuator/pf4bootgovernance` returns 404, first confirm the host includes `pf4boot-actuator`, the endpoint is exposed, the runtime classpath contains `spring-boot-actuator-autoconfigure`, and `Pf4bootActuatorAutoConfiguration` runs after `Pf4bootAutoConfiguration`.
 
 ## JPA Plugins
 

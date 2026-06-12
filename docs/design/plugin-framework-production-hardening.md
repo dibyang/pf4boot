@@ -58,6 +58,22 @@
 | `pf4boot-jpa*` | 声明 JPA 数据源能力、保持单数据源跨插件事务边界，补充多数据源约束 |
 | `samples/cross-plugin-jpa` | 承载复杂 JPA、管理接口、热替换和 smoke 示例 |
 
+## 当前实现基线
+
+后续模型实施前必须先对照本节，避免把已经落地的类型重新设计一遍。本节记录的是当前代码已经存在的基线，不代表所有验收都已经完成。
+
+| 能力 | 已有类型/入口 | 后续实施注意事项 |
+| --- | --- | --- |
+| 插件包 trust 校验 | `net.xdob.pf4boot.trust.*`、`DefaultPluginPackageTrustVerifier`、`DefaultPluginTrustManifestLoader`、`NoopPluginTrustRootProvider` | 继续复用 `PluginPackageVerificationMode`，不要新增第二套 mode enum；扩展签名算法或 trust root 时优先扩展 SPI |
+| capability manifest | `net.xdob.pf4boot.capability.*`、`DefaultPluginCapabilityResolver`、`PluginCapabilityPrecheck` | capability 只做预检和诊断，不能替代 PF4J plugin dependency |
+| 部署编排 | `DefaultPluginDeploymentService`、`DeploymentPlan`、`DeploymentRecord`、`DefaultPluginDeploymentRecorder` | 新增预检必须通过 `DeploymentCheckResult` 暴露，失败不得直接改变运行时 |
+| 管理操作持久化 | `PluginOperationStore`、`PluginOperationRecord`、`InMemoryPluginOperationStore`、`FilePluginOperationStore` | 文件 store 已在 management starter 内，扩展字段时要保持 JSON Lines 旧记录可读 |
+| 部署记录持久化 | `PluginDeploymentRecordStore`、`InMemoryPluginDeploymentRecordStore`、`FilePluginDeploymentRecordStore` | 当前 store 位于 management starter；若提升为公共 SPI，要先补迁移说明 |
+| 生命周期诊断 | `PluginLifecycleDiagnostic`、`PluginCleanupReport`、`PluginConcurrencyReport`、`DefaultPluginLifecycleDiagnostic` | 目前以 share bean/锁策略诊断为主，Web/JPA/scheduler 深度诊断按阶段补齐 |
+| 管理 metrics | `PluginManagementMetricsProvider`、`PluginManagementMetricsSnapshot`、`DefaultPluginManagementMetricsRecorder` | 写入点在 management starter，读取点在 actuator；不要让 actuator 反向影响管理接口 |
+| Actuator 治理摘要 | `Pf4bootGovernanceEndpoint`、`Pf4bootGovernanceSnapshot`、`Pf4bootMetrics` | endpoint 必须只读；若运行态 404，优先检查 auto-configuration 条件和 actuator exposure 配置 |
+| 复杂样例 | `samples/cross-plugin-jpa` | 新样例继续放在 `samples/*`，不要恢复根级旧 demo 模块 |
+
 ## 可实施落地约定
 
 本节是给实施模型使用的硬约束。后续编码时优先按本节命名、包路径和步骤落地；只有发现现有代码已经有等价类型时，才复用现有类型并在设计或规划中补充差异说明。
@@ -325,6 +341,68 @@ work/pf4boot/
 - 是否把能力声明当成 PF4J 依赖替代？如果是，必须恢复 PF4J 依赖解析原语义。
 - 是否为了测试绕过 token、幂等、预检或签名校验？如果是，任务不合格。
 - 是否把未验证条目标为 `Done`？如果是，必须改回 `Planned` 或 `In Progress`。
+
+### 已完成能力复验与剩余任务落地规格
+
+本节描述当前仍容易出现执行偏差的能力复验规格和剩余 P6 任务。P5 runtime smoke 已完成，后续模型需要复验或排障时按本节执行；P6 仍是待落地的设计任务。
+
+#### P5 runtime smoke 复验规格
+
+| 项 | 规格 |
+| --- | --- |
+| 脚本位置 | `samples/cross-plugin-jpa/scripts/runtime-smoke.ps1` |
+| host runtime | 优先使用 `:samples:cross-plugin-jpa:app-run:assembleSampleRuntime` 产物；若只验证插件包，则使用 `:samples:cross-plugin-jpa:demo-host:assembleSamplePlugins` |
+| 固定端口 | 默认 `7791`，允许参数覆盖；端口占用必须报错或清理目标进程后再启动 |
+| 管理 token | 默认 `sample-token`，请求必须带 `X-PF4Boot-Admin-Token` |
+| 幂等 header | 写接口必须带 `X-Idempotency-Key`，重复请求要断言 operationId 一致或返回 replay 语义 |
+| 必调业务接口 | 正常 workflow、强制失败 workflow、summary 查询 |
+| 必调管理接口 | 至少 plan/deploy/start/stop/reload/delete 中一个写接口；第一阶段建议使用 dry-run plan 避免破坏插件目录 |
+| 必调观测接口 | `/actuator/pf4bootgovernance`、`/actuator/metrics/pf4boot.management.request.total` |
+| 失败场景 | 优先使用“有效插件包 + 不存在目标 pluginId”的 dry-run 失败，避免坏 zip 在宿主启动扫描阶段直接拖垮 runtime |
+| 清理 | finally 中关闭端口进程、删除临时插件包、保留失败日志尾部 |
+
+smoke 脚本输出必须稳定，供其它模型和 CI 直接断言。输出字段不得改名：
+
+```text
+SMOKE_PLUGIN_ZIPS count=...
+SMOKE_HOST_READY port=...
+SMOKE_WORKFLOW_OK status=200
+SMOKE_WORKFLOW_ROLLBACK status=...
+SMOKE_MANAGEMENT_OPERATION operationId=...
+SMOKE_IDEMPOTENCY_REPLAY operationId=...
+SMOKE_FAILURE_CASE code=...
+SMOKE_ACTUATOR_GOVERNANCE status=200
+SMOKE_CLEANUP_OK
+```
+
+若 `/actuator/pf4bootgovernance` 返回 404，排查顺序固定为：
+
+1. runtime lib 是否包含 `pf4boot-actuator` jar。
+2. host 配置是否暴露 `management.endpoints.web.exposure.include=pf4bootgovernance`。
+3. `META-INF/spring.factories` 是否包含 `Pf4bootActuatorAutoConfiguration`。
+4. auto-configuration 是否因为 `@ConditionalOnBean(Pf4bootPluginManager.class)` 过早判断而跳过 endpoint 注册；如是，改成方法级条件或参数级可选注入，并补 `:pf4boot-actuator:test`。
+
+#### P6 决策文档落地规格
+
+P6 是设计任务，不直接修改生产代码。每个决策文档要把“推荐路径、拒绝路径、进入实现规划的条件”写清楚，避免后续模型把暂缓事项直接实现。
+
+| 专题 | 推荐文件 | 必须给出的最终结论 |
+| --- | --- | --- |
+| JPA 运行时刷新 | `docs/design/jpa-runtime-refresh-decision.md` 和英文版 | 默认推荐“重启 datasource domain plugin 并重建局部事务环境”；拒绝承诺在线刷新 Hibernate metamodel |
+| 跨数据源事务 | `docs/design/cross-datasource-transaction-decision.md` 和英文版 | 默认继续禁止本地跨数据源事务；Saga/Outbox 放业务层模式；XA 仅作为未来可选模块 |
+| 插件仓库治理 | `docs/design/plugin-repository-governance-decision.md` 和英文版 | 默认先做离线仓库、签名发布、灰度分发和回滚治理；不引入强制远程中心服务 |
+| 控制台 UI 边界 | `docs/design/plugin-management-console-boundary.md` 和英文版 | 默认 UI 不进入 core/starter；只消费 HTTP 管理 API 和 actuator 只读接口 |
+
+每份 P6 文档的最低结构：
+
+1. 背景：列出现有代码入口和已有设计文档。
+2. 目标与非目标：明确本专题是否进入实现。
+3. 备选方案：至少三种，每种写优点、缺点、模块影响和失败模式。
+4. 推荐结论：用“推荐/暂缓/拒绝”之一开头。
+5. 接口与配置草案：即使暂缓，也要写未来可能的包名、配置项和默认值。
+6. 兼容与回滚：说明历史插件、默认配置和关闭路径。
+7. 验证计划：列出未来实施时的单元测试、sample smoke 和验收项。
+8. 进入实施规划条件：没有满足条件时不得开工。
 
 ## 接口设计
 

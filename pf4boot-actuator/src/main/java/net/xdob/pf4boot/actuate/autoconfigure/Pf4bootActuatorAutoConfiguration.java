@@ -13,6 +13,7 @@ import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
+import org.springframework.boot.autoconfigure.AutoConfigureAfter;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -26,23 +27,26 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 @ConditionalOnClass(Endpoint.class)
-@ConditionalOnBean(Pf4bootPluginManager.class)
+@AutoConfigureAfter(name = "net.xdob.pf4boot.spring.boot.Pf4bootAutoConfiguration")
 public class Pf4bootActuatorAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean
+  @ConditionalOnBean(Pf4bootPluginManager.class)
   public PluginRuntimeInspector pluginRuntimeInspector(Pf4bootPluginManager pluginManager) {
     return new DefaultPluginRuntimeInspector(pluginManager);
   }
 
   @Bean
   @ConditionalOnMissingBean
+  @ConditionalOnBean(PluginRuntimeInspector.class)
   public Pf4bootPluginsEndpoint pf4bootPluginsEndpoint(PluginRuntimeInspector pluginRuntimeInspector) {
     return new Pf4bootPluginsEndpoint(pluginRuntimeInspector);
   }
 
   @Bean
   @ConditionalOnMissingBean
+  @ConditionalOnBean(PluginRuntimeInspector.class)
   public Pf4bootGovernanceEndpoint pf4bootGovernanceEndpoint(
       PluginRuntimeInspector pluginRuntimeInspector,
       ObjectProvider<PluginDeploymentMetricsProvider> deploymentMetricsProvider,
@@ -58,6 +62,7 @@ public class Pf4bootActuatorAutoConfiguration {
   @Bean
   @ConditionalOnClass(MeterRegistry.class)
   @ConditionalOnMissingBean
+  @ConditionalOnBean(Pf4bootPluginManager.class)
   public Pf4bootMetrics pf4bootMetrics(
       Pf4bootPluginManager pluginManager,
       ObjectProvider<PluginDeploymentMetricsProvider> deploymentMetricsProvider,

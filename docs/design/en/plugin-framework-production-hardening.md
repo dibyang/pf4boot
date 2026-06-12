@@ -58,6 +58,22 @@ This design consolidates the remaining framework-level hardening work: package s
 | `pf4boot-jpa*` | JPA datasource capability declarations and single-datasource transaction boundary |
 | `samples/cross-plugin-jpa` | Complex JPA, management, hot replacement, and smoke examples |
 
+## Current Implementation Baseline
+
+Follow-up implementation models must compare their task against this baseline first, so they do not redesign types that already exist. This section records the current code baseline; it does not mean every acceptance item is complete.
+
+| Capability | Existing Types/Entry Points | Follow-Up Notes |
+| --- | --- | --- |
+| Package trust verification | `net.xdob.pf4boot.trust.*`, `DefaultPluginPackageTrustVerifier`, `DefaultPluginTrustManifestLoader`, `NoopPluginTrustRootProvider` | Reuse `PluginPackageVerificationMode`; do not add a second mode enum. Extend the SPI for new algorithms or trust roots |
+| Capability manifest | `net.xdob.pf4boot.capability.*`, `DefaultPluginCapabilityResolver`, `PluginCapabilityPrecheck` | Capabilities are for precheck and diagnostics only; they must not replace PF4J plugin dependencies |
+| Deployment orchestration | `DefaultPluginDeploymentService`, `DeploymentPlan`, `DeploymentRecord`, `DefaultPluginDeploymentRecorder` | New prechecks must surface through `DeploymentCheckResult`; failures must not change runtime state directly |
+| Management operation persistence | `PluginOperationStore`, `PluginOperationRecord`, `InMemoryPluginOperationStore`, `FilePluginOperationStore` | File store lives in the management starter; keep old JSON Lines readable when adding fields |
+| Deployment record persistence | `PluginDeploymentRecordStore`, `InMemoryPluginDeploymentRecordStore`, `FilePluginDeploymentRecordStore` | The store currently lives in the management starter; add migration notes before promoting it to a public SPI |
+| Lifecycle diagnostics | `PluginLifecycleDiagnostic`, `PluginCleanupReport`, `PluginConcurrencyReport`, `DefaultPluginLifecycleDiagnostic` | Current diagnostics focus on share beans and lock strategy; add Web/JPA/scheduler depth incrementally |
+| Management metrics | `PluginManagementMetricsProvider`, `PluginManagementMetricsSnapshot`, `DefaultPluginManagementMetricsRecorder` | Writes are recorded in management starter and read in actuator; actuator must not affect management behavior |
+| Actuator governance summary | `Pf4bootGovernanceEndpoint`, `Pf4bootGovernanceSnapshot`, `Pf4bootMetrics` | The endpoint must remain read-only. If runtime returns 404, first inspect auto-configuration conditions and actuator exposure |
+| Complex sample | `samples/cross-plugin-jpa` | Keep new samples under `samples/*`; do not restore removed root-level demo modules |
+
 ## Implementation Conventions
 
 This section is a hard implementation guide for follow-up coding agents. Prefer these names, packages, and steps. Reuse an existing equivalent type only when the current code already provides the same semantics, and document the difference.
@@ -325,6 +341,68 @@ After every implementation, the model must answer:
 - Did it treat capability manifests as a replacement for PF4J dependencies? If yes, restore the original PF4J dependency semantics.
 - Did it bypass tokens, idempotency, prechecks, or signature verification for tests? If yes, the task is invalid.
 - Did it mark unverified acceptance items as `Done`? If yes, change them back to `Planned` or `In Progress`.
+
+### Completed Capability Recheck And Remaining Task Specification
+
+This section describes recheck specifications for completed capabilities and the remaining P6 tasks that are most prone to implementation drift. P5 runtime smoke is complete; follow-up models should use this section for rechecks and troubleshooting. P6 remains design work.
+
+#### P5 Runtime Smoke Recheck Specification
+
+| Item | Specification |
+| --- | --- |
+| Script path | `samples/cross-plugin-jpa/scripts/runtime-smoke.ps1` |
+| Host runtime | Prefer the output of `:samples:cross-plugin-jpa:app-run:assembleSampleRuntime`; use `:samples:cross-plugin-jpa:demo-host:assembleSamplePlugins` only for plugin package checks |
+| Fixed port | Default `7791`, overridable by parameter; port conflicts must fail clearly or clean the target process before startup |
+| Management token | Default `sample-token`; requests must include `X-PF4Boot-Admin-Token` |
+| Idempotency header | Write requests must include `X-Idempotency-Key`; duplicate requests must assert the same operation id or replay semantics |
+| Required business calls | Successful workflow, forced-failure workflow, and summary query |
+| Required management call | At least one write endpoint among plan/deploy/start/stop/reload/delete; first stage should prefer dry-run plan to avoid mutating plugin directories |
+| Required observation calls | `/actuator/pf4bootgovernance`, `/actuator/metrics/pf4boot.management.request.total` |
+| Failure case | Prefer "valid plugin package + missing target pluginId" dry-run failure, rather than a broken zip that can break host startup scanning |
+| Cleanup | In `finally`, stop the port process, delete temporary plugin packages, and keep the failure log tail |
+
+The smoke output must be stable so smaller models and CI can assert it directly. Do not rename these markers:
+
+```text
+SMOKE_PLUGIN_ZIPS count=...
+SMOKE_HOST_READY port=...
+SMOKE_WORKFLOW_OK status=200
+SMOKE_WORKFLOW_ROLLBACK status=...
+SMOKE_MANAGEMENT_OPERATION operationId=...
+SMOKE_IDEMPOTENCY_REPLAY operationId=...
+SMOKE_FAILURE_CASE code=...
+SMOKE_ACTUATOR_GOVERNANCE status=200
+SMOKE_CLEANUP_OK
+```
+
+If `/actuator/pf4bootgovernance` returns 404, use this fixed triage order:
+
+1. Confirm the runtime lib contains the `pf4boot-actuator` jar.
+2. Confirm host config exposes `management.endpoints.web.exposure.include=pf4bootgovernance`.
+3. Confirm `META-INF/spring.factories` includes `Pf4bootActuatorAutoConfiguration`.
+4. Check whether auto-configuration was skipped because `@ConditionalOnBean(Pf4bootPluginManager.class)` was evaluated too early; if so, move conditions to bean methods or optional parameters and add `:pf4boot-actuator:test` coverage.
+
+#### P6 Decision Document Specification
+
+P6 is design-only and must not modify production code. Each decision document must state the recommended path, rejected paths, and entry criteria for implementation, so follow-up models do not implement deferred topics accidentally.
+
+| Topic | Recommended Files | Required Final Decision |
+| --- | --- | --- |
+| JPA runtime refresh | `docs/design/jpa-runtime-refresh-decision.md` and English translation | Default recommendation: restart the datasource domain plugin and rebuild the local transaction environment; reject promising online Hibernate metamodel refresh |
+| Cross-datasource transactions | `docs/design/cross-datasource-transaction-decision.md` and English translation | Keep local cross-datasource transactions forbidden; keep Saga/Outbox as business-layer patterns; evaluate XA only as a future optional module |
+| Plugin repository governance | `docs/design/plugin-repository-governance-decision.md` and English translation | Start with offline repository, signed releases, rollout, and rollback governance; do not add a mandatory remote central service |
+| Management console UI boundary | `docs/design/plugin-management-console-boundary.md` and English translation | UI remains outside core/starter; it consumes HTTP management APIs and read-only actuator endpoints |
+
+Minimum P6 document structure:
+
+1. Background: list current code entry points and existing design documents.
+2. Goals and non-goals: state whether this topic enters implementation.
+3. Alternatives: at least three, each with benefits, drawbacks, module impact, and failure modes.
+4. Recommendation: start with one of "recommend", "defer", or "reject".
+5. Interface and configuration draft: even deferred topics must name future package paths, properties, and defaults.
+6. Compatibility and rollback: historical plugins, default behavior, and disable path.
+7. Verification plan: future unit tests, sample smoke, and acceptance items.
+8. Entry criteria for implementation: do not start implementation until the criteria are met.
 
 ## Interface Design
 

@@ -21,7 +21,7 @@ This plan tracks the work described in [plugin-framework-production-hardening.md
 | P2 | Operation/deployment/audit persistence | Done | Recorder SPI, file implementation, recovery scan |
 | P3 | Lifecycle concurrency and leak verification | Done | Lifecycle lock tests, cleanup reports, failure injection |
 | P4 | Capability manifests and compatibility matrix | Done | Capability manifest, precheck, JPA multi-datasource declarations |
-| P5 | Management smoke and observability closure | In Progress | Management smoke, Actuator diagnostics, metrics |
+| P5 | Management smoke and observability closure | Done | Management smoke, Actuator diagnostics, metrics |
 | P6 | Follow-up decision topics | Planned | JPA runtime refresh and cross-datasource transaction decision docs |
 
 ## Task Breakdown Rules For Smaller Models
@@ -61,6 +61,17 @@ Before starting a task, state the following in the response or commit notes:
 | P4 | P1 | First-stage capabilities reuse the trust manifest; without P1, only API and parser tests should be done |
 | P5 | P1-P4 | Smoke needs minimal trust, persistence, lifecycle, and capability behavior |
 | P6 | P0 | P6 is design-only and does not block P1-P5 coding |
+
+## Current Remaining Work Snapshot
+
+As of this plan version, P1-P5 are complete and have acceptance records. P6 has not yet produced standalone decision documents. Follow-up models should execute the table below first and must not reimplement P1-P5.
+
+| Priority | Task | Current Status | Next Step |
+| --- | --- | --- | --- |
+| 1 | P6 JPA runtime refresh decision | Planned | Add Chinese and English decision docs with recommendation and deferred items |
+| 2 | P6 cross-datasource transaction decision | Planned | Add Chinese and English decision docs that keep local cross-datasource transactions unsupported |
+| 3 | P6 plugin repository governance decision | Planned | Add Chinese and English decision docs for offline repository, signed release, rollout, and rollback boundaries |
+| 4 | P6 management console UI boundary decision | Planned | Add Chinese and English decision docs separating UI from HTTP API, Actuator, and core dependencies |
 
 ## P0 Design And Tracking Baseline
 
@@ -579,6 +590,25 @@ After any P5 subtask, update:
 - Sample README when sample commands or directory layout change.
 - This plan if implementation class names or endpoint IDs differ from this section.
 
+#### P5 Recheck Task Cards
+
+P5 is complete and does not need a redesign of management metrics or actuator DTOs. Use this table for rechecks, troubleshooting, or CI migration:
+
+| ID | Input Files | Allowed Edits | Forbidden Edits | Evidence |
+| --- | --- | --- | --- | --- |
+| P5-6a | `samples/cross-plugin-jpa/scripts/runtime-smoke.ps1`, sample README, `app-run` config | `samples/cross-plugin-jpa` | Do not disable token checks, change default management security, or place broken zips in the startup scan directory | Smoke output includes all `SMOKE_*` markers |
+| P5-6b | `Pf4bootActuatorAutoConfiguration`, `Pf4bootGovernanceEndpointTest`, runtime logs | `pf4boot-actuator` | Do not let actuator call write APIs; do not make core depend on actuator | `/actuator/pf4bootgovernance` returns 200 at runtime and `:pf4boot-actuator:test` passes |
+| P5-6c | Chinese/English acceptance docs and sample README | `docs/design`, `samples/cross-plugin-jpa/README.md` | Do not mark unrun smoke checks as `Done` | Mark P5-AC2, P5-AC3, and P5-AC6 `Done` only after smoke passes |
+
+Recommended command order for P5-6a:
+
+```powershell
+.\gradlew.bat :samples:cross-plugin-jpa:app-run:assembleSampleRuntime
+powershell -ExecutionPolicy Bypass -File samples\cross-plugin-jpa\scripts\runtime-smoke.ps1 -SkipAssemble
+```
+
+If the first command fails because of dependency download or local Maven state, record the reason and do not mark the smoke as passed. If the second command fails, preserve the tail of `build/tmp/runtime-smoke/runtime.log` and the failed HTTP response summary.
+
 ### Required Smoke Evidence
 
 | Evidence | Minimum Requirement |
@@ -655,6 +685,48 @@ Default P6 recommendations:
 - Cross-datasource transactions: keep local cross-datasource transactions forbidden; prefer Saga/Outbox as business-layer patterns, and evaluate XA only as a future optional module.
 - Plugin repository governance: design offline package repository, signed release, and rollout policy first; do not introduce a mandatory remote central service.
 - Management console UI: evaluate UI only after backend API and actuator boundaries are stable; UI must not become a core/starter dependency.
+
+### P6 Direct Document Task Packages
+
+#### P6-1 JPA Runtime Refresh Decision
+
+| Item | Requirement |
+| --- | --- |
+| Required reading | `docs/design/jpa-integration.md`, `cross-plugin-jpa-transaction-capability.md`, `cross-plugin-jpa-transaction-improvement.md`, and `pf4boot-jpa*` auto-configuration |
+| Required alternatives | 1. Forbid runtime refresh and require restarting the domain plugin; 2. Stop related consumers and rebuild the domain EMF/TM; 3. Online Hibernate metamodel refresh |
+| Default recommendation | Option 2 may become the future implementation candidate; option 3 is rejected by default unless a stable Hibernate version and complete leak verification exist |
+| Required interface draft | `JpaDomainReloadPlan`, `JpaDomainReloadService`, `spring.pf4boot.plugin.jpa.domain-reload-mode` |
+| Required verification | EMF/TM rebuild tests, consumer dependency stop/start order tests, transaction-in-progress refresh rejection tests, sample smoke |
+
+#### P6-2 Cross-Datasource Transaction Decision
+
+| Item | Requirement |
+| --- | --- |
+| Required reading | `cross-plugin-jpa-transaction-capability.md`, `cross-plugin-jpa-transaction-improvement.md`, and complex sample docs |
+| Required alternatives | 1. Continue forbidding; 2. Saga/TCC/compensation; 3. Outbox/Inbox; 4. optional XA/JTA module |
+| Default recommendation | The framework layer keeps local cross-datasource atomic transactions forbidden; business consistency should prefer Saga/Outbox; XA is future optional-module evaluation only |
+| Required interface draft | `CrossDatasourceTransactionPolicy`, `TransactionCapabilityDescriptor`, `spring.pf4boot.transaction.cross-datasource-policy` |
+| Required verification | Same-datasource transactions still pass, local multi-datasource transactions fail precheck, Saga/Outbox sample does not require framework-level atomic commit |
+
+#### P6-3 Plugin Repository Governance Decision
+
+| Item | Requirement |
+| --- | --- |
+| Required reading | This production hardening design, hot replacement deployment design, HTTP management API design, and trust manifest implementation |
+| Required alternatives | 1. Local directory repository; 2. Offline index repository; 3. Remote central repository; 4. mirror/cache repository |
+| Default recommendation | Start with an offline index repository while packages are still explicitly fetched or placed by the host; do not add a mandatory remote service |
+| Required interface draft | `PluginRepositoryIndex`, `PluginReleaseRecord`, `PluginRepositoryResolver`, `spring.pf4boot.repository.*` |
+| Required verification | Index signature verification, version selection, rollout dry-run, rollback package availability checks |
+
+#### P6-4 Management Console UI Boundary Decision
+
+| Item | Requirement |
+| --- | --- |
+| Required reading | HTTP management API design, management starter code, and actuator endpoint code |
+| Required alternatives | 1. No built-in UI; 2. independent sample UI; 3. static UI inside starter; 4. external console service |
+| Default recommendation | Do not build UI into the framework. If a demo is needed, place it in an independent sample outside the core/starter publish path |
+| Required interface draft | UI may call only `/pf4boot/admin/**` and `/actuator/pf4boot*`; it must not add core dependencies |
+| Required verification | OpenAPI/API contract tests, auth-failure presentation, separation between read-only actuator and write API permissions |
 
 ### Exit Criteria
 

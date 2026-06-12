@@ -94,6 +94,34 @@ curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" \
 
 说明：`plan/replace` 会校验 `stagedPluginPath` 必须位于 `staging-root` 下，避免目录穿越。
 
+## Runtime smoke 脚本
+
+可以用一条命令完成运行时打包、启动宿主、调用业务接口、调用本地 token 管理接口、检查 actuator
+治理摘要和 metrics，并在结束时关闭宿主进程：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File samples/cross-plugin-jpa/scripts/runtime-smoke.ps1
+```
+
+如果已经完成运行时打包，也可以跳过组装步骤，便于快速复测：
+
+```powershell
+.\gradlew.bat :samples:cross-plugin-jpa:app-run:assembleSampleRuntime
+powershell -ExecutionPolicy Bypass -File samples\cross-plugin-jpa\scripts\runtime-smoke.ps1 -SkipAssemble
+```
+
+脚本会输出以下关键证据：
+
+- `SMOKE_PLUGIN_ZIPS`：确认 domain、user-book、workflow 插件 zip 已打包。
+- `SMOKE_HOST_READY`：宿主已在本地端口就绪。
+- `SMOKE_WORKFLOW_OK`：正常跨插件 JPA workflow 成功。
+- `SMOKE_WORKFLOW_ROLLBACK`：强制失败 workflow 触发主事务回滚，审计记录保留。
+- `SMOKE_MANAGEMENT_OPERATION`：使用 `X-PF4Boot-Admin-Token` 和 `X-Idempotency-Key` 调用管理接口。
+- `SMOKE_IDEMPOTENCY_REPLAY`：重复幂等请求返回同一个 operation id。
+- `SMOKE_FAILURE_CASE`：有效插件包 + 不存在目标插件的部署预检返回失败响应，并可通过部署记录查询。
+- `SMOKE_ACTUATOR_GOVERNANCE`：`/actuator/pf4bootgovernance` 和 management metrics 可读。
+- `SMOKE_CLEANUP_OK`：脚本已关闭进程并清理临时运行目录。
+
 ### REMOTE_DELEGATED 示例
 
 提供了一个远端鉴权示例实现（仅示例用途）：
@@ -114,4 +142,5 @@ curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" \
 
 编译、打包、HTTP smoke、管理 API 示例流程已同步更新。验收记录见：
 
-- `docs/design/en/plugin-http-management-api-acceptance.md`
+- `docs/design/plugin-framework-production-hardening-acceptance.md`
+- `docs/design/plugin-http-management-api-acceptance.md`

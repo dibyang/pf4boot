@@ -21,7 +21,7 @@
 | P2 | 操作/部署/审计持久化 | Done | recorder SPI、文件实现、恢复扫描 |
 | P3 | 生命周期并发与资源泄漏验证 | Done | 生命周期锁测试、清理报告、失败注入 |
 | P4 | 能力声明与兼容矩阵 | Done | capability manifest、预检、JPA 多数据源声明 |
-| P5 | 管理 smoke 与观测闭环 | In Progress | 管理 smoke、Actuator 诊断、metrics |
+| P5 | 管理 smoke 与观测闭环 | Done | 管理 smoke、Actuator 诊断、metrics |
 | P6 | 后续决策专题 | Planned | JPA 运行时刷新和跨数据源事务决策文档 |
 
 ## 面向小模型的任务拆分规则
@@ -61,6 +61,17 @@
 | P4 | P1 | 能力声明第一阶段复用 trust manifest；如果 P1 未完成，只能先做 API 和解析测试 |
 | P5 | P1-P4 | smoke 需要信任、持久化、生命周期和能力预检至少有最小实现 |
 | P6 | P0 | P6 是设计专题，不阻塞 P1-P5 编码 |
+
+## 当前剩余工作快照
+
+截至本规划当前版本，P1-P5 已完成并有验收记录；P6 尚未形成独立决策文档。后续模型优先按下表执行，不要重新实现 P1-P5。
+
+| 优先级 | 任务 | 当前状态 | 下一步 |
+| --- | --- | --- | --- |
+| 1 | P6 JPA 运行时刷新决策 | Planned | 新增中英文决策文档，给出推荐与暂缓项 |
+| 2 | P6 跨数据源事务决策 | Planned | 新增中英文决策文档，明确仍不支持本地跨数据源事务 |
+| 3 | P6 插件仓库治理决策 | Planned | 新增中英文决策文档，明确离线仓库、签名发布、灰度与回滚边界 |
+| 4 | P6 控制台 UI 边界决策 | Planned | 新增中英文决策文档，明确 UI 与 HTTP API/Actuator/core 的依赖边界 |
 
 ## P0 设计与追踪基线
 
@@ -579,6 +590,25 @@ P5 任一子任务完成后都要同步：
 - sample README：涉及 sample 命令或目录结构时必须更新。
 - 本规划：若实现中类名或 endpoint id 与本节不同，必须先更新规划说明差异。
 
+#### P5 复验任务卡
+
+P5 已完成，不需要重新设计管理 metrics 或 actuator DTO。后续复验、排障或迁移 CI 时按下表执行：
+
+| ID | 输入文件 | 允许修改 | 禁止修改 | 完成证据 |
+| --- | --- | --- | --- | --- |
+| P5-6a | `samples/cross-plugin-jpa/scripts/runtime-smoke.ps1`、sample README、`app-run` 配置 | `samples/cross-plugin-jpa` | 不关闭 token、不改管理接口默认安全策略、不把坏 zip 放进启动扫描目录 | smoke 输出包含全部 `SMOKE_*` marker |
+| P5-6b | `Pf4bootActuatorAutoConfiguration`、`Pf4bootGovernanceEndpointTest`、runtime 日志 | `pf4boot-actuator` | 不让 actuator 调用写接口；不让 core 依赖 actuator | `/actuator/pf4bootgovernance` runtime 返回 200，且 `:pf4boot-actuator:test` 通过 |
+| P5-6c | 验收文档中英文版、sample README | `docs/design`、`samples/cross-plugin-jpa/README.md` | 未执行的 smoke 不得标 `Done` | P5-AC2、P5-AC3、P5-AC6 只在 smoke 通过后更新为 `Done` |
+
+P5-6a 推荐命令顺序：
+
+```powershell
+.\gradlew.bat :samples:cross-plugin-jpa:app-run:assembleSampleRuntime
+powershell -ExecutionPolicy Bypass -File samples\cross-plugin-jpa\scripts\runtime-smoke.ps1 -SkipAssemble
+```
+
+若第一条命令因为依赖下载或本地 Maven 状态失败，记录失败原因，不得把第二条 smoke 标为通过。若第二条失败，必须保留 `build/tmp/runtime-smoke/runtime.log` 尾部和失败 HTTP 响应摘要。
+
 ### smoke 必须输出的证据
 
 | 证据 | 最低要求 |
@@ -655,6 +685,48 @@ P6 默认推荐方向：
 - 跨数据源事务：继续禁止本地跨数据源事务；优先把 Saga/Outbox 作为业务层模式，XA 仅作为未来可选模块评估。
 - 插件市场/仓库治理：先做离线包仓库、签名发布和灰度策略设计，不引入远程中心服务强依赖。
 - 控制台 UI：保持后端 API 与 actuator 边界稳定后再评估 UI；UI 不应成为 core/starter 依赖。
+
+### P6 可直接生成文档的任务包
+
+#### P6-1 JPA 运行时刷新决策
+
+| 项 | 要求 |
+| --- | --- |
+| 必读 | `docs/design/jpa-integration.md`、`cross-plugin-jpa-transaction-capability.md`、`cross-plugin-jpa-transaction-improvement.md`、`pf4boot-jpa*` auto-configuration |
+| 必写方案 | 1. 禁止运行时刷新，只允许重启 domain plugin；2. 停止相关 consumer 后重建 domain EMF/TM；3. 在线刷新 Hibernate metamodel |
+| 推荐默认 | 方案 2 可作为未来实施候选；方案 3 默认拒绝，除非有稳定 Hibernate 版本与完整泄漏验证 |
+| 必写接口草案 | `JpaDomainReloadPlan`、`JpaDomainReloadService`、`spring.pf4boot.plugin.jpa.domain-reload-mode` |
+| 必写验证 | EMF/TM 重建测试、consumer 依赖停启顺序测试、事务中刷新拒绝测试、sample smoke |
+
+#### P6-2 跨数据源事务决策
+
+| 项 | 要求 |
+| --- | --- |
+| 必读 | `cross-plugin-jpa-transaction-capability.md`、`cross-plugin-jpa-transaction-improvement.md`、复杂 sample 文档 |
+| 必写方案 | 1. 继续禁止；2. Saga/TCC/补偿；3. Outbox/Inbox；4. XA/JTA 可选模块 |
+| 推荐默认 | 框架层继续禁止本地跨数据源原子事务；业务一致性优先 Saga/Outbox；XA 只作为可选模块评估 |
+| 必写接口草案 | `CrossDatasourceTransactionPolicy`、`TransactionCapabilityDescriptor`、`spring.pf4boot.transaction.cross-datasource-policy` |
+| 必写验证 | 同数据源事务仍通过、多数据源本地事务预检失败、Saga/Outbox sample 不要求框架原子提交 |
+
+#### P6-3 插件仓库治理决策
+
+| 项 | 要求 |
+| --- | --- |
+| 必读 | 本生产级设计、热替换部署设计、HTTP 管理接口设计、trust manifest 相关实现 |
+| 必写方案 | 1. 本地目录仓库；2. 离线索引仓库；3. 远程中心仓库；4. 镜像/缓存仓库 |
+| 推荐默认 | 先做离线索引仓库，包仍由宿主显式拉取或放置；不引入强制远程服务 |
+| 必写接口草案 | `PluginRepositoryIndex`、`PluginReleaseRecord`、`PluginRepositoryResolver`、`spring.pf4boot.repository.*` |
+| 必写验证 | 索引签名校验、版本选择、灰度策略 dry-run、回滚包可用性检查 |
+
+#### P6-4 控制台 UI 边界决策
+
+| 项 | 要求 |
+| --- | --- |
+| 必读 | HTTP 管理接口设计、management starter 代码、actuator endpoint 代码 |
+| 必写方案 | 1. 不内置 UI；2. 独立 sample UI；3. starter 内置静态 UI；4. 外部控制台服务 |
+| 推荐默认 | 不内置 UI；如需要演示，放独立 sample，不进入 core/starter 发布路径 |
+| 必写接口草案 | UI 只调用 `/pf4boot/admin/**` 和 `/actuator/pf4boot*`，不得新增 core 依赖 |
+| 必写验证 | OpenAPI/接口契约测试、鉴权失败展示、只读 actuator 与写接口权限分离 |
 
 ### 退出条件
 

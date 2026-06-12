@@ -81,15 +81,30 @@ spring:
 
 ## 只读观测
 
-宿主显式引入 `pf4boot-actuator` 后，会注册只读 actuator endpoint：`pf4bootplugins`。
+宿主显式引入 `pf4boot-actuator` 后，会注册只读 actuator endpoint：`pf4bootplugins` 和 `pf4bootgovernance`。
 
-该 endpoint 只返回插件快照，不提供 start、stop、reload 或 delete。快照包含插件 ID、版本、状态、路径、最近错误、依赖、启动耗时和资源计数占位。
+这些 endpoint 只返回插件快照和治理摘要，不提供 start、stop、reload 或 delete。`pf4bootplugins` 快照包含插件 ID、版本、状态、路径、最近错误、依赖、启动耗时和资源计数占位；`pf4bootgovernance` 汇总 trust/capability 配置、部署摘要、清理诊断和 warning。
+
+宿主需要按 Spring Boot Actuator 规则暴露 endpoint，例如：
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,pf4bootplugins,pf4bootgovernance
+```
 
 引入 `pf4boot-actuator` 后还会条件注册 Micrometer 指标：
 
 - `pf4boot.plugins`
 - `pf4boot.plugins.started`
 - `pf4boot.plugins.failed`
+- `pf4boot.management.request.total`
+- `pf4boot.management.rejected.total`
+- `pf4boot.management.idempotency.hit.total`
+
+如果 `/actuator/pf4bootgovernance` 返回 404，优先确认宿主是否引入了 `pf4boot-actuator`、是否暴露了 endpoint、运行时 classpath 是否包含 `spring-boot-actuator-autoconfigure`，以及 `Pf4bootActuatorAutoConfiguration` 是否在 `Pf4bootAutoConfiguration` 后装配。
 
 ## JPA 插件
 

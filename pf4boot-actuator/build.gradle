@@ -3,6 +3,9 @@ dependencies {
     implementation("net.xdob.springframework.boot:spring-boot-actuator:${spring_boot_version}") {
         exclude group: 'org.slf4j'
     }
+    implementation("net.xdob.springframework.boot:spring-boot-actuator-autoconfigure:${spring_boot_version}") {
+        exclude group: 'org.slf4j'
+    }
     implementation("net.xdob.springframework.boot:spring-boot-autoconfigure:${spring_boot_version}") {
         exclude group: 'org.slf4j'
     }

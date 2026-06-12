@@ -76,11 +76,11 @@ After each completed task, add evidence such as commit hash, verification comman
 | --- | --- | --- |
 | P5-AC0: Design and plan define smoke steps, request headers, security constraints, observability checks, and cleanup requirements | Done | `docs/design/plugin-framework-production-hardening-plan.md` P5 implementation steps and required smoke cases |
 | P5-AC1: Complex sample plugins can be packaged with one Gradle command | Done | Ran `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`, producing the domain, user-book, and workflow sample plugin zips |
-| P5-AC2: Sample host smoke starts the host, calls management APIs, verifies JPA examples, and shuts down | Planned | TBD |
-| P5-AC3: Local management smoke uses a token and does not bypass security | Planned | TBD |
-| P5-AC4: Actuator exposes trust summary, deployment summary, and cleanup report summary | Done | Added `Pf4bootGovernanceEndpoint` / `Pf4bootGovernanceSnapshot` with endpoint id `pf4bootgovernance`; `Pf4bootGovernanceEndpointTest` covers configuration summary, deployment summary, cleanup reports, and diagnostic-failure warnings; ran `.\gradlew.bat :pf4boot-actuator:test :pf4boot-management-starter:test` |
+| P5-AC2: Sample host smoke starts the host, calls management APIs, verifies JPA examples, and shuts down | Done | Ran `.\gradlew.bat :samples:cross-plugin-jpa:app-run:assembleSampleRuntime` and `powershell -ExecutionPolicy Bypass -File samples\cross-plugin-jpa\scripts\runtime-smoke.ps1 -SkipAssemble`; output includes `SMOKE_HOST_READY`, `SMOKE_WORKFLOW_OK`, `SMOKE_MANAGEMENT_OPERATION`, and `SMOKE_CLEANUP_OK` |
+| P5-AC3: Local management smoke uses a token and does not bypass security | Done | Runtime smoke uses `X-PF4Boot-Admin-Token: sample-token` for management calls and `X-Idempotency-Key` for write calls; output includes `SMOKE_IDEMPOTENCY_REPLAY` with the same operation id |
+| P5-AC4: Actuator exposes trust summary, deployment summary, and cleanup report summary | Done | Added `Pf4bootGovernanceEndpoint` / `Pf4bootGovernanceSnapshot` with endpoint id `pf4bootgovernance`; `Pf4bootActuatorAutoConfiguration` now runs after `Pf4bootAutoConfiguration` and `pf4boot-actuator` brings actuator autoconfigure at runtime; `Pf4bootGovernanceEndpointTest` covers configuration summary, deployment summary, cleanup reports, and diagnostic-failure warnings; ran `.\gradlew.bat :pf4boot-actuator:test`; runtime smoke outputs `SMOKE_ACTUATOR_GOVERNANCE status=200` |
 | P5-AC5: Metrics cover management requests, rejections, idempotency hits, deployment duration, and rollback count | Done | Added `PluginManagementMetricsProvider` / `PluginManagementMetricsSnapshot` and `DefaultPluginManagementMetricsRecorder`; `Pf4bootMetricsTest.exposesManagementMetricsWhenProviderIsAvailable` covers management metrics, existing deployment metrics cover duration and rollback; `PluginManagementControllerTest.managementMetricsCountsRequestsAndIdempotencyReplay` and `managementMetricsCountsWriteSecurityRejection` cover Controller wiring; ran `.\gradlew.bat :pf4boot-actuator:test :pf4boot-management-starter:test` |
-| P5-AC6: Failure smoke emits HTTP response, deployment record, and useful logs | Planned | TBD |
+| P5-AC6: Failure smoke emits HTTP response, deployment record, and useful logs | Done | Runtime smoke uses a valid workflow plugin package with missing target `missing-workflow` to trigger deployment precheck failure, outputs `SMOKE_FAILURE_CASE code=PFM-007`, then queries `/pf4boot/admin/deployments`; on failure the script prints stdout/stderr log tails and HTTP response summaries |
 
 ## P6 Follow-Up Decision Topics
 
@@ -93,4 +93,4 @@ After each completed task, add evidence such as commit hash, verification comman
 
 ## Current Recommendation
 
-Prioritize P1 and P2. Trust-chain verification and persistent records are the foundation for enforcement, audit recovery, management smoke, and production ENFORCE mode.
+P5 management smoke and observability closure is complete. Next, prioritize the four P6 standalone decision documents: JPA runtime refresh, cross-datasource transactions, plugin repository governance, and management console UI boundary.

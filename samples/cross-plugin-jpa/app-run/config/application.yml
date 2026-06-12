@@ -1,5 +1,10 @@
 server:
   port: 7791
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,pf4bootplugins,pf4bootgovernance
 spring:
   mvc:
     static-path-pattern: /**
@@ -12,6 +17,14 @@ spring:
     system-version: 1.0.0
     plugin-package-verification-mode: WARN
     plugin-compatibility-verification-mode: WARN
+    management:
+      http:
+        enabled: true
+        mode: LOCAL_TOKEN
+        token: ${PF4BOOT_ADMIN_TOKEN:sample-token}
+        staging-root: plugins
+        operation-store:
+          type: memory
     main:
       allow-bean-definition-overriding: true
   jpa:

@@ -76,11 +76,11 @@
 | --- | --- | --- |
 | P5-AC0：设计和规划已明确 smoke 步骤、请求头、安全约束、观测检查和清理要求 | Done | `docs/design/plugin-framework-production-hardening-plan.md` 的 P5 实施步骤和必测场景 |
 | P5-AC1：复杂样例插件可通过单一 Gradle 命令完成打包 | Done | 已执行 `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`，产出 domain、user-book、workflow 三个 sample plugin zip |
-| P5-AC2：sample host smoke 能启动宿主、调用管理接口、验证 JPA 示例并关闭进程 | Planned | 待补充 |
-| P5-AC3：本地管理接口 smoke 使用 token，不绕过安全保护 | Planned | 待补充 |
-| P5-AC4：Actuator 暴露信任校验摘要、部署摘要和清理报告摘要 | Done | 新增 `Pf4bootGovernanceEndpoint` / `Pf4bootGovernanceSnapshot`，endpoint id 为 `pf4bootgovernance`；`Pf4bootGovernanceEndpointTest` 覆盖配置摘要、部署摘要、清理报告和诊断失败 warning；已执行 `.\gradlew.bat :pf4boot-actuator:test :pf4boot-management-starter:test` |
+| P5-AC2：sample host smoke 能启动宿主、调用管理接口、验证 JPA 示例并关闭进程 | Done | 已执行 `.\gradlew.bat :samples:cross-plugin-jpa:app-run:assembleSampleRuntime` 和 `powershell -ExecutionPolicy Bypass -File samples\cross-plugin-jpa\scripts\runtime-smoke.ps1 -SkipAssemble`；输出 `SMOKE_HOST_READY`、`SMOKE_WORKFLOW_OK`、`SMOKE_MANAGEMENT_OPERATION`、`SMOKE_CLEANUP_OK` |
+| P5-AC3：本地管理接口 smoke 使用 token，不绕过安全保护 | Done | runtime smoke 对管理接口统一使用 `X-PF4Boot-Admin-Token: sample-token`，写接口使用 `X-Idempotency-Key`；输出 `SMOKE_IDEMPOTENCY_REPLAY` 且 operationId 一致 |
+| P5-AC4：Actuator 暴露信任校验摘要、部署摘要和清理报告摘要 | Done | 新增 `Pf4bootGovernanceEndpoint` / `Pf4bootGovernanceSnapshot`，endpoint id 为 `pf4bootgovernance`；`Pf4bootActuatorAutoConfiguration` 调整为在 `Pf4bootAutoConfiguration` 后装配并补齐 actuator autoconfigure 依赖；`Pf4bootGovernanceEndpointTest` 覆盖配置摘要、部署摘要、清理报告和诊断失败 warning；已执行 `.\gradlew.bat :pf4boot-actuator:test`，runtime smoke 输出 `SMOKE_ACTUATOR_GOVERNANCE status=200` |
 | P5-AC5：metrics 覆盖管理请求、拒绝、幂等命中、部署耗时和回滚次数 | Done | 新增 `PluginManagementMetricsProvider` / `PluginManagementMetricsSnapshot`、`DefaultPluginManagementMetricsRecorder`；`Pf4bootMetricsTest.exposesManagementMetricsWhenProviderIsAvailable` 覆盖管理 metrics，既有部署 metrics 覆盖耗时和回滚；`PluginManagementControllerTest.managementMetricsCountsRequestsAndIdempotencyReplay`、`managementMetricsCountsWriteSecurityRejection` 覆盖 Controller 计数接入；已执行 `.\gradlew.bat :pf4boot-actuator:test :pf4boot-management-starter:test` |
-| P5-AC6：失败 smoke 能输出 HTTP 响应、部署记录和可定位日志 | Planned | 待补充 |
+| P5-AC6：失败 smoke 能输出 HTTP 响应、部署记录和可定位日志 | Done | runtime smoke 使用有效 workflow 插件包和不存在目标 `missing-workflow` 触发部署预检失败，输出 `SMOKE_FAILURE_CASE code=PFM-007`，随后查询 `/pf4boot/admin/deployments`；脚本失败时会打印 stdout/stderr 日志尾部和 HTTP 响应 |
 
 ## P6 后续决策专题
 
@@ -93,4 +93,4 @@
 
 ## 当前建议
 
-优先推进 P1 和 P2。原因是签名信任链与持久化记录是后续严格治理、审计恢复、管理 smoke 和生产环境 ENFORCE 的基础；没有这两项，继续扩展热替换和管理接口会缺少可信边界与恢复证据。
+P5 管理 smoke 与观测闭环已完成。下一步优先推进 P6 四个独立决策文档：JPA 运行时刷新、跨数据源事务、插件仓库治理和控制台 UI 边界。
