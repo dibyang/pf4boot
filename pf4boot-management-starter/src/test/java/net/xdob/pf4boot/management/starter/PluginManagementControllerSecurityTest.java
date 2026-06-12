@@ -2,14 +2,18 @@ package net.xdob.pf4boot.management.starter;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.deployment.DeploymentRecord;
+import net.xdob.pf4boot.deployment.DeploymentCheckResult;
 import net.xdob.pf4boot.deployment.DeploymentState;
+import net.xdob.pf4boot.deployment.DeploymentPlan;
 import net.xdob.pf4boot.deployment.PluginDeploymentService;
+import net.xdob.pf4boot.deployment.RollbackSnapshot;
 import net.xdob.pf4boot.management.PluginDeploymentRequest;
 import net.xdob.pf4boot.management.PluginManagementErrorCode;
 import net.xdob.pf4boot.management.PluginManagementAuthorizer;
 import net.xdob.pf4boot.management.PluginManagementOperation;
 import net.xdob.pf4boot.management.PluginManagementPrincipal;
 import net.xdob.pf4boot.management.PluginManagementRequest;
+import org.pf4j.PluginState;
 import org.junit.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 
@@ -75,6 +79,75 @@ public class PluginManagementControllerSecurityTest {
     controller.plan(body, request);
     try {
       controller.plan(body, request);
+      fail("Expected rate limit rejection");
+    } catch (PluginManagementException e) {
+      assertEquals(PluginManagementErrorCode.RATE_LIMITED, e.getCode());
+    }
+  }
+
+  @Test
+  public void csrfEnabledRequiresOriginForRollbackWrite() {
+    Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
+    properties.setEnabled(true);
+    properties.setToken("secret-token");
+    properties.setAllowLoopbackOnly(true);
+    properties.getCsrf().setEnabled("true");
+    properties.setRequireIdempotencyKey(false);
+    properties.getRateLimit().setEnabled(false);
+    properties.setStagingRoot("target/test-staged");
+
+    PluginManagementController controller = controllerWithDeployment(
+        properties,
+        new DeploymentRecord(
+            "rb-1",
+            "plug",
+            DeploymentState.SUCCEEDED,
+            System.currentTimeMillis(),
+            System.currentTimeMillis(),
+            "bootstrap",
+            rollbackPlan("plug", "rb-1")));
+
+    MockHttpServletRequest request = baseRequest();
+    request.addHeader("X-PF4Boot-Admin-Token", "secret-token");
+
+    try {
+      controller.rollback("rb-1", request);
+      fail("Expected CSRF/Origin rejection");
+    } catch (PluginManagementException e) {
+      assertEquals(PluginManagementErrorCode.FORBIDDEN, e.getCode());
+    }
+  }
+
+  @Test
+  public void rateLimitAppliedBeforeSecondRollback() {
+    Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
+    properties.setEnabled(true);
+    properties.setToken("secret-token");
+    properties.setAllowLoopbackOnly(true);
+    properties.getCsrf().setEnabled("false");
+    properties.setRequireIdempotencyKey(false);
+    properties.getRateLimit().setEnabled(true);
+    properties.getRateLimit().setWritesPerMinute(1);
+    properties.setStagingRoot("target/test-staged");
+
+    PluginManagementController controller = controllerWithDeployment(
+        properties,
+        new DeploymentRecord(
+            "rb-2",
+            "plug",
+            DeploymentState.SUCCEEDED,
+            System.currentTimeMillis(),
+            System.currentTimeMillis(),
+            "bootstrap",
+            rollbackPlan("plug", "rb-2")));
+
+    MockHttpServletRequest request = baseRequest();
+    request.addHeader("X-PF4Boot-Admin-Token", "secret-token");
+    request.addHeader("Origin", "http://127.0.0.1:8080");
+
+    controller.rollback("rb-2", request);
+    try {
+      controller.rollback("rb-2", request);
       fail("Expected rate limit rejection");
     } catch (PluginManagementException e) {
       assertEquals(PluginManagementErrorCode.RATE_LIMITED, e.getCode());
@@ -241,6 +314,96 @@ public class PluginManagementControllerSecurityTest {
         auditRecorder,
         operationStore,
         policy);
+  }
+
+  private PluginManagementController controllerWithDeployment(
+      Pf4bootManagementProperties properties,
+      DeploymentRecord record) {
+    InMemoryPluginDeploymentRecordStore recordStore = new InMemoryPluginDeploymentRecordStore();
+    if (record != null) {
+      recordStore.save(record);
+    }
+    return controllerWithDeployment(properties, new LocalTokenPluginManagementAuthorizer(properties), recordStore);
+  }
+
+  private PluginManagementController controllerWithDeployment(
+      Pf4bootManagementProperties properties,
+      PluginManagementAuthorizer authorizer,
+      InMemoryPluginDeploymentRecordStore recordStore) {
+    Pf4bootPluginManager pluginManager = (Pf4bootPluginManager) Proxy.newProxyInstance(
+        Thread.currentThread().getContextClassLoader(),
+        new Class<?>[]{Pf4bootPluginManager.class},
+        new InvocationHandler() {
+          @Override
+          public Object invoke(Object proxy, Method method, Object[] args) {
+            return null;
+          }
+        });
+
+    PluginDeploymentService deploymentService = new PluginDeploymentService() {
+      @Override
+      public DeploymentRecord planReplacement(String targetPluginId, java.nio.file.Path stagedPluginPath) {
+        return new DeploymentRecord(
+            "d-1",
+            targetPluginId,
+            DeploymentState.SUCCEEDED,
+            System.currentTimeMillis(),
+            System.currentTimeMillis(),
+            "ok",
+            null);
+      }
+
+      @Override
+      public DeploymentRecord replace(String targetPluginId, java.nio.file.Path stagedPluginPath) {
+        return null;
+      }
+    };
+
+    PluginManagementRequestFactory requestFactory = new PluginManagementRequestFactory();
+    PluginManagementPathValidator pathValidator = new PluginManagementPathValidator();
+    PluginManagementIdempotencyService idempotencyService = new PluginManagementIdempotencyService(
+        properties,
+        new InMemoryPluginOperationStore());
+    PluginManagementAuditRecorder auditRecorder = new LoggingPluginManagementAuditRecorder();
+    PluginManagementRateLimiter rateLimiter = new PluginManagementRateLimiter(properties);
+    PluginManagementWriteSecurityPolicy policy = new PluginManagementWriteSecurityPolicy(properties, rateLimiter);
+
+    return new PluginManagementController(
+        pluginManager,
+        deploymentService,
+        properties,
+        authorizer,
+        requestFactory,
+        pathValidator,
+        idempotencyService,
+        recordStore,
+        auditRecorder,
+        new InMemoryPluginOperationStore(),
+        policy);
+  }
+
+  private DeploymentPlan rollbackPlan(String pluginId, String deploymentId) {
+    RollbackSnapshot snapshot = new RollbackSnapshot(
+        pluginId,
+        "/tmp/" + pluginId + ".jar",
+        "1.0.0",
+        PluginState.STOPPED,
+        Collections.<String>emptyList(),
+        Collections.<String, String>emptyMap());
+    return new DeploymentPlan(
+        deploymentId,
+        pluginId,
+        "/tmp/" + pluginId + ".zip",
+        "/tmp/" + pluginId + "-current.jar",
+        "1.0.0",
+        PluginState.STOPPED,
+        "2.0.0",
+        null,
+        Collections.<String>emptyList(),
+        Collections.<String>emptyList(),
+        Collections.<String>emptyList(),
+        Collections.<DeploymentCheckResult>emptyList(),
+        snapshot);
   }
 
   private MockHttpServletRequest baseRequest() {

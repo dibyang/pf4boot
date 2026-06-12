@@ -294,6 +294,8 @@ public class PluginManagementController {
         null,
         deploymentId,
         properties);
+    // Rollback is a mutating endpoint and must run through the same write-hardening flow.
+    writeSecurityPolicy.validateWriteRequest(request, mgmtRequest);
     PluginManagementPrincipal principal = authenticateAndAuthorize(
         mgmtRequest,
         PluginManagementOperation.DEPLOYMENT_ROLLBACK);

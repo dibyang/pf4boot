@@ -138,3 +138,8 @@ Verification:
 | Dedicated module? | Add `pf4boot-management-starter` | Decided |
 | Strong Spring Security dependency? | No, SPI plus optional adapter | Decided |
 | Persist idempotency/audit in phase one? | Memory first, SPI later | Decided |
+
+## Follow-ups
+
+- `POST /deployments/{deploymentId}/confirm` is intentionally deferred and tracked outside this release scope.
+- Add dedicated runtime smoke for rollback happy-path/replay/confirm transition and rollback failure diagnostics in the next phase.

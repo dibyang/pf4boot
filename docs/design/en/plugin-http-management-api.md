@@ -137,7 +137,7 @@ All responses use `PluginAdminResponse<T>`:
 | `POST` | `/pf4boot/admin/deployments/plan` | Generate a hot replacement plan without runtime mutation |
 | `POST` | `/pf4boot/admin/deployments/replace` | Execute hot replacement |
 | `POST` | `/pf4boot/admin/deployments/{deploymentId}/rollback` | Roll back a deployment |
-| `POST` | `/pf4boot/admin/deployments/{deploymentId}/confirm` | Confirm a manual gate or dry-run result |
+| `POST` | `/pf4boot/admin/deployments/{deploymentId}/confirm` | **Follow-up**: manual gate or dry-run confirmation endpoint, not implemented in this phase |
 
 Package paths must reference files under configured staging roots only.
 
@@ -247,3 +247,10 @@ If the management surface initially lives in `pf4boot-web-starter`, replace the 
 - `pf4boot-management-starter` is the fixed implementation direction and should not be replaced by `pf4boot-web-starter` auto-configuration.
 - Whether to ship a Spring Security adapter. Recommendation: optional adapter only.
 - Whether audit and idempotency records need file persistence in phase one. Recommendation: memory first, SPI later.
+
+## Implementation Notes for Handover
+
+- `POST /deployments/{deploymentId}/rollback` must pass the shared write security policy before authentication and authorization in the controller, and then reuse the same `idempotency + audit` flow as plan/replace.
+- `pf4boot-plugin` lifecycle calls must be guarded by explicit permissions (`plugin:lifecycle`, `plugin:reload`, `deployment:plan/replace/rollback`) and the request pipeline should remain:
+  - `validateWrite` -> `authenticate` -> `authorize` -> `idempotency` -> execute -> `record`.
+- Keep API response shape stable for smaller model handoff: always fill `requestId`, `operationId`, `code`, `message`, and `success`; avoid leaking raw exception.

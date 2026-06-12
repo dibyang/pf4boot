@@ -26,6 +26,7 @@ Implementation should also follow [plugin-http-management-api-implementation-gui
 | AC-13 | Audit records cover success, failure, and rejected requests | Done | `PluginManagementController` + `PluginManagementAuditRecorder` + logging impl |
 | AC-14 | Error responses do not leak tokens, sensitive paths, or full stacks | Done | `PluginManagementExceptionHandler` |
 | AC-15 | `pf4boot-actuator` remains read-only | Done | `plugin-http-management-api.md` boundary and no actuator mutation endpoints |
+| AC-16 | Manual deployment confirm endpoint remains follow-up and is not yet implemented | Pending | `PluginManagementController` currently exposes no `POST /deployments/{deploymentId}/confirm`; planned for next phase |
 
 ## Security Acceptance
 
@@ -37,7 +38,9 @@ Implementation should also follow [plugin-http-management-api-implementation-gui
 | SEC-04 | Remote unauthorized request returns `403` | Done | `PluginManagementControllerSecurityTest.remoteUnauthorizedDelegatedRequestRejectedWith403` |
 | SEC-05 | Browser writes without CSRF/origin controls are rejected | Done | `PluginManagementWriteSecurityPolicyTest` + `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForWriteRequests` |
 | SEC-06 | Write rate limit returns `429` | Done | `PluginManagementRateLimiterTest` + `PluginManagementControllerSecurityTest.rateLimitAppliedBeforeSecondWrite` |
-| SEC-07 | Public binding without remote authorization fails startup | Done | `PluginManagementStartupValidator` |
+| SEC-07 | Rollback endpoint also checks CSRF/origin in write policy | Done | `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForRollbackWrite` |
+| SEC-08 | Rollback endpoint also checks rate limit before second call | Done | `PluginManagementControllerSecurityTest.rateLimitAppliedBeforeSecondRollback` |
+| SEC-09 | Public binding without remote authorization fails startup | Done | `PluginManagementStartupValidator` |
 
 ## Compatibility Acceptance
 
