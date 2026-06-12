@@ -24,6 +24,10 @@ Use the parent directory for design notes before implementing non-trivial change
 - [plugin-hot-replacement-deployment-improvement.md](plugin-hot-replacement-deployment-improvement.md): current-state improvement design for plugin hot replacement deployment.
 - [plugin-hot-replacement-deployment-improvement-plan.md](plugin-hot-replacement-deployment-improvement-plan.md): implementation plan for plugin hot replacement deployment improvements.
 - [plugin-hot-replacement-deployment-acceptance.md](plugin-hot-replacement-deployment-acceptance.md): acceptance record for plugin hot replacement deployment.
+- [plugin-http-management-api.md](plugin-http-management-api.md): complete plugin HTTP management API design.
+- [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md): implementation plan for plugin HTTP management APIs.
+- [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md): implementation guide for plugin HTTP management APIs.
+- [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md): acceptance checklist for plugin HTTP management APIs.
 - [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md): repository, loader, Gradle plugin packaging, and app assembly.
 - [code-quality-fixes.md](code-quality-fixes.md): issues found in this code quality review and the fix plan.
 - [lifecycle-cleanup-fix.md](lifecycle-cleanup-fix.md): fix plan for plugin stop and context cleanup responsibility boundaries.

@@ -135,6 +135,17 @@ The next phase should move the framework from "functionally usable" to "producti
 - Resource registration records are keyed by plugin ID, scope, group, bean name, or mapping key. Stop releases by records instead of rescanning a half-closed context.
 - Metrics may count attempts, but resource state must not duplicate on retry.
 
+### HTTP Management API
+
+HTTP management APIs are tracked as a dedicated production-readiness topic:
+
+- [plugin-http-management-api.md](plugin-http-management-api.md)
+- [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)
+- [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md)
+- [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md)
+
+Core decision: mutation APIs are disabled by default; local calls use loopback plus token as minimum protection; remote calls must integrate authentication, authorization, CSRF/origin controls, rate limits, audit, and idempotency. `pf4boot-actuator` remains read-only and does not perform start, stop, reload, or deployment operations.
+
 ## Rollback Strategy
 
 - Before plugin upgrade, keep the previous zip and parsed descriptor summary. Initially use only in-memory state and file-level rollback points.

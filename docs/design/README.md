@@ -21,6 +21,10 @@
 - [plugin-hot-replacement-deployment-improvement.md](plugin-hot-replacement-deployment-improvement.md)：插件热替换部署现状改进方案。
 - [plugin-hot-replacement-deployment-improvement-plan.md](plugin-hot-replacement-deployment-improvement-plan.md)：插件热替换部署改进实施规划。
 - [plugin-hot-replacement-deployment-acceptance.md](plugin-hot-replacement-deployment-acceptance.md)：插件热替换部署验收记录。
+- [plugin-http-management-api.md](plugin-http-management-api.md)：插件 HTTP 管理接口完整支持方案。
+- [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)：插件 HTTP 管理接口实施规划。
+- [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md)：插件 HTTP 管理接口实施指南。
+- [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md)：插件 HTTP 管理接口验收清单。
 - [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md)：插件仓库、加载器、Gradle 插件打包和应用装配。
 - [code-quality-fixes.md](code-quality-fixes.md)：本轮代码质量检查发现的问题和修复方案。
 - [lifecycle-cleanup-fix.md](lifecycle-cleanup-fix.md)：插件停止和上下文清理职责边界修复方案。
@@ -48,6 +52,10 @@
 - [en/plugin-hot-replacement-deployment-improvement.md](en/plugin-hot-replacement-deployment-improvement.md)
 - [en/plugin-hot-replacement-deployment-improvement-plan.md](en/plugin-hot-replacement-deployment-improvement-plan.md)
 - [en/plugin-hot-replacement-deployment-acceptance.md](en/plugin-hot-replacement-deployment-acceptance.md)
+- [en/plugin-http-management-api.md](en/plugin-http-management-api.md)
+- [en/plugin-http-management-api-plan.md](en/plugin-http-management-api-plan.md)
+- [en/plugin-http-management-api-implementation-guide.md](en/plugin-http-management-api-implementation-guide.md)
+- [en/plugin-http-management-api-acceptance.md](en/plugin-http-management-api-acceptance.md)
 - [en/plugin-loading-and-packaging.md](en/plugin-loading-and-packaging.md)
 - [en/code-quality-fixes.md](en/code-quality-fixes.md)
 - [en/lifecycle-cleanup-fix.md](en/lifecycle-cleanup-fix.md)

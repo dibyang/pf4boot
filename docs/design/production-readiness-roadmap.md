@@ -135,6 +135,17 @@
 - 资源注册记录以插件 ID、scope、group、beanName 或 mapping key 标识，停止时按记录释放，避免重新扫描半关闭上下文。
 - metrics 可以重复记录尝试次数，但资源状态不能因为重试而重复注册。
 
+### HTTP 管理接口
+
+HTTP 管理接口作为独立生产化专题追踪，详见：
+
+- [plugin-http-management-api.md](plugin-http-management-api.md)
+- [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)
+- [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md)
+- [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md)
+
+核心结论：管理写接口默认关闭；本地调用使用 loopback + token 的最小保护；远程调用必须接入认证、授权、CSRF/来源约束、限流、审计和幂等。`pf4boot-actuator` 继续保持只读，不承载启停、重载和部署操作。
+
 ## 回滚策略
 
 - 插件升级前保留上一版本 zip 和解析后的 descriptor 摘要，初期只使用内存状态和文件级回滚点。
