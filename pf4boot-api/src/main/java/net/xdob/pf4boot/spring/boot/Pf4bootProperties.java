@@ -37,6 +37,18 @@ public class Pf4bootProperties {
    */
   private String pluginPackageChecksumExtension = ".sha256";
   /**
+   * Plugin trust manifest verification mode before class loader creation.
+   */
+  private PluginPackageVerificationMode pluginPackageTrustMode = PluginPackageVerificationMode.DISABLED;
+  /**
+   * Plugin trust manifest file extension.
+   */
+  private String pluginPackageTrustManifestExtension = ".pf4boot-trust.json";
+  /**
+   * Plugin trust root identifiers (预留：后续可用于签名根密钥映射).
+   */
+  private String[] pluginPackageTrustRoots = new String[0];
+  /**
    * Strategy for dynamically registered bean name conflicts.
    */
   private DynamicBeanConflictPolicy dynamicBeanConflictPolicy = DynamicBeanConflictPolicy.REJECT;
@@ -137,6 +149,35 @@ public class Pf4bootProperties {
         || pluginPackageChecksumExtension.trim().isEmpty()
         ? ".sha256"
         : pluginPackageChecksumExtension;
+  }
+
+  public PluginPackageVerificationMode getPluginPackageTrustMode() {
+    return pluginPackageTrustMode;
+  }
+
+  public void setPluginPackageTrustMode(PluginPackageVerificationMode pluginPackageTrustMode) {
+    this.pluginPackageTrustMode = pluginPackageTrustMode == null
+        ? PluginPackageVerificationMode.DISABLED
+        : pluginPackageTrustMode;
+  }
+
+  public String getPluginPackageTrustManifestExtension() {
+    return pluginPackageTrustManifestExtension;
+  }
+
+  public void setPluginPackageTrustManifestExtension(String pluginPackageTrustManifestExtension) {
+    this.pluginPackageTrustManifestExtension = pluginPackageTrustManifestExtension == null
+        || pluginPackageTrustManifestExtension.trim().isEmpty()
+        ? ".pf4boot-trust.json"
+        : pluginPackageTrustManifestExtension;
+  }
+
+  public String[] getPluginPackageTrustRoots() {
+    return pluginPackageTrustRoots;
+  }
+
+  public void setPluginPackageTrustRoots(String[] pluginPackageTrustRoots) {
+    this.pluginPackageTrustRoots = pluginPackageTrustRoots == null ? new String[0] : pluginPackageTrustRoots;
   }
 
   public DynamicBeanConflictPolicy getDynamicBeanConflictPolicy() {

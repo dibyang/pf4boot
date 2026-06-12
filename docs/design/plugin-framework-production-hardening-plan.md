@@ -51,6 +51,44 @@
 
 在现有 checksum/verifier 基础上扩展签名与信任链校验，先以 WARN 模式落地，不阻断历史插件。
 
+### 实施步骤
+
+1. 在 `pf4boot-api/src/main/java/net/xdob/pf4boot/trust/` 新增公共模型：
+   - `PluginPackageTrustVerifier`
+   - `PluginPackageTrustRequest`
+   - `PluginPackageTrustResult`
+   - `PluginPackageTrustStatus`
+   - `PluginTrustRootProvider`
+   - `PluginTrustManifest`
+   - `PluginSignatureMetadata`
+2. 在 `Pf4bootProperties` 增加配置字段：
+   - `pluginPackageTrustMode`
+   - `pluginPackageTrustManifestExtension`
+   - `pluginPackageTrustRoots`
+3. 在 `pf4boot-core` 新增默认实现：
+   - `DefaultPluginTrustManifestLoader`
+   - `DefaultPluginPackageTrustVerifier`
+   - `NoopPluginTrustRootProvider`
+4. 在 `Pf4bootPluginManagerImpl` 和 `DefaultPluginDeploymentService` 的现有 `PluginPackageVerifier` 调用前后串联 trust verifier。若现有校验链更适合统一处理，可先把 trust verifier 适配成 `PluginPackageVerifier`，但必须保持错误码和结果模型可查询。
+5. 在 `pf4boot-starter` 自动装配默认 bean，允许宿主通过 Spring Bean 注入自定义 verifier/root provider。
+6. 更新 sample 插件打包输出，至少给一个插件生成 `.pf4boot-trust.json` 示例。
+7. 补文档和测试。
+
+### 必测用例
+
+| 测试类 | 用例 |
+| --- | --- |
+| `DefaultPluginPackageTrustVerifierTest` | `disabledModeIgnoresMissingManifest`、`warnModeRecordsMissingManifest`、`enforceModeRejectsMissingManifest` |
+| `DefaultPluginTrustManifestLoaderTest` | `loadsSidecarManifest`、`rejectsInvalidJson`、`rejectsPluginIdMismatch` |
+| `DefaultPluginDeploymentServiceTest` | `planReplacementIncludesTrustWarnings`、`replaceRejectsUntrustedPackageInEnforceMode` |
+| `Pf4bootPluginManagerLifecycleTest` | `loadPluginRejectsUntrustedPackageBeforeClassLoaderCreation` |
+
+### 禁止事项
+
+- 不要在 P1 引入 BouncyCastle、KMS SDK、Spring Security 或外部 CA 客户端。
+- 不要把签名强校验设为默认。
+- 不要把完整签名值、证书内容、私钥路径或异常堆栈写入 HTTP 响应。
+
 ### 任务
 
 | ID | 任务 | 影响模块 | 验证 |
@@ -78,6 +116,34 @@
 ### 目标
 
 让管理操作、部署记录、审计事件和幂等记录可跨宿主重启恢复。
+
+### 实施步骤
+
+1. 先复核并复用已有 `net.xdob.pf4boot.management.PluginOperationStore`、`PluginOperationRecord`、`InMemoryPluginOperationStore`。
+2. 若现有 store 缺少查询或完成态记录字段，优先扩展现有接口；只有语义明显不匹配时才新增 `PluginOperationRecorder`。
+3. 在 `pf4boot-api` 或 `pf4boot-core` 增加文件 store 配置模型，实际配置字段放入 `Pf4bootProperties`。
+4. 在 `pf4boot-management-starter` 自动装配 store：
+   - `type=memory` 时继续使用 `InMemoryPluginOperationStore`。
+   - `type=file` 时使用文件 store。
+   - 文件 store 初始化失败且 `fail-closed=true` 时，管理写接口启动失败或写操作拒绝。
+5. 部署记录 store 优先复用 `PluginDeploymentRecordStore`；如果该接口目前只在 starter 内部，应评估是否提升到 `pf4boot-api` 或 `pf4boot-core` 可复用包。
+6. 增加恢复扫描入口，至少提供显式方法 `scanRecoverableOperations()`，不要在构造函数里执行复杂恢复逻辑。
+7. 更新管理接口 idempotency 逻辑，使已完成记录可以跨重启 replay。
+
+### 必测用例
+
+| 测试类 | 用例 |
+| --- | --- |
+| `FilePluginOperationStoreTest` | `appendAndReadLatestRecord`、`skipCorruptedLine`、`detectIdempotencyConflict`、`recoverExecutingRecord` |
+| `PluginManagementIdempotencyServiceTest` | `replaysPersistedResult`、`rejectsSameKeyDifferentRequestAfterRestart` |
+| `PluginManagementControllerTest` | `writeFailsClosedWhenStoreUnavailable`、`auditRecordDoesNotContainToken` |
+| `DefaultPluginDeploymentServiceTest` | `recoverReplacementRecordAfterRestart` |
+
+### 禁止事项
+
+- 不要把文件持久化默认开启。
+- 不要在 JSON Lines 中保存 token、完整绝对敏感路径、完整堆栈或请求原文。
+- 不要在 store 写失败后继续执行部署替换。
 
 ### 任务
 
@@ -107,6 +173,35 @@
 
 补齐生命周期互斥、依赖链热替换、stop 后资源清理和失败注入的测试闭环。
 
+### 实施步骤
+
+1. 先梳理 `Pf4bootPluginManagerImpl` 中 start/stop/reload/delete/upgrade 的入口，确认当前是否已有锁。
+2. 若无统一互斥，新增按 `pluginId` 维度的生命周期锁组件，例如 `PluginLifecycleLockRegistry`，放在 `pf4boot-core`。
+3. 锁策略：
+   - 同一插件的 mutating 操作串行。
+   - 不同插件默认可并行。
+   - 涉及依赖链部署时，对影响范围排序后获取锁，避免死锁。
+4. 新增 `PluginLifecycleDiagnostic` 和 `PluginCleanupReport`，先只读收集已有管理器能拿到的资源计数。
+5. Web/JPA/scheduler 的深度清理检查不要一次做满；每加一种资源计数都要有对应 stop 后测试。
+6. 失败注入优先通过 fake plugin、fake verifier、fake health probe 实现，不要在生产代码里加入测试开关。
+7. 对 classloader 泄漏检查使用弱引用和有限 GC 尝试，测试只做 best-effort，不作为不稳定的硬断言，除非已经证明稳定。
+
+### 必测用例
+
+| 测试类 | 用例 |
+| --- | --- |
+| `PluginLifecycleLockRegistryTest` | `samePluginOperationsAreSerialized`、`differentPluginsCanProceed`、`dependencyScopeLocksInStableOrder` |
+| `Pf4bootPluginManagerLifecycleTest` | `concurrentStartDoesNotDuplicateResources`、`stopAfterFailedStartCleansPartialResources` |
+| `DefaultShareBeanMgrTest` | `stopRemovesSharedBeansForPlugin` |
+| `DefaultScheduledMgrTest` | `stopCancelsPluginScheduledTasks` |
+| `DefaultPluginDeploymentServiceTest` | `rollbackWhenHealthCheckFails`、`manualInterventionWhenRollbackFails` |
+
+### 禁止事项
+
+- 不要用全局大锁覆盖所有插件操作，除非测试证明依赖链锁无法正确实现。
+- 不要使用 `Thread.stop`、强制关闭正在执行的 JDBC 事务或吞掉 stop 失败。
+- 不要让 Actuator 调用任何会改变生命周期状态的方法。
+
 ### 任务
 
 | ID | 任务 | 影响模块 | 验证 |
@@ -135,6 +230,72 @@
 
 让插件在部署前声明能力和依赖能力，宿主能提前判断是否满足运行条件。
 
+### 实施步骤
+
+1. 在 `pf4boot-api/src/main/java/net/xdob/pf4boot/capability/` 新增：
+   - `PluginCapability`
+   - `PluginCapabilityRequirement`
+   - `PluginCapabilityDescriptor`
+   - `PluginCapabilityResolver`
+   - `PluginCapabilityPrecheckResult`
+2. 能力 manifest 第一阶段从 `.pf4boot-trust.json` 的 `capabilities` 字段读取，避免新增第二个旁路文件。
+3. `DefaultPluginCapabilityResolver` 负责合并：
+   - 当前宿主内置能力。
+   - 已启动插件提供的能力。
+   - 待部署插件声明的能力。
+4. `PluginCapabilityPrecheck` 负责判断 required capability 是否满足，支持 `DISABLED/WARN/ENFORCE`。
+5. JPA 数据源插件能力约定：
+   - provider 声明 `jpa.datasource`，attributes 至少包含 `datasource`、`transactionManager`。
+   - consumer 声明 `jpa.consumer`，attributes 至少包含 `datasource`、`entityPackages`、`repositoryPackages`。
+6. 多数据源插件必须按 datasource 分组声明包扫描路径；禁止把多个数据源的 entity/repository 混在同一个包声明里。
+7. 兼容矩阵先写文档和预检模型，不要求第一阶段实现复杂 version range parser；可以复用 PF4J 已有版本匹配能力或做最小比较。
+
+### 多数据源能力声明示例
+
+```json
+{
+  "capabilities": {
+    "requires": [
+      {
+        "name": "jpa.datasource",
+        "versionRange": "[1,2)",
+        "required": true,
+        "attributes": {
+          "datasource": "orderDs",
+          "entityPackages": "com.example.order.domain",
+          "repositoryPackages": "com.example.order.repository"
+        }
+      },
+      {
+        "name": "jpa.datasource",
+        "versionRange": "[1,2)",
+        "required": true,
+        "attributes": {
+          "datasource": "billingDs",
+          "entityPackages": "com.example.billing.domain",
+          "repositoryPackages": "com.example.billing.repository"
+        }
+      }
+    ]
+  }
+}
+```
+
+### 必测用例
+
+| 测试类 | 用例 |
+| --- | --- |
+| `DefaultPluginCapabilityResolverTest` | `readsCapabilitiesFromTrustManifest`、`mergesHostAndStartedPluginCapabilities` |
+| `PluginCapabilityPrecheckTest` | `warnsWhenRequiredCapabilityMissing`、`rejectsWhenRequiredCapabilityMissingInEnforceMode`、`matchesDatasourceByName` |
+| `DefaultPluginDeploymentServiceTest` | `planReplacementReportsMissingDatasourceCapability` |
+| sample smoke | 多数据源 consumer 缺少一个 datasource provider 时预检失败或 WARN |
+
+### 禁止事项
+
+- 不要把 capability 当成 PF4J dependency 的替代品。
+- 不要默认阻断没有 capability manifest 的历史插件。
+- 不要实现跨数据源事务。
+
 ### 任务
 
 | ID | 任务 | 影响模块 | 验证 |
@@ -162,6 +323,36 @@
 ### 目标
 
 用 sample host 验证管理接口、只读观测、部署记录、JPA 示例和热替换流程可以端到端工作。
+
+### 实施步骤
+
+1. 在 `samples/cross-plugin-jpa` 下新增 smoke 文档和脚本，脚本可以是 Gradle task、PowerShell 或 Java 测试，优先选择仓库已有风格。
+2. smoke 必须固定端口或从启动日志读取端口，避免和开发者本机服务冲突时无提示失败。
+3. 启动 host 后先轮询 readiness endpoint，再调用业务/JPA endpoint。
+4. 管理接口调用必须带 `X-PF4Boot-Admin-Token` 和 `X-Idempotency-Key`。
+5. Actuator 检查只读 endpoint，验证插件列表、部署摘要、trust/capability warning 和 cleanup report 摘要存在。
+6. 失败路径至少覆盖一个：
+   - 缺少 trust manifest。
+   - 缺少 datasource provider。
+   - health check 失败导致回滚。
+7. smoke 结束必须清理进程、临时插件包、operation store 和测试数据库文件。
+
+### 必测用例
+
+| 场景 | 验收 |
+| --- | --- |
+| 正常启动 | host ready，业务 endpoint 返回 200 |
+| 本地管理 start/stop | token 和 idempotency key 生效，重复请求 replay |
+| JPA 事务回滚 | 业务失败后两个插件内数据一致回滚 |
+| 缺少能力 | 部署预检返回 `PFC-002` 或 warning |
+| 观测检查 | Actuator 只读响应包含插件状态、operation/deployment 摘要 |
+| 失败清理 | smoke 退出后无残留进程和临时目录 |
+
+### 禁止事项
+
+- 不要为了 smoke 把管理 token 校验关掉。
+- 不要依赖外部网络、私有 Maven 仓库或人工浏览器操作。
+- 不要让 smoke 修改开发者全局环境变量或用户目录配置。
 
 ### 任务
 

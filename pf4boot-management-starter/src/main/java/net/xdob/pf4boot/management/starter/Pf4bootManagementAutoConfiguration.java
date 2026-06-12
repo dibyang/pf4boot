@@ -12,8 +12,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.util.StringUtils;
 
 import javax.servlet.Servlet;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -82,13 +84,39 @@ public class Pf4bootManagementAutoConfiguration {
 
   @Bean
   @ConditionalOnMissingBean(PluginDeploymentRecordStore.class)
-  public PluginDeploymentRecordStore pluginDeploymentRecordStore() {
+  public PluginDeploymentRecordStore pluginDeploymentRecordStore(Pf4bootManagementProperties properties) {
+    Pf4bootManagementProperties.OperationStoreProperties store = properties.getOperationStore();
+    if (store != null && "file".equalsIgnoreCase(store.getType())) {
+      try {
+        String directory = StringUtils.hasText(store.getDirectory())
+            ? store.getDirectory()
+            : "work/pf4boot/operations";
+        return new FilePluginDeploymentRecordStore(Paths.get(directory).resolveSibling("deployments"));
+      } catch (RuntimeException e) {
+        if (store.isFailClosed()) {
+          throw e;
+        }
+      }
+    }
     return new InMemoryPluginDeploymentRecordStore();
   }
 
   @Bean
   @ConditionalOnMissingBean(PluginOperationStore.class)
-  public PluginOperationStore pluginOperationStore() {
+  public PluginOperationStore pluginOperationStore(Pf4bootManagementProperties properties) {
+    Pf4bootManagementProperties.OperationStoreProperties store = properties.getOperationStore();
+    if (store != null && "file".equalsIgnoreCase(store.getType())) {
+      try {
+        String directory = StringUtils.hasText(store.getDirectory())
+            ? store.getDirectory()
+            : "work/pf4boot/operations";
+        return new FilePluginOperationStore(Paths.get(directory));
+      } catch (RuntimeException e) {
+        if (store.isFailClosed()) {
+          throw e;
+        }
+      }
+    }
     return new InMemoryPluginOperationStore();
   }
 

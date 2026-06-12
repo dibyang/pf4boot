@@ -25,10 +25,11 @@ After each completed task, add evidence such as commit hash, verification comman
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| P1-AC1: `PluginPackageTrustVerifier` and request/result/trust root SPI compile | Planned | TBD |
-| P1-AC2: Default configuration does not block historical unsigned plugins | Planned | TBD |
-| P1-AC3: WARN mode records missing signature, invalid signature, and missing trust root | Planned | TBD |
-| P1-AC4: ENFORCE mode blocks untrusted plugin packages | Planned | TBD |
+| P1-AC0: Design and plan define packages, classes, configuration, manifest format, error codes, and required tests | Done | `docs/design/plugin-framework-production-hardening.md` "Implementation Conventions"; `docs/design/plugin-framework-production-hardening-plan.md` P1 implementation steps |
+| P1-AC1: `PluginPackageTrustVerifier` and request/result/trust root SPI compile | Done | Added `net.xdob.pf4boot.trust.*`; ran `.\gradlew.bat :pf4boot-core:test --tests "net.xdob.pf4boot.DefaultPluginPackageTrustVerifierTest" --tests "net.xdob.pf4boot.DefaultPluginTrustManifestLoaderTest"` |
+| P1-AC2: Default configuration does not block historical unsigned plugins | Done | `DefaultPluginPackageTrustVerifierTest.disabledModeIgnoresMissingManifest` |
+| P1-AC3: WARN mode records missing manifest, signature metadata issues, and missing trust root | Done | `DefaultPluginPackageTrustVerifierTest.warnModeRecordsMissingManifest`, `warnModeRecordsMissingTrustRootForSignatureMetadata` |
+| P1-AC4: ENFORCE mode blocks untrusted plugin packages | Done | `DefaultPluginPackageTrustVerifierTest.enforceModeRejectsMissingManifest`, `enforceModeRejectsManifestChecksumMismatch` |
 | P1-AC5: Management errors do not leak tokens, private key paths, full stacks, or sensitive paths | Planned | TBD |
 | P1-AC6: Developer guide includes manifest examples and WARN-to-ENFORCE migration | Planned | TBD |
 
@@ -36,17 +37,19 @@ After each completed task, add evidence such as commit hash, verification comman
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| P2-AC1: `PluginOperationRecorder` and `PluginIdempotencyStore` public SPI compile | Planned | TBD |
-| P2-AC2: Default in-memory implementation preserves current management behavior | Planned | TBD |
-| P2-AC3: File recorder supports atomic writes and does not treat partial records as success | Planned | TBD |
-| P2-AC4: The same idempotency key returns the existing result or conflict after host restart | Planned | TBD |
-| P2-AC5: `EXECUTING` deployment records can be recognized after restart | Planned | TBD |
+| P2-AC0: Design and plan define store reuse, directories, JSON Lines format, recovery scan rules, and fail-closed behavior | Done | `docs/design/plugin-framework-production-hardening.md` persistence format; `docs/design/plugin-framework-production-hardening-plan.md` P2 implementation steps |
+| P2-AC1: `PluginOperationStore` exposes recovery scanning and compiles | Done | `PluginOperationStore.scanRecoverableRecords()`; ran `.\gradlew.bat :pf4boot-management-starter:test` |
+| P2-AC2: Default in-memory implementation preserves current management behavior | Done | `PluginManagementIdempotencyServiceTest`, `.\gradlew.bat :pf4boot-management-starter:test` |
+| P2-AC3: File recorder supports append writes and does not treat corrupted records as success | Done | `FilePluginOperationStoreTest.skipCorruptedLineWhenReloading` |
+| P2-AC4: The same idempotency key returns the existing result or conflict after host restart | Done | `FilePluginOperationStoreTest.appendAndReadLatestRecordAfterRestart`, `saveIfIdempotencyKeyAbsentReturnsExistingRecord` |
+| P2-AC5: Running operation records can be recognized by recovery scanning after restart, and deployment records can be queried across restart | Done | `FilePluginOperationStoreTest.scanRecoverableRecordsReturnsOnlyRunningStates`, `FilePluginDeploymentRecordStoreTest.appendAndReadDeploymentRecordAfterRestart` |
 | P2-AC6: Audit records do not include tokens, full sensitive paths, or full exception stacks | Planned | TBD |
 
 ## P3 Lifecycle Concurrency And Leak Verification
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
+| P3-AC0: Design and plan define lifecycle locks, diagnostics, failure injection, and forbidden changes | Done | `docs/design/plugin-framework-production-hardening-plan.md` P3 implementation steps, required tests, and forbidden changes |
 | P3-AC1: Concurrent start/stop/reload for one plugin is serialized or rejected | Planned | TBD |
 | P3-AC2: Repeated start does not duplicate shared beans, MVC mappings, interceptors, or schedulers | Planned | TBD |
 | P3-AC3: Dynamic resource counts are zero after stop, or a clear leak report is emitted | Planned | TBD |
@@ -58,6 +61,7 @@ After each completed task, add evidence such as commit hash, verification comman
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
+| P4-AC0: Design and plan define capability manifest model, multi-datasource package-scan example, precheck modes, and required tests | Done | `docs/design/plugin-framework-production-hardening.md` manifest example; `docs/design/plugin-framework-production-hardening-plan.md` P4 multi-datasource example |
 | P4-AC1: Capability manifest model and parsing rules compile | Planned | TBD |
 | P4-AC2: Historical plugins without manifests remain compatible or WARN by default | Planned | TBD |
 | P4-AC3: Deployment precheck detects missing capabilities and returns readable errors | Planned | TBD |
@@ -70,6 +74,7 @@ After each completed task, add evidence such as commit hash, verification comman
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
+| P5-AC0: Design and plan define smoke steps, request headers, security constraints, observability checks, and cleanup requirements | Done | `docs/design/plugin-framework-production-hardening-plan.md` P5 implementation steps and required smoke cases |
 | P5-AC1: Complex sample plugins can be packaged with one Gradle command | Planned | TBD |
 | P5-AC2: Sample host smoke starts the host, calls management APIs, verifies JPA examples, and shuts down | Planned | TBD |
 | P5-AC3: Local management smoke uses a token and does not bypass security | Planned | TBD |

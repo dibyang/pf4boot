@@ -24,6 +24,7 @@ public class Pf4bootManagementProperties {
   private boolean auditEnabled = true;
   private String stagingRoot = "plugins/staged";
   private int maxRecentOperations = 20;
+  private OperationStoreProperties operationStore = new OperationStoreProperties();
   private RateLimitProperties rateLimit = new RateLimitProperties();
   private CsrfProperties csrf = new CsrfProperties();
   private List<String> allowedOperations = new ArrayList<>();
@@ -140,6 +141,14 @@ public class Pf4bootManagementProperties {
     this.maxRecentOperations = maxRecentOperations;
   }
 
+  public OperationStoreProperties getOperationStore() {
+    return operationStore;
+  }
+
+  public void setOperationStore(OperationStoreProperties operationStore) {
+    this.operationStore = operationStore == null ? new OperationStoreProperties() : operationStore;
+  }
+
   public List<String> getAllowedOperations() {
     return Collections.unmodifiableList(allowedOperations);
   }
@@ -169,6 +178,36 @@ public class Pf4bootManagementProperties {
     }
   }
 
+  public static class OperationStoreProperties {
+    private String type = "memory";
+    private String directory = "work/pf4boot/operations";
+    private boolean failClosed = true;
+
+    public String getType() {
+      return type;
+    }
+
+    public void setType(String type) {
+      this.type = type;
+    }
+
+    public String getDirectory() {
+      return directory;
+    }
+
+    public void setDirectory(String directory) {
+      this.directory = directory;
+    }
+
+    public boolean isFailClosed() {
+      return failClosed;
+    }
+
+    public void setFailClosed(boolean failClosed) {
+      this.failClosed = failClosed;
+    }
+  }
+
   public static class CsrfProperties {
     private String enabled = "auto";
 
@@ -181,4 +220,3 @@ public class Pf4bootManagementProperties {
     }
   }
 }
-

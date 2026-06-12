@@ -124,6 +124,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       Collection<PluginPackageVerifier> customVerifiers) {
     List<PluginPackageVerifier> verifiers = new ArrayList<>();
     verifiers.add(new DefaultPluginPackageVerifier(properties));
+    verifiers.add(new DefaultPluginPackageTrustVerifier(properties));
     if (customVerifiers != null) {
       verifiers.addAll(customVerifiers);
     }

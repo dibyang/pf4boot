@@ -2,6 +2,7 @@ package net.xdob.pf4boot.deployment;
 
 import com.google.common.base.Strings;
 import net.xdob.pf4boot.DefaultPluginPackageVerifier;
+import net.xdob.pf4boot.DefaultPluginPackageTrustVerifier;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.PluginPackageVerificationMode;
 import net.xdob.pf4boot.PluginPackageVerificationResult;
@@ -96,6 +97,7 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
       List<PluginPackageVerifier> customVerifiers) {
     List<PluginPackageVerifier> verifiers = new ArrayList<>();
     verifiers.add(new DefaultPluginPackageVerifier(properties));
+    verifiers.add(new DefaultPluginPackageTrustVerifier(properties));
     if (customVerifiers != null) {
       verifiers.addAll(customVerifiers);
     }

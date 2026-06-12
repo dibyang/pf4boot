@@ -99,4 +99,18 @@ public class InMemoryPluginOperationStore implements PluginOperationStore {
     }
     return records.subList(0, size);
   }
+
+  @Override
+  public List<PluginOperationRecord> scanRecoverableRecords() {
+    List<PluginOperationRecord> records = new ArrayList<>();
+    for (PluginOperationRecord record : byOperationId.values()) {
+      if ("STARTED".equals(record.getState())
+          || "EXECUTING".equals(record.getState())
+          || "ROLLING_BACK".equals(record.getState())) {
+        records.add(record);
+      }
+    }
+    records.sort(Comparator.comparingLong(PluginOperationRecord::getUpdatedAt));
+    return records;
+  }
 }

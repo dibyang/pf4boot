@@ -58,6 +58,172 @@ This design consolidates the remaining framework-level hardening work: package s
 | `pf4boot-jpa*` | JPA datasource capability declarations and single-datasource transaction boundary |
 | `samples/cross-plugin-jpa` | Complex JPA, management, hot replacement, and smoke examples |
 
+## Implementation Conventions
+
+This section is a hard implementation guide for follow-up coding agents. Prefer these names, packages, and steps. Reuse an existing equivalent type only when the current code already provides the same semantics, and document the difference.
+
+### Packages And Classes
+
+| Capability | Public API Location | Runtime Implementation Location | Starter/Test Location |
+| --- | --- | --- | --- |
+| Trust verification | `net.xdob.pf4boot.trust.*` | `net.xdob.pf4boot.trust.DefaultPluginPackageTrustVerifier`, `DefaultPluginTrustManifestLoader` | `pf4boot-core/src/test/java/net/xdob/pf4boot/trust/*Test.java` |
+| Capability manifest | `net.xdob.pf4boot.capability.*` | `net.xdob.pf4boot.capability.DefaultPluginCapabilityResolver`, `PluginCapabilityPrecheck` | `pf4boot-core/src/test/java/net/xdob/pf4boot/capability/*Test.java` |
+| Operation persistence | Prefer extending `net.xdob.pf4boot.management.PluginOperationStore`; add `PluginOperationRecorder` only if needed | `net.xdob.pf4boot.management.FilePluginOperationStore` or `net.xdob.pf4boot.management.store.FilePluginOperationStore` | `pf4boot-management-starter/src/test/java/net/xdob/pf4boot/management/starter/*Test.java` |
+| Deployment persistence | Reuse `net.xdob.pf4boot.deployment.DeploymentRecord`; add store SPI under `net.xdob.pf4boot.deployment` | `net.xdob.pf4boot.deployment.FilePluginDeploymentRecordStore` | `pf4boot-core/src/test/java/net/xdob/pf4boot/deployment/*Test.java` |
+| Lifecycle diagnostics | `net.xdob.pf4boot.diagnostic.*` | `net.xdob.pf4boot.diagnostic.DefaultPluginLifecycleDiagnostic` | `pf4boot-core/src/test/java/net/xdob/pf4boot/diagnostic/*Test.java` |
+| Actuator summaries | Reuse `net.xdob.pf4boot.actuate.PluginRuntimeSnapshot`; add read-only DTOs only when needed | `net.xdob.pf4boot.actuate.DefaultPluginRuntimeInspector` | `pf4boot-actuator/src/test/java/net/xdob/pf4boot/actuate/*Test.java` |
+
+Do not place these public types in `pf4boot-management-starter`. The starter owns Spring Boot conditional wiring, HTTP controllers, security policy, and local default beans only.
+
+### Configuration
+
+New settings should live under the existing `spring.pf4boot` namespace.
+
+```yaml
+spring:
+  pf4boot:
+    plugin-package-trust-mode: DISABLED # DISABLED, WARN, ENFORCE
+    plugin-package-trust-manifest-extension: .pf4boot-trust.json
+    plugin-package-trust-roots:
+      - ${PF4BOOT_TRUST_ROOT:}
+    plugin-capability-precheck-mode: DISABLED # DISABLED, WARN, ENFORCE
+    plugin-operation-store:
+      type: memory # memory, file
+      directory: ${PF4BOOT_OPERATION_STORE:}
+      fail-closed: true
+    plugin-cleanup-diagnostic:
+      enabled: false
+      fail-deployment-on-leak: false
+      classloader-check-enabled: false
+```
+
+Implementation rules:
+
+- Prefer extending `net.xdob.pf4boot.spring.boot.Pf4bootProperties`.
+- Keep HTTP management-only properties in `net.xdob.pf4boot.management.starter.Pf4bootManagementProperties`.
+- Null enum inputs must fall back to safe defaults: trust/capability `DISABLED`, operation store `memory`, fail-closed `true`.
+- Default configuration must not expose remote management writes, enforce signatures, or enable file persistence.
+
+### Manifest Format
+
+The first stage uses a sidecar file beside the plugin zip: `<pluginZipName>.pf4boot-trust.json`. Zip-internal `META-INF/pf4boot-trust.json` can be added later and is not required for P1.
+
+```json
+{
+  "formatVersion": 1,
+  "pluginId": "sample-order-plugin",
+  "pluginVersion": "1.2.0",
+  "packageSha256": "hex-lowercase-sha256",
+  "signature": {
+    "algorithm": "SHA256withRSA",
+    "keyId": "local-dev-key",
+    "value": "base64-signature"
+  },
+  "certificateChain": [
+    "base64-der-or-pem-without-private-key"
+  ],
+  "capabilities": {
+    "provides": [
+      {
+        "name": "web.mvc",
+        "version": "1",
+        "scope": "PLUGIN",
+        "attributes": {
+          "basePath": "/api/sample/order"
+        }
+      }
+    ],
+    "requires": [
+      {
+        "name": "jpa.datasource",
+        "versionRange": "[1,2)",
+        "required": true,
+        "attributes": {
+          "datasource": "orderDs"
+        }
+      }
+    ]
+  },
+  "compatibility": {
+    "javaVersion": "1.8",
+    "pf4bootVersionRange": "[0.0.1,1.0.0)",
+    "springBootVersionRange": "[2.7.0,2.8.0)"
+  }
+}
+```
+
+Validation rules:
+
+- `pluginId` and `pluginVersion` must match the descriptor.
+- `packageSha256` must be lowercase hex; comparison trims edge whitespace only.
+- Unknown `formatVersion` records a warning in `WARN` mode and blocks in `ENFORCE` mode.
+- `signature.value` must never be logged.
+- Manifest parse failure is ignored in `DISABLED`, recorded in `WARN`, and blocked in `ENFORCE`.
+
+### Persistence Format
+
+The first file store uses JSON Lines. Each line is one complete JSON record. Writes must use a temp file or buffered line, flush, fsync, and atomic rename or append with fsync. If fsync cannot be guaranteed on the platform, document and test the downgrade.
+
+Recommended directories:
+
+```text
+work/pf4boot/
+  operations/
+    operations-2026-06-12.jsonl
+  deployments/
+    deployments-2026-06-12.jsonl
+  idempotency/
+    keys-2026-06-12.jsonl
+  recovery/
+    recovery-scan.log
+```
+
+Minimal `operations` line:
+
+```json
+{
+  "schemaVersion": 1,
+  "operationId": "op-...",
+  "idempotencyKey": "principal:hash",
+  "requestHash": "sha256",
+  "operationType": "DEPLOY_REPLACE",
+  "pluginId": "sample-order-plugin",
+  "state": "SUCCEEDED",
+  "resultCode": "OK",
+  "message": "deployment succeeded",
+  "createdAt": 1781184000000,
+  "updatedAt": 1781184001000
+}
+```
+
+Recovery scan rules:
+
+- Skip unparsable partial lines and record `PFP-STORE-004`.
+- For the same `operationId`, use the record with the greatest `updatedAt`.
+- For the same idempotency key, use the latest complete record; different request hash means conflict.
+- `EXECUTING` and `ROLLING_BACK` after restart require recovery evaluation and must not be marked successful directly.
+
+### Error Codes
+
+| Prefix | Owner | Examples |
+| --- | --- | --- |
+| `PFT-` | package trust | `PFT-001` manifest missing, `PFT-002` checksum mismatch, `PFT-003` signature invalid, `PFT-004` trust root rejected |
+| `PFC-` | capability | `PFC-001` manifest invalid, `PFC-002` required capability missing, `PFC-003` version range mismatch |
+| `PFP-STORE-` | persistence | `PFP-STORE-001` store unavailable, `PFP-STORE-002` write failed, `PFP-STORE-003` idempotency conflict, `PFP-STORE-004` corrupted record skipped |
+| `PFL-` | lifecycle diagnostic | `PFL-001` lifecycle lock conflict, `PFL-002` cleanup leak detected, `PFL-003` classloader still reachable |
+| `PFS-` | smoke | `PFS-001` host not ready, `PFS-002` management call failed, `PFS-003` actuator check failed |
+
+HTTP errors may contain only the error code, safe summary, and request/operation/deployment id. Do not return exception objects, full stacks, tokens, private keys, or sensitive absolute paths.
+
+### Implementation Order Rules
+
+1. Add API models and no-op/in-memory implementations before wiring runtime flows.
+2. For every runtime call site, add unit tests before sample smoke.
+3. `pf4boot-core` must not depend on `pf4boot-management-starter` or `pf4boot-actuator`.
+4. `pf4boot-actuator` can only read snapshots and diagnostics; it must not call mutating manager/deployment methods.
+5. P1/P2/P3 must not change required fields in existing plugin descriptors; use sidecar manifests for new metadata.
+6. Every new public type must have JavaDoc or a design table explaining its semantics.
+
 ## Interface Design
 
 ### Package Trust Chain

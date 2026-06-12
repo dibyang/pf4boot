@@ -23,4 +23,11 @@ public interface PluginOperationStore {
   PluginOperationRecord findByDeploymentId(String deploymentId);
 
   List<PluginOperationRecord> recent(int limit);
+
+  /**
+   * 返回仍处于执行中的操作，主要用于重启恢复扫描。
+   */
+  default List<PluginOperationRecord> scanRecoverableRecords() {
+    return java.util.Collections.emptyList();
+  }
 }

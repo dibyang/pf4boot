@@ -51,6 +51,44 @@ Freeze production hardening scope and create implementation and acceptance track
 
 Extend the current checksum/verifier foundation with signature and trust-chain verification. Start in WARN mode to avoid breaking existing plugins.
 
+### Implementation Steps
+
+1. Add public models under `pf4boot-api/src/main/java/net/xdob/pf4boot/trust/`:
+   - `PluginPackageTrustVerifier`
+   - `PluginPackageTrustRequest`
+   - `PluginPackageTrustResult`
+   - `PluginPackageTrustStatus`
+   - `PluginTrustRootProvider`
+   - `PluginTrustManifest`
+   - `PluginSignatureMetadata`
+2. Add properties to `Pf4bootProperties`:
+   - `pluginPackageTrustMode`
+   - `pluginPackageTrustManifestExtension`
+   - `pluginPackageTrustRoots`
+3. Add default implementations in `pf4boot-core`:
+   - `DefaultPluginTrustManifestLoader`
+   - `DefaultPluginPackageTrustVerifier`
+   - `NoopPluginTrustRootProvider`
+4. Chain trust verification around the existing `PluginPackageVerifier` calls in `Pf4bootPluginManagerImpl` and `DefaultPluginDeploymentService`. If the current chain is easier to reuse, adapt trust verification into `PluginPackageVerifier`, but preserve trust error codes and queryable results.
+5. Wire default beans in `pf4boot-starter`, allowing host-provided Spring beans to override verifier/root provider.
+6. Add at least one `.pf4boot-trust.json` sample to plugin packaging output.
+7. Update docs and tests.
+
+### Required Tests
+
+| Test Class | Cases |
+| --- | --- |
+| `DefaultPluginPackageTrustVerifierTest` | `disabledModeIgnoresMissingManifest`, `warnModeRecordsMissingManifest`, `enforceModeRejectsMissingManifest` |
+| `DefaultPluginTrustManifestLoaderTest` | `loadsSidecarManifest`, `rejectsInvalidJson`, `rejectsPluginIdMismatch` |
+| `DefaultPluginDeploymentServiceTest` | `planReplacementIncludesTrustWarnings`, `replaceRejectsUntrustedPackageInEnforceMode` |
+| `Pf4bootPluginManagerLifecycleTest` | `loadPluginRejectsUntrustedPackageBeforeClassLoaderCreation` |
+
+### Forbidden Changes
+
+- Do not add BouncyCastle, KMS SDKs, Spring Security, or external CA clients in P1.
+- Do not enable strict signature enforcement by default.
+- Do not return full signatures, certificate contents, private key paths, or full stacks in HTTP responses.
+
 ### Tasks
 
 | ID | Task | Modules | Verification |
@@ -78,6 +116,34 @@ Extend the current checksum/verifier foundation with signature and trust-chain v
 ### Goal
 
 Make management operations, deployment records, audit events, and idempotency records recoverable across host restarts.
+
+### Implementation Steps
+
+1. Review and reuse the existing `net.xdob.pf4boot.management.PluginOperationStore`, `PluginOperationRecord`, and `InMemoryPluginOperationStore`.
+2. If the current store lacks query or completion fields, extend the existing interface first. Add `PluginOperationRecorder` only when semantics clearly differ.
+3. Add file store configuration fields to `Pf4bootProperties`.
+4. Auto-configure the store in `pf4boot-management-starter`:
+   - `type=memory` keeps `InMemoryPluginOperationStore`.
+   - `type=file` uses the file store.
+   - If the file store fails and `fail-closed=true`, management writes fail startup or reject writes.
+5. Reuse `PluginDeploymentRecordStore`. If it is starter-internal only, evaluate moving the SPI to `pf4boot-api` or a reusable core package.
+6. Add an explicit recovery entrypoint such as `scanRecoverableOperations()`. Do not run complex recovery in constructors.
+7. Update idempotency so completed records can replay across restarts.
+
+### Required Tests
+
+| Test Class | Cases |
+| --- | --- |
+| `FilePluginOperationStoreTest` | `appendAndReadLatestRecord`, `skipCorruptedLine`, `detectIdempotencyConflict`, `recoverExecutingRecord` |
+| `PluginManagementIdempotencyServiceTest` | `replaysPersistedResult`, `rejectsSameKeyDifferentRequestAfterRestart` |
+| `PluginManagementControllerTest` | `writeFailsClosedWhenStoreUnavailable`, `auditRecordDoesNotContainToken` |
+| `DefaultPluginDeploymentServiceTest` | `recoverReplacementRecordAfterRestart` |
+
+### Forbidden Changes
+
+- Do not enable file persistence by default.
+- Do not store tokens, full sensitive absolute paths, full stacks, or raw request bodies in JSON Lines.
+- Do not continue deployment replacement after store writes fail.
 
 ### Tasks
 
@@ -107,6 +173,35 @@ Make management operations, deployment records, audit events, and idempotency re
 
 Add tests and diagnostics for lifecycle mutual exclusion, dependency-chain replacement, stop cleanup, and failure injection.
 
+### Implementation Steps
+
+1. Inspect `Pf4bootPluginManagerImpl` start/stop/reload/delete/upgrade entrypoints and current locking.
+2. If no unified mutual exclusion exists, add a per-plugin lifecycle lock such as `PluginLifecycleLockRegistry` in `pf4boot-core`.
+3. Lock rules:
+   - Mutating operations for the same plugin are serialized.
+   - Different plugins may proceed concurrently by default.
+   - Dependency-chain deployments acquire locks in stable sorted order to avoid deadlocks.
+4. Add `PluginLifecycleDiagnostic` and `PluginCleanupReport`; first collect only resource counts already available from existing managers.
+5. Add Web/JPA/scheduler cleanup checks incrementally, with stop-after assertions for each resource type.
+6. Prefer fake plugins, fake verifiers, and fake health probes for failure injection. Do not add production test switches.
+7. Use weak references and limited GC attempts for classloader leak checks. Keep runtime diagnostics best-effort unless tests prove stability.
+
+### Required Tests
+
+| Test Class | Cases |
+| --- | --- |
+| `PluginLifecycleLockRegistryTest` | `samePluginOperationsAreSerialized`, `differentPluginsCanProceed`, `dependencyScopeLocksInStableOrder` |
+| `Pf4bootPluginManagerLifecycleTest` | `concurrentStartDoesNotDuplicateResources`, `stopAfterFailedStartCleansPartialResources` |
+| `DefaultShareBeanMgrTest` | `stopRemovesSharedBeansForPlugin` |
+| `DefaultScheduledMgrTest` | `stopCancelsPluginScheduledTasks` |
+| `DefaultPluginDeploymentServiceTest` | `rollbackWhenHealthCheckFails`, `manualInterventionWhenRollbackFails` |
+
+### Forbidden Changes
+
+- Do not use one global lock for all plugin operations unless tests prove scoped locking is not viable.
+- Do not use `Thread.stop`, forcibly abort JDBC transactions, or swallow stop failures.
+- Do not let Actuator call mutating lifecycle methods.
+
 ### Tasks
 
 | ID | Task | Modules | Verification |
@@ -135,6 +230,72 @@ Add tests and diagnostics for lifecycle mutual exclusion, dependency-chain repla
 
 Let plugins declare capabilities and requirements before deployment, so the host can detect missing runtime conditions early.
 
+### Implementation Steps
+
+1. Add public types under `pf4boot-api/src/main/java/net/xdob/pf4boot/capability/`:
+   - `PluginCapability`
+   - `PluginCapabilityRequirement`
+   - `PluginCapabilityDescriptor`
+   - `PluginCapabilityResolver`
+   - `PluginCapabilityPrecheckResult`
+2. Read capability declarations from the `.pf4boot-trust.json` `capabilities` field in the first stage.
+3. `DefaultPluginCapabilityResolver` merges:
+   - host built-in capabilities;
+   - capabilities from started plugins;
+   - capabilities from the candidate plugin package.
+4. `PluginCapabilityPrecheck` evaluates required capabilities with `DISABLED/WARN/ENFORCE`.
+5. JPA provider declaration:
+   - provider uses `jpa.datasource`, attributes include `datasource`, `transactionManager`;
+   - consumer uses `jpa.consumer`, attributes include `datasource`, `entityPackages`, `repositoryPackages`.
+6. Multi-datasource plugins must group package scans by datasource; do not mix entity/repository scans for multiple datasources in one declaration.
+7. Add compatibility matrix docs and precheck models first. Complex version ranges can reuse PF4J behavior or minimal comparisons initially.
+
+### Multi-Datasource Example
+
+```json
+{
+  "capabilities": {
+    "requires": [
+      {
+        "name": "jpa.datasource",
+        "versionRange": "[1,2)",
+        "required": true,
+        "attributes": {
+          "datasource": "orderDs",
+          "entityPackages": "com.example.order.domain",
+          "repositoryPackages": "com.example.order.repository"
+        }
+      },
+      {
+        "name": "jpa.datasource",
+        "versionRange": "[1,2)",
+        "required": true,
+        "attributes": {
+          "datasource": "billingDs",
+          "entityPackages": "com.example.billing.domain",
+          "repositoryPackages": "com.example.billing.repository"
+        }
+      }
+    ]
+  }
+}
+```
+
+### Required Tests
+
+| Test Class | Cases |
+| --- | --- |
+| `DefaultPluginCapabilityResolverTest` | `readsCapabilitiesFromTrustManifest`, `mergesHostAndStartedPluginCapabilities` |
+| `PluginCapabilityPrecheckTest` | `warnsWhenRequiredCapabilityMissing`, `rejectsWhenRequiredCapabilityMissingInEnforceMode`, `matchesDatasourceByName` |
+| `DefaultPluginDeploymentServiceTest` | `planReplacementReportsMissingDatasourceCapability` |
+| sample smoke | A multi-datasource consumer fails or warns when one datasource provider is missing |
+
+### Forbidden Changes
+
+- Do not treat capability manifests as PF4J dependency replacements.
+- Do not block historical plugins without capability manifests by default.
+- Do not implement cross-datasource transactions.
+
 ### Tasks
 
 | ID | Task | Modules | Verification |
@@ -162,6 +323,36 @@ Let plugins declare capabilities and requirements before deployment, so the host
 ### Goal
 
 Use the sample host to verify management APIs, read-only observability, deployment records, JPA examples, and hot replacement end to end.
+
+### Implementation Steps
+
+1. Add smoke docs and scripts under `samples/cross-plugin-jpa`. The script can be a Gradle task, PowerShell, or Java test; prefer existing repository style.
+2. Use a fixed port or parse the port from startup logs, and fail clearly on port conflicts.
+3. After host startup, poll readiness before calling business/JPA endpoints.
+4. Management calls must include `X-PF4Boot-Admin-Token` and `X-Idempotency-Key`.
+5. Actuator checks read-only endpoints and verify plugin list, deployment summaries, trust/capability warnings, and cleanup summaries.
+6. Failure paths cover at least one of:
+   - missing trust manifest;
+   - missing datasource provider;
+   - health check failure causing rollback.
+7. Smoke teardown must clean processes, temporary plugin packages, operation stores, and test database files.
+
+### Required Smoke Cases
+
+| Scenario | Acceptance |
+| --- | --- |
+| Normal startup | Host ready and business endpoint returns 200 |
+| Local management start/stop | Token and idempotency key work; duplicate request replays |
+| JPA transaction rollback | Failed workflow rolls back data consistently across plugins |
+| Missing capability | Deployment precheck returns `PFC-002` or warning |
+| Observability | Actuator read-only response includes plugin state and operation/deployment summaries |
+| Failure cleanup | Smoke exits with no leftover process or temp directory |
+
+### Forbidden Changes
+
+- Do not disable management token checks for smoke.
+- Do not depend on external network, private Maven repositories, or manual browser actions.
+- Do not mutate developer global environment variables or user-directory configuration.
 
 ### Tasks
 

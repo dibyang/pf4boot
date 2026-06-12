@@ -58,6 +58,172 @@
 | `pf4boot-jpa*` | 声明 JPA 数据源能力、保持单数据源跨插件事务边界，补充多数据源约束 |
 | `samples/cross-plugin-jpa` | 承载复杂 JPA、管理接口、热替换和 smoke 示例 |
 
+## 可实施落地约定
+
+本节是给实施模型使用的硬约束。后续编码时优先按本节命名、包路径和步骤落地；只有发现现有代码已经有等价类型时，才复用现有类型并在设计或规划中补充差异说明。
+
+### 包名和类名清单
+
+| 能力 | 公共 API 建议位置 | 运行时实现建议位置 | starter/测试建议位置 |
+| --- | --- | --- | --- |
+| 信任链校验 | `net.xdob.pf4boot.trust.*` | `net.xdob.pf4boot.trust.DefaultPluginPackageTrustVerifier`、`DefaultPluginTrustManifestLoader` | `pf4boot-core/src/test/java/net/xdob/pf4boot/trust/*Test.java` |
+| 能力声明 | `net.xdob.pf4boot.capability.*` | `net.xdob.pf4boot.capability.DefaultPluginCapabilityResolver`、`PluginCapabilityPrecheck` | `pf4boot-core/src/test/java/net/xdob/pf4boot/capability/*Test.java` |
+| 操作记录持久化 | 优先复用并扩展 `net.xdob.pf4boot.management.PluginOperationStore`；如语义不足再新增 `PluginOperationRecorder` | `net.xdob.pf4boot.management.FilePluginOperationStore` 或 `net.xdob.pf4boot.management.store.FilePluginOperationStore` | `pf4boot-management-starter/src/test/java/net/xdob/pf4boot/management/starter/*Test.java` |
+| 部署记录持久化 | 复用 `net.xdob.pf4boot.deployment.DeploymentRecord`，新增 store SPI 放在 `net.xdob.pf4boot.deployment` | `net.xdob.pf4boot.deployment.FilePluginDeploymentRecordStore` | `pf4boot-core/src/test/java/net/xdob/pf4boot/deployment/*Test.java` |
+| 生命周期诊断 | `net.xdob.pf4boot.diagnostic.*` | `net.xdob.pf4boot.diagnostic.DefaultPluginLifecycleDiagnostic` | `pf4boot-core/src/test/java/net/xdob/pf4boot/diagnostic/*Test.java` |
+| Actuator 摘要 | 复用 `net.xdob.pf4boot.actuate.PluginRuntimeSnapshot`，必要时新增只读 DTO | `net.xdob.pf4boot.actuate.DefaultPluginRuntimeInspector` | `pf4boot-actuator/src/test/java/net/xdob/pf4boot/actuate/*Test.java` |
+
+不要把这些公共类型放进 `pf4boot-management-starter`。starter 只负责 Spring Boot 条件装配、HTTP Controller、安全策略和本地默认 bean。
+
+### 配置项约定
+
+新增配置优先挂在已有 `spring.pf4boot` 下，避免再造新的顶层 namespace。
+
+```yaml
+spring:
+  pf4boot:
+    plugin-package-trust-mode: DISABLED # DISABLED, WARN, ENFORCE
+    plugin-package-trust-manifest-extension: .pf4boot-trust.json
+    plugin-package-trust-roots:
+      - ${PF4BOOT_TRUST_ROOT:}
+    plugin-capability-precheck-mode: DISABLED # DISABLED, WARN, ENFORCE
+    plugin-operation-store:
+      type: memory # memory, file
+      directory: ${PF4BOOT_OPERATION_STORE:}
+      fail-closed: true
+    plugin-cleanup-diagnostic:
+      enabled: false
+      fail-deployment-on-leak: false
+      classloader-check-enabled: false
+```
+
+实施要求：
+
+- 配置类优先扩展 `net.xdob.pf4boot.spring.boot.Pf4bootProperties`。
+- 管理 HTTP 私有配置继续放在 `net.xdob.pf4boot.management.starter.Pf4bootManagementProperties`。
+- 所有 enum 都必须在 null 输入时回退到安全默认值：trust/capability 默认为 `DISABLED`，operation store 默认为 `memory`，fail-closed 默认为 `true`。
+- 不允许在默认配置下注册远程管理写接口、强制签名或文件持久化。
+
+### manifest 文件格式
+
+第一阶段默认采用插件 zip 旁路文件，文件名为 `<pluginZipName>.pf4boot-trust.json`。zip 内 `META-INF/pf4boot-trust.json` 可作为后续兼容增强，不作为 P1 必做项。
+
+```json
+{
+  "formatVersion": 1,
+  "pluginId": "sample-order-plugin",
+  "pluginVersion": "1.2.0",
+  "packageSha256": "hex-lowercase-sha256",
+  "signature": {
+    "algorithm": "SHA256withRSA",
+    "keyId": "local-dev-key",
+    "value": "base64-signature"
+  },
+  "certificateChain": [
+    "base64-der-or-pem-without-private-key"
+  ],
+  "capabilities": {
+    "provides": [
+      {
+        "name": "web.mvc",
+        "version": "1",
+        "scope": "PLUGIN",
+        "attributes": {
+          "basePath": "/api/sample/order"
+        }
+      }
+    ],
+    "requires": [
+      {
+        "name": "jpa.datasource",
+        "versionRange": "[1,2)",
+        "required": true,
+        "attributes": {
+          "datasource": "orderDs"
+        }
+      }
+    ]
+  },
+  "compatibility": {
+    "javaVersion": "1.8",
+    "pf4bootVersionRange": "[0.0.1,1.0.0)",
+    "springBootVersionRange": "[2.7.0,2.8.0)"
+  }
+}
+```
+
+校验规则：
+
+- `pluginId` 和 `pluginVersion` 必须与 descriptor 一致。
+- `packageSha256` 必须使用小写 hex；比较时忽略首尾空白，不忽略中间字符。
+- `formatVersion` 不认识时：`WARN` 模式记录 warning，`ENFORCE` 模式阻断。
+- `signature.value` 不得写入日志；日志只允许输出 `keyId`、算法、状态和安全摘要。
+- manifest 解析失败时，`DISABLED` 忽略，`WARN` 记录，`ENFORCE` 阻断。
+
+### 持久化文件格式
+
+文件 store 第一阶段使用 JSON Lines，便于追加和恢复扫描。每行一条完整 JSON，写入流程为：写临时文件或临时行缓冲、flush、fsync、原子 rename 或追加后 fsync。若当前平台无法可靠 fsync，必须在文档和测试中标注降级。
+
+目录建议：
+
+```text
+work/pf4boot/
+  operations/
+    operations-2026-06-12.jsonl
+  deployments/
+    deployments-2026-06-12.jsonl
+  idempotency/
+    keys-2026-06-12.jsonl
+  recovery/
+    recovery-scan.log
+```
+
+`operations` 每行字段最少包含：
+
+```json
+{
+  "schemaVersion": 1,
+  "operationId": "op-...",
+  "idempotencyKey": "principal:hash",
+  "requestHash": "sha256",
+  "operationType": "DEPLOY_REPLACE",
+  "pluginId": "sample-order-plugin",
+  "state": "SUCCEEDED",
+  "resultCode": "OK",
+  "message": "deployment succeeded",
+  "createdAt": 1781184000000,
+  "updatedAt": 1781184001000
+}
+```
+
+恢复扫描规则：
+
+- 忽略无法解析的半行，并记录 `PFP-STORE-004`。
+- 同一 `operationId` 取 `updatedAt` 最大的记录。
+- 同一幂等 key 取最新完整记录；若 requestHash 不同，返回冲突。
+- `EXECUTING`、`ROLLING_BACK` 状态在重启后必须进入恢复判断，不得直接标记成功。
+
+### 错误码约定
+
+| 前缀 | 归属 | 示例 |
+| --- | --- | --- |
+| `PFT-` | package trust | `PFT-001` manifest missing，`PFT-002` checksum mismatch，`PFT-003` signature invalid，`PFT-004` trust root rejected |
+| `PFC-` | capability | `PFC-001` manifest invalid，`PFC-002` required capability missing，`PFC-003` version range mismatch |
+| `PFP-STORE-` | persistence | `PFP-STORE-001` store unavailable，`PFP-STORE-002` write failed，`PFP-STORE-003` idempotency conflict，`PFP-STORE-004` corrupted record skipped |
+| `PFL-` | lifecycle diagnostic | `PFL-001` lifecycle lock conflict，`PFL-002` cleanup leak detected，`PFL-003` classloader still reachable |
+| `PFS-` | smoke | `PFS-001` host not ready，`PFS-002` management call failed，`PFS-003` actuator check failed |
+
+错误响应只能包含错误码、安全摘要和 request/operation/deployment id。异常对象、完整堆栈、token、私钥、绝对敏感路径不得进入 HTTP response。
+
+### 实施顺序硬规则
+
+1. 先新增 API 模型和 no-op/内存实现，再接入运行时流程。
+2. 每接入一个运行时调用点，先补单元测试再补 sample smoke。
+3. `pf4boot-core` 不能依赖 `pf4boot-management-starter` 或 `pf4boot-actuator`。
+4. `pf4boot-actuator` 只能读取快照和诊断结果，不能调用 mutating manager/deployment 方法。
+5. P1/P2/P3 的实现不得修改现有插件 descriptor 的必填字段；需要新字段时放在旁路 manifest。
+6. 所有新 public 类型必须有 JavaDoc 或文档表格说明语义；实现类只在复杂逻辑处写必要注释。
+
 ## 接口设计
 
 ### 插件包信任链
