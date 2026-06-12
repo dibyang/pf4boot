@@ -56,6 +56,7 @@ public class PluginManagementController {
   private final PluginManagementAuditRecorder auditRecorder;
   private final PluginOperationStore operationStore;
   private final PluginManagementWriteSecurityPolicy writeSecurityPolicy;
+  private final DefaultPluginManagementMetricsRecorder managementMetricsRecorder;
 
   public PluginManagementController(
       Pf4bootPluginManager pluginManager,
@@ -69,6 +70,34 @@ public class PluginManagementController {
       PluginManagementAuditRecorder auditRecorder,
       PluginOperationStore operationStore,
       PluginManagementWriteSecurityPolicy writeSecurityPolicy) {
+    this(
+        pluginManager,
+        deploymentService,
+        properties,
+        authorizer,
+        requestFactory,
+        pathValidator,
+        idempotencyService,
+        deploymentRecordStore,
+        auditRecorder,
+        operationStore,
+        writeSecurityPolicy,
+        new DefaultPluginManagementMetricsRecorder());
+  }
+
+  public PluginManagementController(
+      Pf4bootPluginManager pluginManager,
+      PluginDeploymentService deploymentService,
+      Pf4bootManagementProperties properties,
+      PluginManagementAuthorizer authorizer,
+      PluginManagementRequestFactory requestFactory,
+      PluginManagementPathValidator pathValidator,
+      PluginManagementIdempotencyService idempotencyService,
+      PluginDeploymentRecordStore deploymentRecordStore,
+      PluginManagementAuditRecorder auditRecorder,
+      PluginOperationStore operationStore,
+      PluginManagementWriteSecurityPolicy writeSecurityPolicy,
+      DefaultPluginManagementMetricsRecorder managementMetricsRecorder) {
     this.pluginManager = pluginManager;
     this.deploymentService = deploymentService;
     this.properties = properties;
@@ -80,10 +109,14 @@ public class PluginManagementController {
     this.auditRecorder = auditRecorder;
     this.operationStore = operationStore;
     this.writeSecurityPolicy = writeSecurityPolicy;
+    this.managementMetricsRecorder = managementMetricsRecorder == null
+        ? new DefaultPluginManagementMetricsRecorder()
+        : managementMetricsRecorder;
   }
 
   @GetMapping("/plugins")
   public PluginAdminResponse<List<PluginRuntimeSnapshot>> plugins(HttpServletRequest request) {
+    recordManagementRequest();
     // Read path only: build request context, authenticate by SPI, and list runtime snapshots.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
@@ -113,6 +146,7 @@ public class PluginManagementController {
   public PluginAdminResponse<PluginRuntimeSnapshot> plugin(
       @PathVariable String pluginId,
       HttpServletRequest request) {
+    recordManagementRequest();
     // Read path only: read single plugin snapshot by pluginId and fail fast when missing.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
@@ -214,6 +248,7 @@ public class PluginManagementController {
 
   @GetMapping("/deployments")
   public PluginAdminResponse<List<DeploymentRecord>> deployments(HttpServletRequest request) {
+    recordManagementRequest();
     // Read-only deployment history query path.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
@@ -241,6 +276,7 @@ public class PluginManagementController {
   public PluginAdminResponse<DeploymentRecord> deployment(
       @PathVariable String deploymentId,
       HttpServletRequest request) {
+    recordManagementRequest();
     // Query single deployment record by id.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
@@ -288,6 +324,7 @@ public class PluginManagementController {
   public PluginAdminResponse<DeploymentRecord> rollback(
       @PathVariable("deploymentId") String deploymentId,
       HttpServletRequest request) {
+    recordManagementRequest();
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
         PluginManagementOperation.DEPLOYMENT_ROLLBACK,
@@ -340,6 +377,7 @@ public class PluginManagementController {
           messageForDeployment(result));
       auditRecorder.record(event);
       if (result.getState() != DeploymentState.SUCCEEDED) {
+        managementMetricsRecorder.recordRejected();
         return PluginAdminResponse.failed(
             mgmtRequest.getRequestId(),
             operationId,
@@ -371,6 +409,7 @@ public class PluginManagementController {
   public PluginAdminResponse<DeploymentRecord> confirm(
       @PathVariable("deploymentId") String deploymentId,
       HttpServletRequest request) {
+    recordManagementRequest();
     // Confirm turns a prechecked plan into real execution and follows the same security + idempotency pipeline.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
@@ -436,6 +475,7 @@ public class PluginManagementController {
             errorCode.getCode(),
             messageForDeployment(result));
         auditRecorder.record(event);
+        managementMetricsRecorder.recordRejected();
         return PluginAdminResponse.failed(
             mgmtRequest.getRequestId(),
             operationId,
@@ -480,6 +520,7 @@ public class PluginManagementController {
       HttpServletRequest request,
       PluginDeploymentRequest body,
       PluginManagementOperation operation) {
+    recordManagementRequest();
     // Shared write path for plan/replace to guarantee same auth, security and idempotency flow.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
@@ -565,6 +606,7 @@ public class PluginManagementController {
             errorCode.getCode(),
             messageForDeployment(record));
         auditRecorder.record(event);
+        managementMetricsRecorder.recordRejected();
         return PluginAdminResponse.failed(
             requestForHash.getRequestId(),
             operationId,
@@ -606,6 +648,7 @@ public class PluginManagementController {
       PluginManagementOperation operation,
       String successMessage,
       PluginAction action) {
+    recordManagementRequest();
     // Shared mutation helper for lifecycle operations: idempotency-first execution and audit recording.
     PluginManagementRequest mgmtRequest = requestFactory.toPluginRequest(
         request,
@@ -907,7 +950,17 @@ public class PluginManagementController {
       String operationId,
       String deploymentId) {
     try {
-      return idempotencyService.begin(request, operation, principalId, requestHash, operationId, deploymentId);
+      PluginOperationRecord record = idempotencyService.begin(
+          request,
+          operation,
+          principalId,
+          requestHash,
+          operationId,
+          deploymentId);
+      if (record != null) {
+        managementMetricsRecorder.recordIdempotencyHit();
+      }
+      return record;
     } catch (RuntimeException e) {
       recordFailureAudit(request, principal, operationId, operation, e);
       throw e;
@@ -923,6 +976,7 @@ public class PluginManagementController {
     if (request == null) {
       return;
     }
+    managementMetricsRecorder.recordRejected();
     PluginManagementErrorCode code = errorCode(e);
     auditRecorder.record(buildEvent(
         request,
@@ -956,6 +1010,10 @@ public class PluginManagementController {
     PluginManagementException exception = new PluginManagementException(code, message, status);
     recordFailureAudit(request, principal, null, operation, exception);
     return exception;
+  }
+
+  private void recordManagementRequest() {
+    managementMetricsRecorder.recordRequest();
   }
 
   private PluginManagementRequest requestForAudit(

@@ -3,9 +3,13 @@ package net.xdob.pf4boot.actuate.autoconfigure;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.PluginRuntimeInspector;
 import net.xdob.pf4boot.actuate.DefaultPluginRuntimeInspector;
+import net.xdob.pf4boot.actuate.Pf4bootGovernanceEndpoint;
 import net.xdob.pf4boot.actuate.Pf4bootMetrics;
 import net.xdob.pf4boot.actuate.Pf4bootPluginsEndpoint;
 import net.xdob.pf4boot.deployment.PluginDeploymentMetricsProvider;
+import net.xdob.pf4boot.diagnostic.PluginLifecycleDiagnostic;
+import net.xdob.pf4boot.management.PluginManagementMetricsProvider;
+import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
@@ -38,11 +42,29 @@ public class Pf4bootActuatorAutoConfiguration {
   }
 
   @Bean
+  @ConditionalOnMissingBean
+  public Pf4bootGovernanceEndpoint pf4bootGovernanceEndpoint(
+      PluginRuntimeInspector pluginRuntimeInspector,
+      ObjectProvider<PluginDeploymentMetricsProvider> deploymentMetricsProvider,
+      ObjectProvider<PluginLifecycleDiagnostic> lifecycleDiagnostic,
+      ObjectProvider<Pf4bootProperties> properties) {
+    return new Pf4bootGovernanceEndpoint(
+        pluginRuntimeInspector,
+        deploymentMetricsProvider.getIfAvailable(),
+        lifecycleDiagnostic.getIfAvailable(),
+        properties.getIfAvailable());
+  }
+
+  @Bean
   @ConditionalOnClass(MeterRegistry.class)
   @ConditionalOnMissingBean
   public Pf4bootMetrics pf4bootMetrics(
       Pf4bootPluginManager pluginManager,
-      ObjectProvider<PluginDeploymentMetricsProvider> deploymentMetricsProvider) {
-    return new Pf4bootMetrics(pluginManager, deploymentMetricsProvider.getIfAvailable());
+      ObjectProvider<PluginDeploymentMetricsProvider> deploymentMetricsProvider,
+      ObjectProvider<PluginManagementMetricsProvider> managementMetricsProvider) {
+    return new Pf4bootMetrics(
+        pluginManager,
+        deploymentMetricsProvider.getIfAvailable(),
+        managementMetricsProvider.getIfUnique());
   }
 }

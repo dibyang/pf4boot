@@ -21,7 +21,7 @@
 | P2 | 操作/部署/审计持久化 | Done | recorder SPI、文件实现、恢复扫描 |
 | P3 | 生命周期并发与资源泄漏验证 | Done | 生命周期锁测试、清理报告、失败注入 |
 | P4 | 能力声明与兼容矩阵 | Done | capability manifest、预检、JPA 多数据源声明 |
-| P5 | 管理 smoke 与观测闭环 | Planned | 管理 smoke、Actuator 诊断、metrics |
+| P5 | 管理 smoke 与观测闭环 | In Progress | 管理 smoke、Actuator 诊断、metrics |
 | P6 | 后续决策专题 | Planned | JPA 运行时刷新和跨数据源事务决策文档 |
 
 ## 面向小模型的任务拆分规则

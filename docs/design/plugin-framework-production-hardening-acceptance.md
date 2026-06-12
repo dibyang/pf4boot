@@ -78,8 +78,8 @@
 | P5-AC1：复杂样例插件可通过单一 Gradle 命令完成打包 | Done | 已执行 `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`，产出 domain、user-book、workflow 三个 sample plugin zip |
 | P5-AC2：sample host smoke 能启动宿主、调用管理接口、验证 JPA 示例并关闭进程 | Planned | 待补充 |
 | P5-AC3：本地管理接口 smoke 使用 token，不绕过安全保护 | Planned | 待补充 |
-| P5-AC4：Actuator 暴露信任校验摘要、部署摘要和清理报告摘要 | Planned | 待补充 |
-| P5-AC5：metrics 覆盖管理请求、拒绝、幂等命中、部署耗时和回滚次数 | Planned | 待补充 |
+| P5-AC4：Actuator 暴露信任校验摘要、部署摘要和清理报告摘要 | Done | 新增 `Pf4bootGovernanceEndpoint` / `Pf4bootGovernanceSnapshot`，endpoint id 为 `pf4bootgovernance`；`Pf4bootGovernanceEndpointTest` 覆盖配置摘要、部署摘要、清理报告和诊断失败 warning；已执行 `.\gradlew.bat :pf4boot-actuator:test :pf4boot-management-starter:test` |
+| P5-AC5：metrics 覆盖管理请求、拒绝、幂等命中、部署耗时和回滚次数 | Done | 新增 `PluginManagementMetricsProvider` / `PluginManagementMetricsSnapshot`、`DefaultPluginManagementMetricsRecorder`；`Pf4bootMetricsTest.exposesManagementMetricsWhenProviderIsAvailable` 覆盖管理 metrics，既有部署 metrics 覆盖耗时和回滚；`PluginManagementControllerTest.managementMetricsCountsRequestsAndIdempotencyReplay`、`managementMetricsCountsWriteSecurityRejection` 覆盖 Controller 计数接入；已执行 `.\gradlew.bat :pf4boot-actuator:test :pf4boot-management-starter:test` |
 | P5-AC6：失败 smoke 能输出 HTTP 响应、部署记录和可定位日志 | Planned | 待补充 |
 
 ## P6 后续决策专题

@@ -78,8 +78,8 @@ After each completed task, add evidence such as commit hash, verification comman
 | P5-AC1: Complex sample plugins can be packaged with one Gradle command | Done | Ran `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`, producing the domain, user-book, and workflow sample plugin zips |
 | P5-AC2: Sample host smoke starts the host, calls management APIs, verifies JPA examples, and shuts down | Planned | TBD |
 | P5-AC3: Local management smoke uses a token and does not bypass security | Planned | TBD |
-| P5-AC4: Actuator exposes trust summary, deployment summary, and cleanup report summary | Planned | TBD |
-| P5-AC5: Metrics cover management requests, rejections, idempotency hits, deployment duration, and rollback count | Planned | TBD |
+| P5-AC4: Actuator exposes trust summary, deployment summary, and cleanup report summary | Done | Added `Pf4bootGovernanceEndpoint` / `Pf4bootGovernanceSnapshot` with endpoint id `pf4bootgovernance`; `Pf4bootGovernanceEndpointTest` covers configuration summary, deployment summary, cleanup reports, and diagnostic-failure warnings; ran `.\gradlew.bat :pf4boot-actuator:test :pf4boot-management-starter:test` |
+| P5-AC5: Metrics cover management requests, rejections, idempotency hits, deployment duration, and rollback count | Done | Added `PluginManagementMetricsProvider` / `PluginManagementMetricsSnapshot` and `DefaultPluginManagementMetricsRecorder`; `Pf4bootMetricsTest.exposesManagementMetricsWhenProviderIsAvailable` covers management metrics, existing deployment metrics cover duration and rollback; `PluginManagementControllerTest.managementMetricsCountsRequestsAndIdempotencyReplay` and `managementMetricsCountsWriteSecurityRejection` cover Controller wiring; ran `.\gradlew.bat :pf4boot-actuator:test :pf4boot-management-starter:test` |
 | P5-AC6: Failure smoke emits HTTP response, deployment record, and useful logs | Planned | TBD |
 
 ## P6 Follow-Up Decision Topics

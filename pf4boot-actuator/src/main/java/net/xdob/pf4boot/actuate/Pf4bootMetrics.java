@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.binder.MeterBinder;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.deployment.PluginDeploymentMetricsProvider;
+import net.xdob.pf4boot.management.PluginManagementMetricsProvider;
 import org.pf4j.PluginState;
 import org.pf4j.PluginWrapper;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -17,6 +18,7 @@ public class Pf4bootMetrics implements MeterBinder {
 
   private final Pf4bootPluginManager pluginManager;
   private final PluginDeploymentMetricsProvider deploymentMetricsProvider;
+  private final PluginManagementMetricsProvider managementMetricsProvider;
 
   public Pf4bootMetrics(Pf4bootPluginManager pluginManager) {
     this(pluginManager, null);
@@ -25,8 +27,16 @@ public class Pf4bootMetrics implements MeterBinder {
   public Pf4bootMetrics(
       Pf4bootPluginManager pluginManager,
       PluginDeploymentMetricsProvider deploymentMetricsProvider) {
+    this(pluginManager, deploymentMetricsProvider, null);
+  }
+
+  public Pf4bootMetrics(
+      Pf4bootPluginManager pluginManager,
+      PluginDeploymentMetricsProvider deploymentMetricsProvider,
+      PluginManagementMetricsProvider managementMetricsProvider) {
     this.pluginManager = pluginManager;
     this.deploymentMetricsProvider = deploymentMetricsProvider;
+    this.managementMetricsProvider = managementMetricsProvider;
   }
 
   @Override
@@ -56,6 +66,20 @@ public class Pf4bootMetrics implements MeterBinder {
       Gauge.builder("pf4boot.deployment.last.duration.millis", deploymentMetricsProvider,
               provider -> provider.snapshot().getLastDurationMillis())
           .description("PF4Boot last plugin deployment duration in milliseconds")
+          .register(registry);
+    }
+    if (managementMetricsProvider != null) {
+      Gauge.builder("pf4boot.management.request.total", managementMetricsProvider,
+              provider -> provider.snapshot().getRequestTotal())
+          .description("PF4Boot management HTTP request total")
+          .register(registry);
+      Gauge.builder("pf4boot.management.rejected.total", managementMetricsProvider,
+              provider -> provider.snapshot().getRejectedTotal())
+          .description("PF4Boot management HTTP rejected request total")
+          .register(registry);
+      Gauge.builder("pf4boot.management.idempotency.hit.total", managementMetricsProvider,
+              provider -> provider.snapshot().getIdempotencyHitTotal())
+          .description("PF4Boot management idempotency replay hit total")
           .register(registry);
     }
   }

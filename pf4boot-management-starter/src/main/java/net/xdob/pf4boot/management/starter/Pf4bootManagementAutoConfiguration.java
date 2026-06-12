@@ -83,6 +83,12 @@ public class Pf4bootManagementAutoConfiguration {
   }
 
   @Bean
+  @ConditionalOnMissingBean(DefaultPluginManagementMetricsRecorder.class)
+  public DefaultPluginManagementMetricsRecorder pluginManagementMetricsRecorder() {
+    return new DefaultPluginManagementMetricsRecorder();
+  }
+
+  @Bean
   @ConditionalOnMissingBean(PluginDeploymentRecordStore.class)
   public PluginDeploymentRecordStore pluginDeploymentRecordStore(Pf4bootManagementProperties properties) {
     Pf4bootManagementProperties.OperationStoreProperties store = properties.getOperationStore();
@@ -141,7 +147,8 @@ public class Pf4bootManagementAutoConfiguration {
       PluginDeploymentRecordStore deploymentRecordStore,
       PluginManagementAuditRecorder auditRecorder,
       PluginOperationStore operationStore,
-      PluginManagementWriteSecurityPolicy writeSecurityPolicy) {
+      PluginManagementWriteSecurityPolicy writeSecurityPolicy,
+      DefaultPluginManagementMetricsRecorder managementMetricsRecorder) {
     return new PluginManagementController(
         pluginManager,
         deploymentService,
@@ -153,7 +160,8 @@ public class Pf4bootManagementAutoConfiguration {
         deploymentRecordStore,
         auditRecorder,
         operationStore,
-        writeSecurityPolicy);
+        writeSecurityPolicy,
+        managementMetricsRecorder);
   }
 
   @Bean

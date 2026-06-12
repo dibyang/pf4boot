@@ -11,6 +11,7 @@ import net.xdob.pf4boot.management.PluginAdminResponse;
 import net.xdob.pf4boot.management.PluginDeploymentRequest;
 import net.xdob.pf4boot.management.PluginManagementAuditEvent;
 import net.xdob.pf4boot.management.PluginManagementErrorCode;
+import net.xdob.pf4boot.management.PluginManagementMetricsSnapshot;
 import net.xdob.pf4boot.management.PluginManagementOperation;
 import net.xdob.pf4boot.management.PluginManagementRequest;
 import net.xdob.pf4boot.modal.PluginRuntimeSnapshot;
@@ -380,6 +381,84 @@ public class PluginManagementControllerTest {
     assertNotNull(first.getOperationId());
   }
 
+  @Test
+  public void managementMetricsCountsRequestsAndIdempotencyReplay() {
+    Pf4bootManagementProperties properties = properties();
+    properties.setRequireIdempotencyKey(true);
+    RecordingDeploymentService deploymentService = new RecordingDeploymentService();
+    DefaultPluginManagementMetricsRecorder metricsRecorder = new DefaultPluginManagementMetricsRecorder();
+    PluginManagementController controller = controller(
+        properties,
+        new InvocationRecorder().createPluginManager(),
+        deploymentService,
+        new InMemoryPluginDeploymentRecordStore(),
+        new LoggingPluginManagementAuditRecorder(),
+        metricsRecorder);
+
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/plan");
+    request.addHeader(properties.getIdempotencyHeader(), "idem-metrics");
+    PluginDeploymentRequest body = deploymentRequest("sample-workflow", "plugin.jar");
+
+    controller.plan(body, request);
+    controller.plan(body, request);
+
+    PluginManagementMetricsSnapshot snapshot = metricsRecorder.snapshot();
+    assertEquals(2, snapshot.getRequestTotal());
+    assertEquals(0, snapshot.getRejectedTotal());
+    assertEquals(1, snapshot.getIdempotencyHitTotal());
+  }
+
+  @Test
+  public void managementMetricsCountsWriteSecurityRejection() {
+    Pf4bootManagementProperties properties = properties();
+    properties.getCsrf().setEnabled("true");
+    DefaultPluginManagementMetricsRecorder metricsRecorder = new DefaultPluginManagementMetricsRecorder();
+    PluginManagementController controller = controller(
+        properties,
+        new InvocationRecorder().createPluginManager(),
+        new RecordingDeploymentService(),
+        new InMemoryPluginDeploymentRecordStore(),
+        new LoggingPluginManagementAuditRecorder(),
+        metricsRecorder);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/replace");
+    PluginDeploymentRequest body = deploymentRequest("sample-workflow", "plugin.jar");
+
+    try {
+      controller.replace(body, request);
+      fail("expected CSRF rejection");
+    } catch (PluginManagementException e) {
+      assertEquals(PluginManagementErrorCode.FORBIDDEN, e.getCode());
+    }
+
+    PluginManagementMetricsSnapshot snapshot = metricsRecorder.snapshot();
+    assertEquals(1, snapshot.getRequestTotal());
+    assertEquals(1, snapshot.getRejectedTotal());
+    assertEquals(0, snapshot.getIdempotencyHitTotal());
+  }
+
+  @Test
+  public void managementMetricsCountsDeploymentPrecheckFailureResponseAsRejection() {
+    Pf4bootManagementProperties properties = properties();
+    DefaultPluginManagementMetricsRecorder metricsRecorder = new DefaultPluginManagementMetricsRecorder();
+    PluginManagementController controller = controller(
+        properties,
+        new InvocationRecorder().createPluginManager(),
+        new FailingPlanDeploymentService(),
+        new InMemoryPluginDeploymentRecordStore(),
+        new LoggingPluginManagementAuditRecorder(),
+        metricsRecorder);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/plan");
+    PluginDeploymentRequest body = deploymentRequest("sample-workflow", "plugin.jar");
+
+    PluginAdminResponse<DeploymentRecord> response = controller.plan(body, request);
+
+    assertEquals(false, response.isSuccess());
+    PluginManagementMetricsSnapshot snapshot = metricsRecorder.snapshot();
+    assertEquals(1, snapshot.getRequestTotal());
+    assertEquals(1, snapshot.getRejectedTotal());
+    assertEquals(0, snapshot.getIdempotencyHitTotal());
+  }
+
   private PluginManagementController controller(
       Pf4bootManagementProperties properties,
       Pf4bootPluginManager pluginManager,
@@ -424,6 +503,17 @@ public class PluginManagementControllerTest {
       RecordingDeploymentService deploymentService,
       InMemoryPluginDeploymentRecordStore store,
       PluginManagementAuditRecorder auditRecorder) {
+    return controller(properties, pluginManager, deploymentService, store, auditRecorder,
+        new DefaultPluginManagementMetricsRecorder());
+  }
+
+  private PluginManagementController controller(
+      Pf4bootManagementProperties properties,
+      Pf4bootPluginManager pluginManager,
+      RecordingDeploymentService deploymentService,
+      InMemoryPluginDeploymentRecordStore store,
+      PluginManagementAuditRecorder auditRecorder,
+      DefaultPluginManagementMetricsRecorder managementMetricsRecorder) {
     if (deploymentService == null) {
       deploymentService = new RecordingDeploymentService();
     }
@@ -446,7 +536,8 @@ public class PluginManagementControllerTest {
         store,
         auditRecorder,
         operationStore,
-        policy);
+        policy,
+        managementMetricsRecorder);
   }
 
   private Pf4bootManagementProperties properties() {
@@ -531,6 +622,23 @@ public class PluginManagementControllerTest {
           "replaced from D:\\secret\\plugin.zip token=sample-token\n"
               + "    at com.example.Secret.run(Secret.java:1)",
           null);
+    }
+  }
+
+  private static class FailingPlanDeploymentService extends RecordingDeploymentService {
+    @Override
+    public DeploymentRecord planReplacement(String targetPluginId, java.nio.file.Path stagedPluginPath) {
+      return new DeploymentRecord(
+          "failed-plan",
+          targetPluginId,
+          DeploymentState.FAILED,
+          1L,
+          1L,
+          "precheck failed",
+          null,
+          DeploymentRecord.history(DeploymentState.PLANNED, DeploymentState.FAILED),
+          0L,
+          "PRECHECK_FAILED");
     }
   }
 

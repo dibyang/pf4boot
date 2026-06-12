@@ -7,6 +7,7 @@ import net.xdob.pf4boot.Pf4bootPluginWrapper;
 import net.xdob.pf4boot.deployment.DeploymentRecord;
 import net.xdob.pf4boot.deployment.DeploymentState;
 import net.xdob.pf4boot.deployment.DefaultPluginDeploymentRecorder;
+import net.xdob.pf4boot.management.PluginManagementMetricsSnapshot;
 import org.junit.Test;
 import org.pf4j.DefaultPluginDescriptor;
 import org.pf4j.DefaultPluginManager;
@@ -64,6 +65,19 @@ public class Pf4bootMetricsTest {
     assertEquals(1.0, registry.find("pf4boot.deployment.rollback.total").gauge().value(), 0.0);
     assertEquals(1.0, registry.find("pf4boot.deployment.failed.total").gauge().value(), 0.0);
     assertEquals(50.0, registry.find("pf4boot.deployment.last.duration.millis").gauge().value(), 0.0);
+  }
+
+  @Test
+  public void exposesManagementMetricsWhenProviderIsAvailable() throws Exception {
+    Pf4bootPluginManager manager = proxyManager(wrapper("started", PluginState.STARTED));
+
+    SimpleMeterRegistry registry = new SimpleMeterRegistry();
+    new Pf4bootMetrics(manager, null, () -> new PluginManagementMetricsSnapshot(5, 2, 1))
+        .bindTo(registry);
+
+    assertEquals(5.0, registry.find("pf4boot.management.request.total").gauge().value(), 0.0);
+    assertEquals(2.0, registry.find("pf4boot.management.rejected.total").gauge().value(), 0.0);
+    assertEquals(1.0, registry.find("pf4boot.management.idempotency.hit.total").gauge().value(), 0.0);
   }
 
   private Pf4bootPluginManager proxyManager(PluginWrapper... wrappers) {
