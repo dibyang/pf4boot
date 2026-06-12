@@ -165,6 +165,24 @@ public class PluginManagementControllerSecurityTest {
     }
   }
 
+  @Test
+  public void localTokenAuthorizerAllowsReadQueryAndRollbackPermissions() {
+    Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
+    properties.setEnabled(true);
+    properties.setToken("secret-token");
+    properties.setAllowLoopbackOnly(false);
+
+    LocalTokenPluginManagementAuthorizer authorizer = new LocalTokenPluginManagementAuthorizer(properties);
+    PluginManagementRequest request = new PluginManagementRequest();
+    request.setToken("secret-token");
+    request.setRemoteAddress("127.0.0.1");
+    PluginManagementPrincipal principal = authorizer.authenticate(request);
+
+    authorizer.authorize(principal, PluginManagementOperation.PLUGIN_READ);
+    authorizer.authorize(principal, PluginManagementOperation.DEPLOYMENT_QUERY);
+    authorizer.authorize(principal, PluginManagementOperation.DEPLOYMENT_ROLLBACK);
+  }
+
   private PluginManagementController controller(Pf4bootManagementProperties properties) {
     return controller(properties, new LocalTokenPluginManagementAuthorizer(properties));
   }

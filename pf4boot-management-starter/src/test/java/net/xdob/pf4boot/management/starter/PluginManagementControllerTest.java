@@ -6,9 +6,11 @@ import net.xdob.pf4boot.deployment.DeploymentState;
 import net.xdob.pf4boot.deployment.PluginDeploymentService;
 import net.xdob.pf4boot.management.PluginAdminResponse;
 import net.xdob.pf4boot.management.PluginDeploymentRequest;
+import net.xdob.pf4boot.management.PluginManagementAuditEvent;
 import net.xdob.pf4boot.management.PluginManagementErrorCode;
 import net.xdob.pf4boot.management.PluginManagementOperation;
 import net.xdob.pf4boot.management.PluginManagementRequest;
+import net.xdob.pf4boot.modal.PluginRuntimeSnapshot;
 import org.junit.Test;
 import org.pf4j.PluginState;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -153,6 +155,23 @@ public class PluginManagementControllerTest {
   }
 
   @Test
+  public void pluginsEndpointRecordOperationIdInAuditEvent() {
+    Pf4bootManagementProperties properties = properties();
+    CapturingAuditRecorder auditRecorder = new CapturingAuditRecorder();
+
+    PluginManagementController controller =
+        controller(properties, new InvocationRecorder().createPluginManager(), null,
+            new InMemoryPluginDeploymentRecordStore(), auditRecorder);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/plugins");
+
+    PluginAdminResponse<List<PluginRuntimeSnapshot>> response = controller.plugins(request);
+
+    assertNotNull(response);
+    assertEquals(1, auditRecorder.events.size());
+    assertEquals(response.getOperationId(), auditRecorder.events.get(0).getOperationId());
+  }
+
+  @Test
   public void deploymentQueryByIdReturnsNotFoundForMissingRecord() {
     Pf4bootManagementProperties properties = properties();
     PluginManagementController controller =
@@ -207,6 +226,37 @@ public class PluginManagementControllerTest {
     PluginManagementIdempotencyService idempotencyService =
         new PluginManagementIdempotencyService(properties, operationStore);
     PluginManagementAuditRecorder auditRecorder = new LoggingPluginManagementAuditRecorder();
+    PluginManagementRateLimiter rateLimiter = new PluginManagementRateLimiter(properties);
+    PluginManagementWriteSecurityPolicy policy = new PluginManagementWriteSecurityPolicy(properties, rateLimiter);
+
+    return new PluginManagementController(
+        pluginManager,
+        deploymentService,
+        properties,
+        new LocalTokenPluginManagementAuthorizer(properties),
+        requestFactory,
+        pathValidator,
+        idempotencyService,
+        store,
+        auditRecorder,
+        operationStore,
+        policy);
+  }
+
+  private PluginManagementController controller(
+      Pf4bootManagementProperties properties,
+      Pf4bootPluginManager pluginManager,
+      RecordingDeploymentService deploymentService,
+      InMemoryPluginDeploymentRecordStore store,
+      PluginManagementAuditRecorder auditRecorder) {
+    if (deploymentService == null) {
+      deploymentService = new RecordingDeploymentService();
+    }
+    PluginManagementRequestFactory requestFactory = new PluginManagementRequestFactory();
+    PluginManagementPathValidator pathValidator = new PluginManagementPathValidator();
+    InMemoryPluginOperationStore operationStore = new InMemoryPluginOperationStore();
+    PluginManagementIdempotencyService idempotencyService =
+        new PluginManagementIdempotencyService(properties, operationStore);
     PluginManagementRateLimiter rateLimiter = new PluginManagementRateLimiter(properties);
     PluginManagementWriteSecurityPolicy policy = new PluginManagementWriteSecurityPolicy(properties, rateLimiter);
 
@@ -356,6 +406,16 @@ public class PluginManagementControllerTest {
           Thread.currentThread().getContextClassLoader(),
           new Class<?>[]{Pf4bootPluginManager.class},
           handler);
+    }
+  }
+
+  private static class CapturingAuditRecorder implements PluginManagementAuditRecorder {
+
+    private final List<PluginManagementAuditEvent> events = new ArrayList<PluginManagementAuditEvent>();
+
+    @Override
+    public void record(PluginManagementAuditEvent event) {
+      events.add(event);
     }
   }
 }

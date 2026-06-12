@@ -45,8 +45,10 @@ public class LocalTokenPluginManagementAuthorizer implements PluginManagementAut
         "pf4boot:plugin:read",
         "pf4boot:plugin:lifecycle",
         "pf4boot:plugin:reload",
+        "pf4boot:deployment:query",
         "pf4boot:deployment:plan",
         "pf4boot:deployment:replace",
+        "pf4boot:deployment:rollback",
         "pf4boot:admin:all"));
     return principal;
   }
@@ -85,4 +87,3 @@ public class LocalTokenPluginManagementAuthorizer implements PluginManagementAut
     }
   }
 }
-

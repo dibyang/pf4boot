@@ -92,14 +92,20 @@ public class PluginManagementController {
         null,
         properties);
     PluginManagementPrincipal principal = authenticateAndAuthorize(mgmtRequest, PluginManagementOperation.PLUGIN_READ);
+    String operationId = requestFactory.buildOperationId();
     List<PluginRuntimeSnapshot> snapshots = pluginManager.getPlugins().stream()
         .map(this::toSnapshot)
         .sorted(Comparator.comparing(PluginRuntimeSnapshot::getPluginId, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
         .collect(java.util.stream.Collectors.toList());
-    PluginManagementAuditEvent event = buildEvent(mgmtRequest, principal, PluginManagementOperation.PLUGIN_READ,
-        CODE_OK, "plugins listed");
+    PluginManagementAuditEvent event = buildEvent(
+        mgmtRequest,
+        principal,
+        operationId,
+        PluginManagementOperation.PLUGIN_READ,
+        CODE_OK,
+        "plugins listed");
     auditRecorder.record(event);
-    return PluginAdminResponse.ok(mgmtRequest.getRequestId(), requestFactory.buildOperationId(),
+    return PluginAdminResponse.ok(mgmtRequest.getRequestId(), operationId,
         "plugin list fetched", snapshots);
   }
 
@@ -116,14 +122,16 @@ public class PluginManagementController {
         properties);
     PluginManagementPrincipal principal = authenticateAndAuthorize(mgmtRequest, PluginManagementOperation.PLUGIN_READ);
     PluginRuntimeSnapshot snapshot = pluginSnapshot(pluginId);
-    PluginManagementAuditEvent event = buildEvent(mgmtRequest, principal, PluginManagementOperation.PLUGIN_READ,
-        CODE_OK, "plugin details fetched");
+    String operationId = requestFactory.buildOperationId();
+    PluginManagementAuditEvent event = buildEvent(
+        mgmtRequest,
+        principal,
+        operationId,
+        PluginManagementOperation.PLUGIN_READ,
+        CODE_OK,
+        "plugin details fetched");
     auditRecorder.record(event);
-    return PluginAdminResponse.ok(
-        mgmtRequest.getRequestId(),
-        requestFactory.buildOperationId(),
-        "plugin found",
-        snapshot);
+    return PluginAdminResponse.ok(mgmtRequest.getRequestId(), operationId, "plugin found", snapshot);
   }
 
   @PostMapping("/plugins/{pluginId}/start")
@@ -216,19 +224,17 @@ public class PluginManagementController {
     PluginManagementPrincipal principal = authenticateAndAuthorize(
         mgmtRequest,
         PluginManagementOperation.DEPLOYMENT_QUERY);
+    String operationId = requestFactory.buildOperationId();
     List<DeploymentRecord> records = deploymentRecordStore.recent(properties.getMaxRecentOperations());
     PluginManagementAuditEvent event = buildEvent(
         mgmtRequest,
         principal,
+        operationId,
         PluginManagementOperation.DEPLOYMENT_QUERY,
         CODE_OK,
         "deployment history fetched");
     auditRecorder.record(event);
-    return PluginAdminResponse.ok(
-        mgmtRequest.getRequestId(),
-        requestFactory.buildOperationId(),
-        "deployment records fetched",
-        records);
+    return PluginAdminResponse.ok(mgmtRequest.getRequestId(), operationId, "deployment records fetched", records);
   }
 
   @GetMapping("/deployments/{deploymentId}")
@@ -245,6 +251,7 @@ public class PluginManagementController {
     PluginManagementPrincipal principal = authenticateAndAuthorize(
         mgmtRequest,
         PluginManagementOperation.DEPLOYMENT_QUERY);
+    String operationId = requestFactory.buildOperationId();
     DeploymentRecord record = deploymentRecordStore.findById(deploymentId);
     if (record == null) {
       throw new PluginManagementException(
@@ -255,15 +262,12 @@ public class PluginManagementController {
     PluginManagementAuditEvent event = buildEvent(
         mgmtRequest,
         principal,
+        operationId,
         PluginManagementOperation.DEPLOYMENT_QUERY,
         CODE_OK,
         "deployment record found");
     auditRecorder.record(event);
-    return PluginAdminResponse.ok(
-        mgmtRequest.getRequestId(),
-        requestFactory.buildOperationId(),
-        "deployment record found",
-        record);
+    return PluginAdminResponse.ok(mgmtRequest.getRequestId(), operationId, "deployment record found", record);
   }
 
   @PostMapping("/deployments/plan")
@@ -327,6 +331,7 @@ public class PluginManagementController {
       PluginManagementAuditEvent event = buildEvent(
           mgmtRequest,
           principal,
+          operationId,
           PluginManagementOperation.DEPLOYMENT_ROLLBACK,
           result.getState() == DeploymentState.SUCCEEDED ? CODE_OK : PluginManagementErrorCode.OPERATION_FAILED.getCode(),
           messageForDeployment(result));
@@ -412,12 +417,12 @@ public class PluginManagementController {
         requestHash,
         operationId,
         null);
-      if (cached != null) {
-        return replayResponse(
-            requestForHash,
-            cached,
-            "deployment operation replayed");
-      }
+    if (cached != null) {
+      return replayResponse(
+          requestForHash,
+          cached,
+          "deployment operation replayed");
+    }
 
     try {
       DeploymentRecord record = executeDeployment(operation, pluginId, resolvedStagedPath, dryRun);
@@ -427,7 +432,12 @@ public class PluginManagementController {
         PluginManagementErrorCode errorCode = mapDeploymentErrorCode(record);
         idempotencyService.markFinished(operationRecord, false, errorCode.getCode(), messageForDeployment(record),
             summary(record));
-        PluginManagementAuditEvent event = buildEvent(requestForHash, principal, operation, errorCode.getCode(),
+        PluginManagementAuditEvent event = buildEvent(
+            requestForHash,
+            principal,
+            operationId,
+            operation,
+            errorCode.getCode(),
             messageForDeployment(record));
         auditRecorder.record(event);
         return PluginAdminResponse.failed(
@@ -442,6 +452,7 @@ public class PluginManagementController {
       PluginManagementAuditEvent event = buildEvent(
           requestForHash,
           principal,
+          operationId,
           operation,
           CODE_OK,
           messageForDeployment(record));
@@ -498,7 +509,7 @@ public class PluginManagementController {
       PluginRuntimeSnapshot snapshot = pluginSnapshot(pluginId);
       PluginOperationRecord operationRecord = operationStore.findById(operationId);
       idempotencyService.markFinished(operationRecord, true, CODE_OK, successMessage, summary(snapshot));
-      PluginManagementAuditEvent event = buildEvent(mgmtRequest, principal, operation, CODE_OK, successMessage);
+      PluginManagementAuditEvent event = buildEvent(mgmtRequest, principal, operationId, operation, CODE_OK, successMessage);
       auditRecorder.record(event);
       return PluginAdminResponse.ok(
           mgmtRequest.getRequestId(),
@@ -721,12 +732,13 @@ public class PluginManagementController {
   private PluginManagementAuditEvent buildEvent(
       PluginManagementRequest request,
       PluginManagementPrincipal principal,
+      String operationId,
       PluginManagementOperation operation,
       String code,
       String message) {
     PluginManagementAuditEvent event = new PluginManagementAuditEvent();
     event.setRequestId(request.getRequestId());
-    event.setOperationId(request.getIdempotencyKey());
+    event.setOperationId(operationId);
     event.setOperation(operation);
     event.setSuccess("OK".equals(code));
     event.setCode(code);
