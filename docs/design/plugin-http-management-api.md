@@ -137,7 +137,7 @@ spring:
 | `POST` | `/pf4boot/admin/deployments/plan` | 生成热替换预检计划，不改运行态 |
 | `POST` | `/pf4boot/admin/deployments/replace` | 执行热替换 |
 | `POST` | `/pf4boot/admin/deployments/{deploymentId}/rollback` | 回滚指定部署 |
-| `POST` | `/pf4boot/admin/deployments/{deploymentId}/confirm` | 人工门禁/Dry-run 确认入口（本阶段不实现，进入后续版本） |
+| `POST` | `/pf4boot/admin/deployments/{deploymentId}/confirm` | Execute a PRECHECKED deployment plan (manual confirmation in current release) |
 
 请求体中的插件包路径只允许引用已配置的 staging 根目录下文件，不能接受任意绝对路径。
 

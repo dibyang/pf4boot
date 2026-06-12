@@ -141,5 +141,5 @@ Verification:
 
 ## Follow-ups
 
-- `POST /deployments/{deploymentId}/confirm` is intentionally deferred and tracked outside this release scope.
+- `POST /deployments/{deploymentId}/confirm` is implemented as the precheck-confirm execution endpoint (execute only `PRECHECKED` plans) in this release.
 - Add dedicated runtime smoke for rollback happy-path/replay/confirm transition and rollback failure diagnostics in the next phase.

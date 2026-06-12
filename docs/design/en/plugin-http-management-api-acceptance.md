@@ -26,7 +26,7 @@ Implementation should also follow [plugin-http-management-api-implementation-gui
 | AC-13 | Audit records cover success, failure, and rejected requests | Done | `PluginManagementController` + `PluginManagementAuditRecorder` + logging impl |
 | AC-14 | Error responses do not leak tokens, sensitive paths, or full stacks | Done | `PluginManagementExceptionHandler` |
 | AC-15 | `pf4boot-actuator` remains read-only | Done | `plugin-http-management-api.md` boundary and no actuator mutation endpoints |
-| AC-16 | Manual deployment confirm endpoint remains follow-up and is not yet implemented | Pending | `PluginManagementController` currently exposes no `POST /deployments/{deploymentId}/confirm`; planned for next phase |
+| AC-16 | Manual deployment confirm endpoint is implemented and enforces write policies | Done | `PluginManagementController.confirm` and tests `PluginManagementControllerTest.confirmEndpointExecutesReplacementForPrecheckedRecord` + `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForConfirmWrite` |
 
 ## Security Acceptance
 
