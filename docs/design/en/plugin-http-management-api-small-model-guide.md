@@ -186,3 +186,23 @@ Keep these two docs as handoff source:
 
 Do not claim `Not Done` for items that are implemented but untested.
 Use status `In Progress` for runtime smoke that is not yet executed.
+
+## Phase 5: Small-Model Execution Template
+
+If context is limited, execute by this strict sequence:
+
+1. `rg --line-number "plugin-management-starter|PluginManagementController|PluginManagementStartupValidator" docs/design/en docs/design plugin-management-starter pf4boot-management-starter pf4boot-api`
+2. `.\gradlew.bat :pf4boot-management-starter:compileJava`
+3. `.\gradlew.bat :pf4boot-management-starter:compileTestJava`
+4. Run tests in this order:
+   - `.\gradlew.bat :pf4boot-management-starter:test --tests "net.xdob.pf4boot.management.starter.PluginManagementWriteSecurityPolicyTest"`
+   - `.\gradlew.bat :pf4boot-management-starter:test --tests "net.xdob.pf4boot.management.starter.PluginManagementControllerSecurityTest"`
+   - `.\gradlew.bat :pf4boot-management-starter:test --tests "net.xdob.pf4boot.management.starter.PluginManagementRateLimiterTest"`
+   - `.\gradlew.bat :pf4boot-management-starter:test --tests "net.xdob.pf4boot.management.starter.PluginManagementIdempotencyServiceTest"`
+   - `.\gradlew.bat :pf4boot-management-starter:test --tests "net.xdob.pf4boot.management.starter.PluginManagementPathValidatorTest"`
+5. Update acceptance rows immediately after each test result:
+   - Add `Done` for each checked SEC/AC item.
+   - Add `In Progress` for not-yet-ran smoke only.
+6. Confirm follow-up behavior:
+   - `rg --line-number "deployments/.*/confirm|PostMapping(\"/deployments/\\{deploymentId\\}/confirm\")" pf4boot-management-starter/src/main/java`
+   - If endpoint is absent, keep `AC-16` as `Pending` and include reason in acceptance note.

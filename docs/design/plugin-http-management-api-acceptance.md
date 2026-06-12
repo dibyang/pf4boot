@@ -1,52 +1,59 @@
-# 插件 HTTP 管理接口验收清单
+# Plugin HTTP Management API Acceptance Checklist
 
-## 验收范围
+## Scope
 
-本文用于追踪 [plugin-http-management-api.md](plugin-http-management-api.md) 和 [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md) 的落地结果。
-实施时同时参考 [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md)，验收证据中的类名、测试名和模块路径应尽量与实施指南保持一致。
+This document tracks implementation evidence for:
+- [plugin-http-management-api.md](plugin-http-management-api.md)
+- [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)
+- [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md)
 
-## 功能验收
+As of this pass, the HTTP management core is implemented, module wiring is in place, and security hardening on write APIs (including rollback) is covered in tests.
 
-| 编号 | 验收项 | 状态 | 证据 |
+## Functional Acceptance
+
+| ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| AC-01 | 默认不注册 HTTP 写管理接口 | 已完成 | `Pf4bootManagementProperties.enabled` 与 `Pf4bootManagementAutoConfiguration` 条件 |
-| AC-02 | `enabled=true` 但安全模式非法时启动失败 | 已完成 | `PluginManagementStartupValidator.validate()` |
-| AC-03 | 本地 token 模式要求 loopback + token | 已完成 | `LocalTokenPluginManagementAuthorizer.authenticate()` |
-| AC-04 | 远程模式缺少 authorizer 时启动失败 | 已完成 | `PluginManagementStartupValidator.hasCustomAuthorizer()` |
-| AC-05 | 插件列表和详情接口只读，不改变运行态 | 已完成 | `PluginManagementController.plugins`、`PluginManagementController.plugin` |
-| AC-06 | start/stop/restart/enable/disable 使用语义化 HTTP 方法 | 已完成 | 控制器签名中为 `@PostMapping`/`@DeleteMapping` |
-| AC-07 | reload 被标记为低层运维兜底，不作为热替换通路 | 已完成 | `reload` 与 `replace` 的分离；`replace` 使用 `PluginDeploymentService.replace` |
-| AC-08 | 部署预检不改变运行态 | 已完成 | `PluginManagementController.plan` 仅走 `PluginDeploymentService.planReplacement` |
-| AC-09 | 热替换接口调用 `PluginDeploymentService.replace` | 已完成 | `PluginManagementController.replace` |
-| AC-10 | staged 包路径不能逃逸配置根目录 | 已完成 | `PluginManagementPathValidator.resolveStagedPath(...)` |
-| AC-11 | 写操作支持幂等 key，相同请求不重复执行 | 已完成 | `PluginManagementIdempotencyService.begin(...)` |
-| AC-12 | 相同幂等 key 但请求体不同返回冲突 | 已完成 | `PluginManagementIdempotencyService.begin` 冲突分支 |
-| AC-13 | 审计记录覆盖成功、失败和拒绝请求 | 已完成 | `PluginManagementController`、`PluginManagementAuditRecorder` 与日志实现 |
-| AC-14 | 错误响应不泄漏 token、敏感路径和完整堆栈 | 已完成 | `PluginManagementExceptionHandler` |
-| AC-15 | `pf4boot-actuator` 仍然只读 | 已完成 | 见 `plugin-http-management-api.md` 边界说明及无 actuator 变更端点 |
+| AC-01 | HTTP management APIs are not enabled by default | Done | `Pf4bootManagementProperties.enabled`, `Pf4bootManagementAutoConfiguration` condition |
+| AC-02 | Invalid startup mode fails fast | Done | `PluginManagementStartupValidator.validate()` |
+| AC-03 | Local token mode requires loopback + token | Done | `LocalTokenPluginManagementAuthorizer.authenticate()` |
+| AC-04 | Remote mode requires custom authorizer | Done | `PluginManagementStartupValidator.hasCustomAuthorizer()` |
+| AC-05 | Plugin list and detail APIs are read-only | Done | `PluginManagementController.plugins`, `PluginManagementController.plugin` |
+| AC-06 | Lifecycle endpoints use semantic methods | Done | `@PostMapping` / `@DeleteMapping` in controller |
+| AC-07 | `reload` is documented as low-level fallback, not hot replacement | Done | `reload` endpoint remains dedicated; `replace` uses `PluginDeploymentService.replace` |
+| AC-08 | Deployment plan does not mutate runtime state | Done | `PluginManagementController.plan` -> `PluginDeploymentService.planReplacement` |
+| AC-09 | Hot replacement calls deployment service | Done | `PluginManagementController.replace` |
+| AC-10 | Staged plugin path is root-safe | Done | `PluginManagementPathValidator.resolveStagedPath(...)` |
+| AC-11 | Idempotency key deduplicates duplicate writes | Done | `PluginManagementIdempotencyService.begin(...)` |
+| AC-12 | Duplicate key + different request body returns conflict | Done | `PluginManagementIdempotencyService.begin` conflict branch |
+| AC-13 | Audit records success / failure / reject paths | Done | `PluginManagementController` + `PluginManagementAuditRecorder` |
+| AC-14 | Error responses do not leak token/path/stack details | Done | `PluginManagementExceptionHandler` |
+| AC-15 | `pf4boot-actuator` remains mutation-free | Done | API doc boundary in `plugin-http-management-api.md` and implementation scope |
+| AC-16 | Manual confirm endpoint is deferred (follow-up) | Pending | `PluginManagementController` currently has no `POST /deployments/{deploymentId}/confirm` |
 
-## 安全验收
+## Security Acceptance
 
-| 编号 | 验收项 | 状态 | 证据 |
+| ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| SEC-01 | 无 token 的本地写请求返回 `401` | 已完成 | `LocalTokenPluginManagementAuthorizer.isSameToken` + 错误码映射 |
-| SEC-02 | 非 loopback 的本地模式请求返回 `401`/`403` | 已完成 | `LocalTokenPluginManagementAuthorizer.authenticate` 的 loopback 分支 |
-| SEC-03 | 远程未认证请求返回 `401` | 已完成 | `PluginManagementControllerSecurityTest.remoteUnauthenticatedDelegatedRequestRejectedWith401` |
-| SEC-04 | 远程权限不足请求返回 `403` | 已完成 | `PluginManagementControllerSecurityTest.remoteUnauthorizedDelegatedRequestRejectedWith403` |
-| SEC-05 | 浏览器写操作缺少 CSRF/来源约束时被拒绝 | 已完成 | `PluginManagementWriteSecurityPolicyTest`、`PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForWriteRequests` |
-| SEC-06 | 写操作限流生效并返回 `429` | 已完成 | `PluginManagementRateLimiterTest`、`PluginManagementControllerSecurityTest.rateLimitAppliedBeforeSecondWrite` |
-| SEC-07 | 启动时检测到公网绑定且无远程授权时失败 | 已完成 | `PluginManagementStartupValidator` |
+| SEC-01 | Missing/invalid token returns `401` | Done | `LocalTokenPluginManagementAuthorizer.isSameToken` + error mapping |
+| SEC-02 | Non-loopback local request returns `401/403` | Done | `LocalTokenPluginManagementAuthorizer.authenticate` loopback branch |
+| SEC-03 | Remote unauthenticated request returns `401` | Done | `PluginManagementControllerSecurityTest.remoteUnauthenticatedDelegatedRequestRejectedWith401` |
+| SEC-04 | Remote unauthorized request returns `403` | Done | `PluginManagementControllerSecurityTest.remoteUnauthorizedDelegatedRequestRejectedWith403` |
+| SEC-05 | Browser write request without CSRF/origin is rejected | Done | `PluginManagementWriteSecurityPolicyTest`, `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForWriteRequests` |
+| SEC-06 | Write endpoint returns `429` when rate limit exceeded | Done | `PluginManagementRateLimiterTest`, `PluginManagementControllerSecurityTest.rateLimitAppliedBeforeSecondWrite` |
+| SEC-07 | Rollback endpoint also enforces CSRF/origin policy | Done | `PluginManagementControllerSecurityTest.csrfEnabledRequiresOriginForRollbackWrite` |
+| SEC-08 | Rollback endpoint also enforces write-rate limiting | Done | `PluginManagementControllerSecurityTest.rateLimitAppliedBeforeSecondRollback` |
+| SEC-09 | Startup rejects public binding without remote authorization | Done | `PluginManagementStartupValidator` |
 
-## 兼容性验收
+## Compatibility Acceptance
 
-| 编号 | 验收项 | 状态 | 证据 |
+| ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| COMP-01 | 未引入管理 starter 的应用行为不变 | 已完成 | `pf4boot-starter/src/test/java/net/xdob/pf4boot/Pf4bootStarterCompatibilityTest.java` 验证管理自动配置类不存在 |
-| COMP-02 | 现有 `Pf4bootPluginManager` API 不变 | 已完成 | API 面无变更；控制器复用现有 `Pf4bootPluginManager` 接口 |
-| COMP-03 | 非 Web 应用不被迫引入 servlet 或管理依赖 | 已完成 | 同上兼容性测试中的 `nonWebStarterDoesNotExposeServletApi`；`pf4boot-starter/build.gradle` 无 servlet/management 依赖 |
-| COMP-04 | Java 8 编译通过 | 已完成 | `:pf4boot-management-starter:compileJava` |
+| COMP-01 | Applications without management starter remain unchanged | Done | `Pf4bootStarterCompatibilityTest` asserts missing auto-config class |
+| COMP-02 | Existing `Pf4bootPluginManager` API unchanged | Done | No API surface changes; controller calls existing methods |
+| COMP-03 | Non-web app does not expose servlet/management dependencies | Done | `Pf4bootStarterCompatibilityTest.nonWebStarterDoesNotExposeServletApi`; `pf4boot-starter/build.gradle` |
+| COMP-04 | Java 8 compilation passes | Done | `:pf4boot-management-starter:compileJava` |
 
-## 建议验收命令
+## Verification Commands
 
 ```powershell
 .\gradlew.bat :pf4boot-starter:test
@@ -57,17 +64,22 @@
 .\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins
 ```
 
-如管理接口短期落在 `pf4boot-web-starter`，则跳过 `:pf4boot-management-starter:test`，并在 `:pf4boot-web-starter:test` 中覆盖管理接口场景。
+If the first implementation is hosted by `pf4boot-web-starter`, skip `:pf4boot-management-starter:test` and validate in `:pf4boot-web-starter:test`.
 
-## 手工 smoke
+## Manual Smoke
 
-- `curl -I -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/plugins`（鉴权路径）
-- `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/plugins/sample-workflow/start`（写操作）
-- `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" -H "Content-Type: application/json" -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip","dryRun":true}' http://127.0.0.1:7791/pf4boot/admin/deployments/plan`（预检）
-- `curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/deployments`（查询）
-- 同一幂等键复放：同体请求应返回缓存结果，不同体请求应返回冲突
-- 测试本地 token 缺失、远程未授权、路径穿越与幂等冲突场景
+- `curl -I -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/plugins`
+- `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/plugins/sample-workflow/start`
+- `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" -H "Content-Type: application/json" -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip","dryRun":true}' http://127.0.0.1:7791/pf4boot/admin/deployments/plan`
+- `curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" http://127.0.0.1:7791/pf4boot/admin/deployments`
+- `curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" -H "Content-Type: application/json" -d '{"deploymentId":"D-rollback","idempotencyKey":"idem-key-1"}' http://127.0.0.1:7791/pf4boot/admin/deployments/{id}/rollback` (replace `{id}` with valid id)
+- `curl -H "X-PF4Boot-Admin-Token: sample-token" -X POST http://127.0.0.1:7791/pf4boot/admin/plugins/sample-workflow/enable` (run twice to validate idempotency semantics)
+- `curl -H "X-PF4Boot-Admin-Token: sample-token" -X DELETE http://127.0.0.1:7791/pf4boot/admin/plugins/sample-workflow/enable` (run twice to validate idempotency semantics)
+- Local-token negative test: omit token and verify `401`
+- Remote-delegated negative tests for unauth and insufficient permission cases
 
-样例参考：
+- Rollback CSRF check smoke (browser path): set `X-PF4Boot-Write-Enabled=true` and missing browser `Origin` header should return `403` for rollback endpoint.
+
+## Reference
 
 - `samples/cross-plugin-jpa/README.md`
