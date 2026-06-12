@@ -43,14 +43,15 @@ Implementation should also follow [plugin-http-management-api-implementation-gui
 
 | ID | Item | Status | Evidence |
 | --- | --- | --- | --- |
-| COMP-01 | Applications without management starter are unchanged | In Progress | Needs module-level integration test |
+| COMP-01 | Applications without management starter are unchanged | Done | `pf4boot-starter/src/test/java/net/xdob/pf4boot/Pf4bootStarterCompatibilityTest.java` verifies `Pf4bootManagementAutoConfiguration` class is absent when management starter is not on classpath |
 | COMP-02 | Existing `Pf4bootPluginManager` APIs are unchanged | Done | API surface unchanged; controller uses existing `Pf4bootPluginManager` APIs |
-| COMP-03 | Non-web applications do not get servlet or management dependencies | In Progress | Starter remains optional |
+| COMP-03 | Non-web applications do not get servlet or management dependencies | Done | `pf4boot-starter/src/test/java/net/xdob/pf4boot/Pf4bootStarterCompatibilityTest.java#nonWebStarterDoesNotExposeServletApi`; `pf4boot-starter/build.gradle` only declares `api` dependencies on `pf4boot-api` and `pf4boot-core` and no servlet/runtime-management artifacts |
 | COMP-04 | Java 8 compilation passes | Done | `:pf4boot-management-starter:compileJava` |
 
 ## Suggested Verification Commands
 
 ```powershell
+.\gradlew.bat :pf4boot-starter:test
 .\gradlew.bat :pf4boot-api:test
 .\gradlew.bat :pf4boot-core:test
 .\gradlew.bat :pf4boot-web-starter:test
