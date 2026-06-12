@@ -18,6 +18,7 @@ This is a compact, deterministic guide for models that need strict execution ste
 
 1. Confirm only the following modules are edited:
    - `pf4boot-api`
+   - `pf4boot-starter`
    - `pf4boot-management-starter`
    - `docs/design/en`
 2. Confirm no unrelated files are deleted.
@@ -153,6 +154,28 @@ Concrete test checkpoints:
 - `PluginManagementControllerSecurityTest` (remote unauth/authz and rate limit for write endpoints)
 - `PluginManagementRateLimiterTest` (normal/over-limit and disabled scenarios)
 - `PluginManagementIdempotencyServiceTest` + `PluginManagementPathValidatorTest` (idempotency and path guard)
+
+## Phase 3.5: Compatibility and Boundary Handoff (Small-Model Mandatory)
+
+Before handoff, run these exact checks to avoid hidden coupling:
+
+```powershell
+rg --line-number "pf4boot-management-starter|javax.servlet:javax.servlet-api" pf4boot-starter/build.gradle pf4boot-web-starter/build.gradle
+.\gradlew.bat :pf4boot-starter:test
+```
+
+Expected result:
+
+- `pf4boot-starter` tests include `Pf4bootStarterCompatibilityTest`.
+- The test class proves:
+  - No management auto-configuration class on non-management classpath.
+  - `javax.servlet.Servlet` is not loadable from `pf4boot-starter` test classpath.
+- `build.gradle` check shows no optional/hidden transitive dependency leak.
+
+If the environment cannot run Gradle due repository/network access, still update acceptance with a clear note:
+
+- command blocked (network/buildscript dependency fetch blocked);
+- only file-level and test-level checks already in git are considered completed.
 
 ## Phase 4: Acceptance Handoff
 

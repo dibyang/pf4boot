@@ -33,6 +33,28 @@ public class PluginManagementStartupValidatorTest {
   }
 
   @Test
+  public void localModePassesWhenCustomAuthorizerExistsWithoutToken() {
+    Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
+    properties.setEnabled(true);
+    properties.setMode(PluginManagementMode.LOCAL_TOKEN);
+
+    PluginManagementStartupValidator validator =
+        new PluginManagementStartupValidator(properties, providerWithBeans(sampleAuthorizer()));
+    validator.validate();
+  }
+
+  @Test
+  public void disabledModeSkipValidationWhenManagementNotEnabled() {
+    Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
+    properties.setEnabled(false);
+    properties.setMode(PluginManagementMode.LOCAL_TOKEN);
+
+    PluginManagementStartupValidator validator =
+        new PluginManagementStartupValidator(properties, providerWithBeans());
+    validator.validate();
+  }
+
+  @Test
   public void localModePassesWhenTokenConfigured() {
     Pf4bootManagementProperties properties = new Pf4bootManagementProperties();
     properties.setEnabled(true);
