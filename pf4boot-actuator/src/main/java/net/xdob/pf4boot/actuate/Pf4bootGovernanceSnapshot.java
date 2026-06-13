@@ -25,6 +25,8 @@ public class Pf4bootGovernanceSnapshot {
   private final boolean repositoryEnabled;
   private final String repositoryType;
   private final boolean repositoryLocationConfigured;
+  private final boolean repositoryReplaceEnabled;
+  private final boolean repositoryCacheConfigured;
   private final PluginDeploymentMetricsSnapshot deploymentSummary;
   private final List<PluginCleanupReport> cleanupReports;
   private final List<String> warnings;
@@ -40,6 +42,8 @@ public class Pf4bootGovernanceSnapshot {
       boolean repositoryEnabled,
       String repositoryType,
       boolean repositoryLocationConfigured,
+      boolean repositoryReplaceEnabled,
+      boolean repositoryCacheConfigured,
       PluginDeploymentMetricsSnapshot deploymentSummary,
       List<PluginCleanupReport> cleanupReports,
       List<String> warnings) {
@@ -53,6 +57,8 @@ public class Pf4bootGovernanceSnapshot {
     this.repositoryEnabled = repositoryEnabled;
     this.repositoryType = repositoryType;
     this.repositoryLocationConfigured = repositoryLocationConfigured;
+    this.repositoryReplaceEnabled = repositoryReplaceEnabled;
+    this.repositoryCacheConfigured = repositoryCacheConfigured;
     this.deploymentSummary = deploymentSummary;
     this.cleanupReports = immutableList(cleanupReports);
     this.warnings = immutableList(warnings);
@@ -96,6 +102,14 @@ public class Pf4bootGovernanceSnapshot {
 
   public boolean isRepositoryLocationConfigured() {
     return repositoryLocationConfigured;
+  }
+
+  public boolean isRepositoryReplaceEnabled() {
+    return repositoryReplaceEnabled;
+  }
+
+  public boolean isRepositoryCacheConfigured() {
+    return repositoryCacheConfigured;
   }
 
   public PluginDeploymentMetricsSnapshot getDeploymentSummary() {

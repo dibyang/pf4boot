@@ -22,9 +22,9 @@ P7-P9 are complete and are not reopened by this plan.
 
 | Stage | Topic | Status | Deliverables |
 | --- | --- | --- | --- |
-| P10-A | Repository real replace | Planned | staging cache, repository replace, audit summary, rollback verification |
-| P10-B | Cross-platform runtime smoke | Planned | Java runner, JUnit XML, shared report schema |
-| P10-C | no-jpa/unrelated isolation sample | Planned | unrelated plugin, failure scenarios, runtime smoke checks |
+| P10-A | Repository real replace | Done | staging cache, repository replace, audit summary, rollback verification |
+| P10-B | Cross-platform runtime smoke | Done | Java runner, JUnit XML, shared report schema |
+| P10-C | no-jpa/unrelated isolation sample | Done | unrelated plugin, failure scenarios, runtime smoke checks |
 
 ## Dependencies
 

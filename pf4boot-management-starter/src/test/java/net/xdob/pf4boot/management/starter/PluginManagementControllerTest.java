@@ -135,6 +135,28 @@ public class PluginManagementControllerTest {
   }
 
   @Test
+  public void repositoryReplaceEndpointUsesReleaseRequestWhenDryRunFalse() {
+    Pf4bootManagementProperties properties = properties();
+    RecordingDeploymentService deploymentService = new RecordingDeploymentService();
+    InvocationRecorder invocation = new InvocationRecorder();
+
+    PluginManagementController controller = controller(properties, invocation.createPluginManager(), deploymentService);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/replace");
+    PluginDeploymentRequest body = new PluginDeploymentRequest();
+    body.setPluginId("sample-workflow");
+    body.setRepositoryVersion("3.0.0-SNAPSHOT");
+    body.setDryRun(false);
+
+    PluginAdminResponse<DeploymentRecord> response = controller.replace(body, request);
+
+    assertNotNull(response);
+    assertTrue(response.isSuccess());
+    assertEquals(1, deploymentService.repositoryReplaceCalls);
+    assertEquals("sample-workflow", deploymentService.lastReleaseRequest.getPluginId());
+    assertEquals("3.0.0-SNAPSHOT", deploymentService.lastReleaseRequest.getVersion());
+  }
+
+  @Test
   public void replaceEndpointUsesPlanWhenDryRunDefaultIsTrue() {
     Pf4bootManagementProperties properties = properties();
     properties.setDryRunDefault(true);
@@ -608,6 +630,7 @@ public class PluginManagementControllerTest {
 
     private int planCalls;
     private int repositoryPlanCalls;
+    private int repositoryReplaceCalls;
     private int replaceCalls;
     private String lastReplacePluginId;
     private PluginReleaseRequest lastReleaseRequest;
@@ -636,6 +659,20 @@ public class PluginManagementControllerTest {
           1L,
           1L,
           "repository plan ok",
+          null);
+    }
+
+    @Override
+    public DeploymentRecord replace(PluginReleaseRequest request) {
+      repositoryReplaceCalls++;
+      lastReleaseRequest = request;
+      return new DeploymentRecord(
+          "repository-replace-result",
+          request.getPluginId(),
+          DeploymentState.SUCCEEDED,
+          1L,
+          1L,
+          "repository replace ok",
           null);
     }
 

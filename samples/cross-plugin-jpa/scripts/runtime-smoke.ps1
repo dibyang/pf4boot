@@ -209,9 +209,9 @@ try {
 
   $pluginZips = Get-ChildItem -LiteralPath (Join-Path $runtime "plugins") -Filter "*.zip"
   Write-Smoke "SMOKE_PLUGIN_ZIPS count=$($pluginZips.Count)"
-  if ($pluginZips.Count -lt 3) {
-    Add-SmokeCheck -Name "pluginZips" -Status "FAILED" -Message "Expected at least 3 plugin zips"
-    throw "Expected at least 3 plugin zips"
+  if ($pluginZips.Count -lt 4) {
+    Add-SmokeCheck -Name "pluginZips" -Status "FAILED" -Message "Expected at least 4 plugin zips"
+    throw "Expected at least 4 plugin zips"
   }
   Add-SmokeCheck -Name "pluginZips" -Status "PASSED" -Message "count=$($pluginZips.Count)"
 
@@ -234,6 +234,14 @@ try {
 
   Wait-HostReady
 
+  $unrelated = Invoke-SmokeRequest -Method "GET" -Path "/api/sample/unrelated/health"
+  Assert-Status -Response $unrelated -Expected @(200) -Label "unrelated plugin health"
+  if ($null -eq $unrelated.Json -or $unrelated.Json.status -ne "UP") {
+    throw "unrelated plugin did not report UP"
+  }
+  Write-Smoke "SMOKE_UNRELATED_PLUGIN_ALIVE status=$($unrelated.StatusCode)"
+  Add-SmokeCheck -Name "unrelatedPluginAlive" -Status "PASSED" -Message "HTTP $($unrelated.StatusCode)"
+
   $normalUser = "smoke-ok-$([System.Guid]::NewGuid().ToString('N').Substring(0, 8))"
   $normal = Invoke-SmokeRequest -Method "GET" -Path "/api/sample/workflow/place?username=$normalUser&password=123&bookName=RuntimeBook"
   Assert-Status -Response $normal -Expected @(200) -Label "workflow normal"
@@ -255,6 +263,9 @@ try {
   }
   Write-Smoke "SMOKE_WORKFLOW_ROLLBACK status=$($failure.StatusCode)"
   Add-SmokeCheck -Name "workflowRollback" -Status "PASSED" -Message "HTTP $($failure.StatusCode)"
+
+  $unrelatedAfterRollback = Invoke-SmokeRequest -Method "GET" -Path "/api/sample/unrelated/health"
+  Assert-Status -Response $unrelatedAfterRollback -Expected @(200) -Label "unrelated plugin after rollback"
 
   $adminHeaders = @{
     "X-PF4Boot-Admin-Token" = $Token
@@ -281,6 +292,20 @@ try {
   Write-Smoke "SMOKE_MANAGEMENT_OPERATION operationId=$($plan.Json.operationId)"
   Write-Smoke "SMOKE_IDEMPOTENCY_REPLAY operationId=$($planReplay.Json.operationId)"
   Add-SmokeCheck -Name "managementIdempotency" -Status "PASSED" -Message "operation replayed"
+
+  $stopProviderHeaders = @{
+    "X-PF4Boot-Admin-Token" = $Token
+    "X-Idempotency-Key" = "runtime-smoke-stop-provider"
+  }
+  $stopProvider = Invoke-SmokeRequest -Method "POST" -Path "/pf4boot/admin/plugins/sample-demo-jpa-domain/stop" -Headers $stopProviderHeaders
+  Assert-AdminSuccess -Response $stopProvider -Label "management stop JPA provider"
+  $unrelatedAfterProviderStop = Invoke-SmokeRequest -Method "GET" -Path "/api/sample/unrelated/health"
+  Assert-Status -Response $unrelatedAfterProviderStop -Expected @(200) -Label "unrelated plugin after provider stop"
+  if ($null -eq $unrelatedAfterProviderStop.Json -or $unrelatedAfterProviderStop.Json.status -ne "UP") {
+    throw "unrelated plugin did not report UP after provider stop"
+  }
+  Write-Smoke "SMOKE_JPA_PROVIDER_ISOLATION status=$($unrelatedAfterProviderStop.StatusCode)"
+  Add-SmokeCheck -Name "jpaProviderIsolation" -Status "PASSED" -Message "unrelated plugin alive after provider stop"
 
   $badHeaders = @{
     "X-PF4Boot-Admin-Token" = $Token

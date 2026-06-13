@@ -97,6 +97,8 @@ spring:
     plugin-repository-type: offline-index
     plugin-repository-location: /opt/pf4boot/repository
     plugin-repository-trust-mode: WARN
+    plugin-repository-cache-directory: /opt/pf4boot/repository-cache
+    plugin-repository-replace-enabled: false
 ```
 
 `repository-index.json` 使用相对路径，包路径解析后必须仍在仓库根目录内：
@@ -130,7 +132,9 @@ spring:
 }
 ```
 
-第一阶段 repository release 只保证解析、校验和 plan；真实 replace 仍建议使用已经 staging 的包路径。
+默认情况下 repository release 只执行解析、校验和 plan。若显式设置
+`plugin-repository-replace-enabled=true`，管理接口在 `dryRun=false` 时会把 release 包复制到受控
+cache 后复用现有 replace/rollback 编排。HTTP 响应和 Actuator 只暴露仓库摘要，不暴露 cache 绝对路径。
 
 生产迁移建议：
 
@@ -227,4 +231,7 @@ pf4boot:
 
 ```text
 samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
+samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-smoke.xml
 ```
+
+P10 后 `runtimeSmoke` 默认使用 sample 内的 Java runner，适合 Windows 和 Linux CI；PowerShell 脚本仍保留为 Windows 本地排障入口。报告包含 `unrelatedPluginAlive` 和 `jpaProviderIsolation`，用于验证无 JPA 依赖插件在 JPA provider 停止后仍可工作。

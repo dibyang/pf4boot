@@ -17,6 +17,7 @@ dependencies {
     plugin project(":samples:cross-plugin-jpa:plugin-demo-jpa-domain")
     plugin project(":samples:cross-plugin-jpa:plugin-user-book-service")
     plugin project(":samples:cross-plugin-jpa:plugin-workflow")
+    plugin project(":samples:cross-plugin-jpa:plugin-unrelated-service")
 }
 
 task assembleSamplePlugins(type: Copy) {
@@ -25,7 +26,8 @@ task assembleSamplePlugins(type: Copy) {
     dependsOn(
             ":samples:cross-plugin-jpa:plugin-demo-jpa-domain:pf4boot",
             ":samples:cross-plugin-jpa:plugin-user-book-service:pf4boot",
-            ":samples:cross-plugin-jpa:plugin-workflow:pf4boot"
+            ":samples:cross-plugin-jpa:plugin-workflow:pf4boot",
+            ":samples:cross-plugin-jpa:plugin-unrelated-service:pf4boot"
     )
     from("${project(':samples:cross-plugin-jpa:plugin-demo-jpa-domain').buildDir}/libs") {
         include "*.zip"
@@ -34,6 +36,9 @@ task assembleSamplePlugins(type: Copy) {
         include "*.zip"
     }
     from("${project(':samples:cross-plugin-jpa:plugin-workflow').buildDir}/libs") {
+        include "*.zip"
+    }
+    from("${project(':samples:cross-plugin-jpa:plugin-unrelated-service').buildDir}/libs") {
         include "*.zip"
     }
     into "${buildDir}/sample-plugins"

@@ -34,6 +34,8 @@ import org.springframework.util.Assert;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -162,6 +164,12 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
       for (String warning : resolution.getWarnings()) {
         repositoryChecks.add(DeploymentCheckResult.warn("PFR-002", warning));
       }
+      repositoryChecks.add(DeploymentCheckResult.info(
+          "PFR-004",
+          "Repository release package verified: "
+              + resolution.getReleaseRecord().getPluginId()
+              + ":"
+              + resolution.getReleaseRecord().getVersion()));
       return planReplacement(request.getPluginId(), resolution.getPackagePath(), repositoryChecks);
     } catch (RuntimeException e) {
       long now = System.currentTimeMillis();
@@ -189,6 +197,104 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
       record(record);
       return record;
     }
+  }
+
+  @Override
+  public DeploymentRecord replace(PluginReleaseRequest request) {
+    Assert.notNull(request, "request must not be null");
+    Assert.hasText(request.getPluginId(), "pluginId must not be empty");
+    if (!properties.isPluginRepositoryReplaceEnabled()) {
+      long now = System.currentTimeMillis();
+      String deploymentId = UUID.randomUUID().toString();
+      List<DeploymentCheckResult> checks = Collections.singletonList(
+          DeploymentCheckResult.error("PFR-005", "Repository real replace is disabled"));
+      DeploymentPlan plan = new DeploymentPlan(
+          deploymentId,
+          request.getPluginId(),
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          Collections.<String>emptyList(),
+          Collections.<String>emptyList(),
+          Collections.<String>emptyList(),
+          checks,
+          null);
+      DeploymentRecord record = new DeploymentRecord(deploymentId, request.getPluginId(), DeploymentState.FAILED,
+          now, now, "repository replace disabled", plan,
+          DeploymentRecord.history(DeploymentState.PLANNED, DeploymentState.FAILED), 0,
+          "PRECHECK_FAILED");
+      record(record);
+      return record;
+    }
+    try {
+      PluginRepositoryResolution resolution = repositoryResolver.resolve(request);
+      Path stagedPackagePath = stageRepositoryPackage(resolution);
+      return replace(request.getPluginId(), stagedPackagePath);
+    } catch (RuntimeException e) {
+      long now = System.currentTimeMillis();
+      String deploymentId = UUID.randomUUID().toString();
+      List<DeploymentCheckResult> checks = Collections.singletonList(
+          DeploymentCheckResult.error("PFR-003", safeMessage(e)));
+      DeploymentPlan plan = new DeploymentPlan(
+          deploymentId,
+          request.getPluginId(),
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          Collections.<String>emptyList(),
+          Collections.<String>emptyList(),
+          Collections.<String>emptyList(),
+          checks,
+          null);
+      DeploymentRecord record = new DeploymentRecord(deploymentId, request.getPluginId(), DeploymentState.FAILED,
+          now, now, "repository replace precheck failed", plan,
+          DeploymentRecord.history(DeploymentState.PLANNED, DeploymentState.FAILED), 0,
+          "PRECHECK_FAILED");
+      record(record);
+      return record;
+    }
+  }
+
+  private Path stageRepositoryPackage(PluginRepositoryResolution resolution) {
+    if (resolution == null || resolution.getReleaseRecord() == null || resolution.getPackagePath() == null) {
+      throw new IllegalArgumentException("Repository resolution is not complete");
+    }
+    Path source = resolution.getPackagePath().toAbsolutePath().normalize();
+    if (!Files.exists(source)) {
+      throw new IllegalStateException("Repository package does not exist");
+    }
+    String operationId = UUID.randomUUID().toString();
+    String fileName = resolution.getReleaseRecord().getPluginId()
+        + "-"
+        + resolution.getReleaseRecord().getVersion()
+        + ".zip";
+    Path target = repositoryCacheRoot()
+        .resolve("operations")
+        .resolve(operationId)
+        .resolve(fileName)
+        .toAbsolutePath()
+        .normalize();
+    try {
+      Files.createDirectories(target.getParent());
+      Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+      return target;
+    } catch (java.io.IOException e) {
+      throw new IllegalStateException("Stage repository package failed", e);
+    }
+  }
+
+  private Path repositoryCacheRoot() {
+    if (!isBlank(properties.getPluginRepositoryCacheDirectory())) {
+      return Paths.get(properties.getPluginRepositoryCacheDirectory()).toAbsolutePath().normalize();
+    }
+    return Paths.get(properties.getPluginsRoot()).resolve(".pf4boot-repository-cache")
+        .toAbsolutePath().normalize();
   }
 
   private DeploymentRecord planReplacement(

@@ -29,6 +29,8 @@ public class Pf4bootGovernanceEndpointTest {
     properties.setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode.WARN);
     properties.setPluginRepositoryEnabled(true);
     properties.setPluginRepositoryLocation("repo");
+    properties.setPluginRepositoryReplaceEnabled(true);
+    properties.setPluginRepositoryCacheDirectory("cache");
     PluginDeploymentMetricsSnapshot deploymentMetrics =
         new PluginDeploymentMetricsSnapshot(3, 1, 2, 99);
     Pf4bootGovernanceEndpoint endpoint = new Pf4bootGovernanceEndpoint(
@@ -67,6 +69,8 @@ public class Pf4bootGovernanceEndpointTest {
     assertTrue(summary.isRepositoryEnabled());
     assertEquals("offline-index", summary.getRepositoryType());
     assertTrue(summary.isRepositoryLocationConfigured());
+    assertTrue(summary.isRepositoryReplaceEnabled());
+    assertTrue(summary.isRepositoryCacheConfigured());
     assertEquals(3, summary.getDeploymentSummary().getDeploymentTotal());
     assertEquals(2, summary.getCleanupReports().size());
     assertTrue(summary.getWarnings().isEmpty());

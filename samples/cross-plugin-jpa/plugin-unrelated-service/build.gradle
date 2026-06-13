@@ -1,0 +1,16 @@
+apply plugin: 'net.xdob.pf4boot-plugin'
+
+pf4bootPlugin {
+    id = "sample-unrelated-service"
+    pluginClass = "net.xdob.sample.unrelated.UnrelatedServicePlugin"
+    description = "sample unrelated service plugin without JPA dependency"
+    dependencies = ""
+    provider = "pf4boot"
+    requires = ""
+    license = "Apache-2.0"
+}
+
+dependencies {
+    compileOnlyApi project(":pf4boot-api")
+    compileOnlyApi project(":pf4boot-web-support")
+}

@@ -781,18 +781,21 @@ public class PluginManagementController {
       PluginManagementOperation operation,
       PluginDeploymentRequest body,
       boolean dryRun) {
-    if (operation != PluginManagementOperation.DEPLOYMENT_PLAN && !dryRun) {
-      throw new PluginManagementException(
-          PluginManagementErrorCode.INVALID_REQUEST,
-          "Repository release deployment supports dry-run plan only in this stage",
-          400);
-    }
     PluginReleaseRequest request = new PluginReleaseRequest();
     request.setPluginId(body.getPluginId());
     request.setVersion(body.getRepositoryVersion());
     request.setVersionRange(body.getRepositoryVersionRange());
     request.setRollback(Boolean.TRUE.equals(body.getRepositoryRollback()));
-    return deploymentService.planReplacement(request);
+    if (operation == PluginManagementOperation.DEPLOYMENT_PLAN || dryRun) {
+      return deploymentService.planReplacement(request);
+    }
+    if (operation == PluginManagementOperation.DEPLOYMENT_REPLACE) {
+      return deploymentService.replace(request);
+    }
+    throw new PluginManagementException(
+        PluginManagementErrorCode.INVALID_REQUEST,
+        "Unsupported repository deployment operation: " + operation,
+        400);
   }
 
   private DeploymentRecord rollbackByPlan(DeploymentPlan plan) {

@@ -22,9 +22,9 @@ P7-P9 已完成，本规划不回改 P7-P9 状态。
 
 | 阶段 | 主题 | 状态 | 主要产物 |
 | --- | --- | --- | --- |
-| P10-A | 仓库发布物真实 replace | Planned | staging cache、repository replace、审计摘要、rollback 验证 |
-| P10-B | 跨平台 runtime smoke | Planned | Java runner、JUnit XML、统一报告 schema |
-| P10-C | no-jpa/unrelated 隔离示例 | Planned | 无关插件、故障场景、runtime smoke 检查 |
+| P10-A | 仓库发布物真实 replace | Done | staging cache、repository replace、审计摘要、rollback 验证 |
+| P10-B | 跨平台 runtime smoke | Done | Java runner、JUnit XML、统一报告 schema |
+| P10-C | no-jpa/unrelated 隔离示例 | Done | 无关插件、故障场景、runtime smoke 检查 |
 
 ## 阶段依赖
 
@@ -44,12 +44,12 @@ P7-P9 已完成，本规划不回改 P7-P9 状态。
 
 | ID | 任务 | 影响模块 | 验证 |
 | --- | --- | --- | --- |
-| P10-A1 | 定义 repository replace 执行配置和 options | `pf4boot-api` | `.\gradlew.bat :pf4boot-api:compileJava` |
-| P10-A2 | 实现 staging cache 复制、摘要复核和清理 | `pf4boot-core` | `.\gradlew.bat :pf4boot-core:test --tests "*Repository*"` |
-| P10-A3 | 接入真实 replace 和 rollback | `pf4boot-core` | `.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginDeploymentServiceTest*"` |
-| P10-A4 | 管理 API 支持 repository real replace | `pf4boot-management-starter` | `.\gradlew.bat :pf4boot-management-starter:test` |
-| P10-A5 | 部署记录和 Actuator 增加 repository 执行摘要 | `pf4boot-core`、`pf4boot-actuator` | `.\gradlew.bat :pf4boot-actuator:test` |
-| P10-A6 | sample README 和开发指南补真实 replace 示例 | `samples/cross-plugin-jpa`、`docs/design` | 文档检查 |
+| P10-A1 | 定义 repository replace 执行配置和 options | `pf4boot-api` | Done，`.\gradlew.bat :pf4boot-api:compileJava` |
+| P10-A2 | 实现 staging cache 复制、摘要复核和清理 | `pf4boot-core` | Done，`.\gradlew.bat :pf4boot-core:test --tests "*DefaultPluginDeploymentServiceTest"` |
+| P10-A3 | 接入真实 replace 和 rollback | `pf4boot-core` | Done，`DefaultPluginDeploymentServiceTest.repositoryReplaceStagesPackageAndExecutesReplacementWhenEnabled` |
+| P10-A4 | 管理 API 支持 repository real replace | `pf4boot-management-starter` | Done，`PluginManagementControllerTest.repositoryReplaceEndpointUsesReleaseRequestWhenDryRunFalse` |
+| P10-A5 | 部署记录和 Actuator 增加 repository 执行摘要 | `pf4boot-core`、`pf4boot-actuator` | Done，`.\gradlew.bat :pf4boot-actuator:test` |
+| P10-A6 | sample README 和开发指南补真实 replace 示例 | `samples/cross-plugin-jpa`、`docs/design` | Done，文档检查 |
 
 ### 禁止事项
 
@@ -75,11 +75,11 @@ P7-P9 已完成，本规划不回改 P7-P9 状态。
 
 | ID | 任务 | 影响模块 | 验证 |
 | --- | --- | --- | --- |
-| P10-B1 | 抽象 smoke check 和报告 schema | `samples/cross-plugin-jpa` | `.\gradlew.bat :samples:cross-plugin-jpa:app-run:tasks --all` |
-| P10-B2 | 实现 Java runtime smoke runner | `samples/cross-plugin-jpa/app-run` | `.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke` |
-| P10-B3 | 生成 JUnit XML | `samples/cross-plugin-jpa/app-run` | 检查 `build/test-results/runtimeSmoke/*.xml` |
-| P10-B4 | PowerShell 脚本与 Java runner 报告 schema 对齐 | `samples/cross-plugin-jpa/scripts` | Windows smoke |
-| P10-B5 | 文档补 CI 产物收集和失败排查 | `samples/cross-plugin-jpa`、`docs/design` | 文档检查 |
+| P10-B1 | 抽象 smoke check 和报告 schema | `samples/cross-plugin-jpa` | Done，`result.json` 与 JUnit XML 共享 check 名称 |
+| P10-B2 | 实现 Java runtime smoke runner | `samples/cross-plugin-jpa/app-run` | Done，`.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke` |
+| P10-B3 | 生成 JUnit XML | `samples/cross-plugin-jpa/app-run` | Done，`build/test-results/runtimeSmoke/TEST-runtime-smoke.xml` |
+| P10-B4 | PowerShell 脚本与 Java runner 报告 schema 对齐 | `samples/cross-plugin-jpa/scripts` | Done，保留 PowerShell 入口并补充 P10 checks |
+| P10-B5 | 文档补 CI 产物收集和失败排查 | `samples/cross-plugin-jpa`、`docs/design` | Done，文档检查 |
 
 ### 禁止事项
 
@@ -104,11 +104,11 @@ P7-P9 已完成，本规划不回改 P7-P9 状态。
 
 | ID | 任务 | 影响模块 | 验证 |
 | --- | --- | --- | --- |
-| P10-C1 | 设计 no-jpa/unrelated sample 模块边界 | `samples/cross-plugin-jpa` | 文档检查 |
-| P10-C2 | 新增 unrelated API/service 插件 | `samples/cross-plugin-jpa` | `.\gradlew.bat :samples:cross-plugin-jpa:assembleSampleRuntime` |
-| P10-C3 | 增加 unrelated HTTP endpoint 或 exported service | `samples/cross-plugin-jpa` | runtime smoke |
-| P10-C4 | 增加 provider 缺失/失败运行态对照 | `samples/cross-plugin-jpa` | runtime smoke failure scenario |
-| P10-C5 | README 和开发指南补隔离语义 | `samples/cross-plugin-jpa`、`docs/design` | 文档检查 |
+| P10-C1 | 设计 no-jpa/unrelated sample 模块边界 | `samples/cross-plugin-jpa` | Done，`plugin-unrelated-service` 独立模块 |
+| P10-C2 | 新增 unrelated API/service 插件 | `samples/cross-plugin-jpa` | Done，`.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins` |
+| P10-C3 | 增加 unrelated HTTP endpoint 或 exported service | `samples/cross-plugin-jpa` | Done，`GET /api/sample/unrelated/health` |
+| P10-C4 | 增加 provider 缺失/失败运行态对照 | `samples/cross-plugin-jpa` | Done，runtime smoke 停止 JPA provider 后检查 unrelated |
+| P10-C5 | README 和开发指南补隔离语义 | `samples/cross-plugin-jpa`、`docs/design` | Done，文档检查 |
 
 ### 禁止事项
 

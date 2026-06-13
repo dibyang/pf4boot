@@ -48,27 +48,40 @@ task sampleDistZip(type: Zip) {
     }
 }
 
-task runtimeSmoke(type: Exec) {
+sourceSets {
+    smoke {
+        java {
+            srcDir "src/smoke/java"
+        }
+    }
+}
+
+configurations.smokeImplementation.extendsFrom configurations.implementation
+configurations.smokeRuntimeOnly.extendsFrom configurations.runtimeOnly
+
+task runtimeSmoke(type: JavaExec) {
     group = "verification"
     description = "Runs the cross-plugin JPA runtime smoke and writes a machine-readable report."
-    dependsOn assembleSampleRuntime
+    dependsOn assembleSampleRuntime, compileSmokeJava
 
     def smokePort = project.findProperty("pf4bootSmokePort") ?: "7791"
     def keepWorkDir = project.findProperty("pf4bootSmokeKeepWorkDir") ?: "false"
     def reportPath = layout.buildDirectory.file("reports/runtime-smoke/result.json").get().asFile
-    def scriptPath = project.rootProject.file("samples/cross-plugin-jpa/scripts/runtime-smoke.ps1")
+    def junitPath = layout.buildDirectory.file("test-results/runtimeSmoke/TEST-runtime-smoke.xml").get().asFile
 
     doFirst {
         reportPath.parentFile.mkdirs()
+        junitPath.parentFile.mkdirs()
     }
 
-    commandLine "powershell", "-ExecutionPolicy", "Bypass",
-            "-File", scriptPath.absolutePath,
-            "-Port", smokePort.toString(),
-            "-SkipAssemble",
-            "-ResultPath", reportPath.absolutePath
+    classpath = sourceSets.smoke.runtimeClasspath
+    main = "net.xdob.sample.smoke.RuntimeSmokeRunner"
+    args "--runtime", runtimeDir.get().asFile.absolutePath,
+            "--port", smokePort.toString(),
+            "--result", reportPath.absolutePath,
+            "--junit", junitPath.absolutePath
     if (keepWorkDir.toString().toBoolean()) {
-        args "-KeepWorkDir"
+        args "--keep-work-dir"
     }
 }
 

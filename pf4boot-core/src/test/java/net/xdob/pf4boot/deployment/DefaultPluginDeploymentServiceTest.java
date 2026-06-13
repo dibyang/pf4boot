@@ -216,6 +216,54 @@ public class DefaultPluginDeploymentServiceTest {
   }
 
   @Test
+  public void repositoryReplaceRejectsWhenRealReplaceDisabled() throws Exception {
+    pluginManager.addResolvedPlugin("base", PluginState.STARTED);
+    Path repositoryRoot = Files.createTempDirectory("pf4boot-offline-repo");
+    Path packagePath = repositoryRoot.resolve("plugins/base-2.0.0.zip");
+    Files.createDirectories(packagePath.getParent());
+    Files.write(packagePath, "base".getBytes("UTF-8"));
+    pluginManager.addStagedDescriptor(packagePath, descriptor("base", "2.0.0"));
+    writeRepositoryIndex(repositoryRoot, "base", "2.0.0", "plugins/base-2.0.0.zip", sha256(packagePath));
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginRepositoryEnabled(true);
+    properties.setPluginRepositoryLocation(repositoryRoot.toString());
+
+    DeploymentRecord record = service(properties).replace(releaseRequest("base", "2.0.0"));
+
+    assertEquals(DeploymentState.FAILED, record.getState());
+    assertEquals("PRECHECK_FAILED", record.getErrorCode());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PFR-005".equals(result.getCode())));
+    assertEquals("1.0.0", pluginManager.getPlugin("base").getDescriptor().getVersion());
+  }
+
+  @Test
+  public void repositoryReplaceStagesPackageAndExecutesReplacementWhenEnabled() throws Exception {
+    pluginManager.addResolvedPlugin("base", PluginState.STARTED);
+    Path repositoryRoot = Files.createTempDirectory("pf4boot-offline-repo");
+    Path cacheRoot = Files.createTempDirectory("pf4boot-offline-cache");
+    Path packagePath = repositoryRoot.resolve("plugins/base-2.0.0.zip");
+    Files.createDirectories(packagePath.getParent());
+    Files.write(packagePath, "base".getBytes("UTF-8"));
+    pluginManager.addStagedDescriptor(packagePath, descriptor("base", "2.0.0"));
+    writeRepositoryIndex(repositoryRoot, "base", "2.0.0", "plugins/base-2.0.0.zip", sha256(packagePath));
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginRepositoryEnabled(true);
+    properties.setPluginRepositoryReplaceEnabled(true);
+    properties.setPluginRepositoryLocation(repositoryRoot.toString());
+    properties.setPluginRepositoryCacheDirectory(cacheRoot.toString());
+
+    DeploymentRecord record = service(properties).replace(releaseRequest("base", "2.0.0"));
+
+    assertEquals(DeploymentState.SUCCEEDED, record.getState());
+    assertEquals("2.0.0", pluginManager.getPlugin("base").getDescriptor().getVersion());
+    assertTrue(record.getPlan().getStagedPluginPath().contains(".pf4boot-repository-cache")
+        || record.getPlan().getStagedPluginPath().contains(cacheRoot.getFileName().toString()));
+    assertTrue(pluginManager.operations.stream()
+        .anyMatch(operation -> operation.equals("load:base:2.0.0")));
+  }
+
+  @Test
   public void planWarnsPf4bootVersionMismatch() throws Exception {
     pluginManager.addResolvedPlugin("base");
     Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
@@ -691,7 +739,21 @@ public class DefaultPluginDeploymentServiceTest {
 
         @Override
         public PluginDescriptor find(Path pluginPath) {
-          return stagedDescriptors.get(pluginPath.toAbsolutePath().normalize());
+          PluginDescriptor descriptor = stagedDescriptors.get(pluginPath.toAbsolutePath().normalize());
+          if (descriptor != null) {
+            return descriptor;
+          }
+          Path fileName = pluginPath.getFileName();
+          if (fileName == null) {
+            return null;
+          }
+          for (Map.Entry<Path, PluginDescriptor> entry : stagedDescriptors.entrySet()) {
+            Path candidateName = entry.getKey().getFileName();
+            if (candidateName != null && fileName.toString().equals(candidateName.toString())) {
+              return entry.getValue();
+            }
+          }
+          return null;
         }
       };
     }
@@ -703,6 +765,15 @@ public class DefaultPluginDeploymentServiceTest {
         throw new IllegalStateException("load failed: " + pluginPath);
       }
       PluginDescriptor descriptor = stagedDescriptors.get(normalizedPath);
+      if (descriptor == null && normalizedPath.getFileName() != null) {
+        for (Map.Entry<Path, PluginDescriptor> entry : stagedDescriptors.entrySet()) {
+          Path candidateName = entry.getKey().getFileName();
+          if (candidateName != null && normalizedPath.getFileName().toString().equals(candidateName.toString())) {
+            descriptor = entry.getValue();
+            break;
+          }
+        }
+      }
       if (descriptor == null) {
         throw new IllegalStateException("descriptor not found: " + pluginPath);
       }

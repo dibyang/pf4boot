@@ -97,6 +97,8 @@ spring:
     plugin-repository-type: offline-index
     plugin-repository-location: /opt/pf4boot/repository
     plugin-repository-trust-mode: WARN
+    plugin-repository-cache-directory: /opt/pf4boot/repository-cache
+    plugin-repository-replace-enabled: false
 ```
 
 `repository-index.json` uses relative paths, and resolved package paths must stay inside the repository root:
@@ -130,7 +132,10 @@ The management API can dry-run a plan using release fields:
 }
 ```
 
-In the first stage, repository releases provide resolution, verification, and planning. Real replacement should still use an already staged package path.
+By default, repository releases provide resolution, verification, and planning only. When
+`plugin-repository-replace-enabled=true`, management requests with `dryRun=false` copy the release
+package into the controlled cache and then reuse the existing replace/rollback orchestration. HTTP
+responses and Actuator expose summaries only, not cache absolute paths.
 
 Recommended production migration:
 
@@ -227,4 +232,10 @@ Hosts can use `upgradePlugin(pluginId, newPluginPath, rollbackPluginPath)` for u
 
 ```text
 samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
+samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-smoke.xml
 ```
+
+After P10, `runtimeSmoke` uses the sample Java runner by default for Windows and Linux CI. The
+PowerShell script remains as a Windows troubleshooting entry. Reports include `unrelatedPluginAlive`
+and `jpaProviderIsolation` to verify that a non-JPA plugin remains available after the JPA provider is
+stopped.

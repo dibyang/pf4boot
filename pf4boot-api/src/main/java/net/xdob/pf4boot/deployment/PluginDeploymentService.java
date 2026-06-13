@@ -31,6 +31,16 @@ public interface PluginDeploymentService {
   }
 
   /**
+   * 从插件仓库 release 执行真实替换。
+   *
+   * @param request 仓库 release 请求
+   * @return 部署记录，包含最终状态和计划
+   */
+  default DeploymentRecord replace(PluginReleaseRequest request) {
+    throw new UnsupportedOperationException("Repository release replacement is not supported");
+  }
+
+  /**
    * 执行短暂停机式插件替换。
    *
    * @param targetPluginId 目标插件 ID

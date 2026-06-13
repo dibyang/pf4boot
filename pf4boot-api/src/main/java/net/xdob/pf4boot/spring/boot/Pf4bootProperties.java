@@ -77,6 +77,10 @@ public class Pf4bootProperties {
    */
   private String pluginRepositoryCacheDirectory = "";
   /**
+   * Allows repository releases to execute real replacement. Disabled by default.
+   */
+  private boolean pluginRepositoryReplaceEnabled = false;
+  /**
    * Plugin trust manifest file extension.
    */
   private String pluginPackageTrustManifestExtension = ".pf4boot-trust.json";
@@ -282,6 +286,14 @@ public class Pf4bootProperties {
     this.pluginRepositoryCacheDirectory = pluginRepositoryCacheDirectory == null
         ? ""
         : pluginRepositoryCacheDirectory.trim();
+  }
+
+  public boolean isPluginRepositoryReplaceEnabled() {
+    return pluginRepositoryReplaceEnabled;
+  }
+
+  public void setPluginRepositoryReplaceEnabled(boolean pluginRepositoryReplaceEnabled) {
+    this.pluginRepositoryReplaceEnabled = pluginRepositoryReplaceEnabled;
   }
 
   public String getPluginPackageTrustManifestExtension() {

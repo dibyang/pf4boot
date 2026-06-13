@@ -61,6 +61,8 @@ public class Pf4bootGovernanceEndpoint {
         properties != null && properties.isPluginRepositoryEnabled(),
         properties == null ? "" : properties.getPluginRepositoryType(),
         properties != null && hasText(properties.getPluginRepositoryLocation()),
+        properties != null && properties.isPluginRepositoryReplaceEnabled(),
+        properties != null && hasText(properties.getPluginRepositoryCacheDirectory()),
         deploymentSummary(),
         cleanupReports,
         warnings);

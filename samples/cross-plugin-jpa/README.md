@@ -7,6 +7,7 @@
 - `plugin-demo-jpa-domain`：只提供 `domain.demo` 的 DataSource、EntityManagerFactory、TransactionManager。
 - `plugin-user-book-service`：定义用户/图书 Repository 和导出的 `UserBookService`。
 - `plugin-workflow`：通过 `UserBookService` 编排业务，定义自己的 audit Repository 和 HTTP 演示接口。
+- `plugin-unrelated-service`：无 JPA 依赖的无关插件，用于验证 JPA provider/consumer 故障不会影响无关插件。
 - `demo-host`：示例宿主应用和运行配置。
 - `app-run`：示例运行时打包项目，组装 host 运行依赖、配置、启动脚本和插件 zip。
 
@@ -20,7 +21,8 @@
 ```powershell
 .\gradlew.bat :samples:cross-plugin-jpa:plugin-demo-jpa-domain:pf4boot `
   :samples:cross-plugin-jpa:plugin-user-book-service:pf4boot `
-  :samples:cross-plugin-jpa:plugin-workflow:pf4boot
+  :samples:cross-plugin-jpa:plugin-workflow:pf4boot `
+  :samples:cross-plugin-jpa:plugin-unrelated-service:pf4boot
 ```
 
 运行时打包：
@@ -43,6 +45,7 @@ GET /api/sample/workflow/place?username=alice&password=123&bookName=book-a
 GET /api/sample/workflow/place?username=bob&password=123&bookName=book-b&failAfterAudit=true
 GET /api/sample/workflow/summary
 GET /api/sample/workflow/audit?username=alice
+GET /api/sample/unrelated/health
 ```
 
 预期行为：
@@ -50,6 +53,7 @@ GET /api/sample/workflow/audit?username=alice
 - 正常 `place` 会写入用户、图书和审计。
 - `failAfterAudit=true` 会演示主事务失败路径：用户、图书随外层跨插件事务回滚；audit writer 使用独立 bean 承载 `REQUIRES_NEW`，审计记录独立提交。
 - workflow 不直接注入 user-book 插件内部 Repository，只通过导出的 `UserBookService` 协作。
+- unrelated 插件不依赖 `pf4boot-jpa-starter`、datasource provider 或 JPA consumer；provider 停止后仍应保持可用。
 
 ## 插件管理 HTTP API（示例）
 
@@ -90,6 +94,12 @@ curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
   http://127.0.0.1:7791/pf4boot/admin/deployments/plan
 
 curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
+  -H "X-Idempotency-Key: repository-replace-01" \
+  -H "Content-Type: application/json" \
+  -d '{"pluginId":"sample-workflow","repositoryVersion":"3.0.0-SNAPSHOT","dryRun":false}' \
+  http://127.0.0.1:7791/pf4boot/admin/deployments/replace
+
+curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
   -H "Content-Type: application/json" \
   -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip","dryRun":false}' \
   http://127.0.0.1:7791/pf4boot/admin/deployments/replace
@@ -106,7 +116,7 @@ curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" \
 samples/cross-plugin-jpa/repository/repository-index.example.json
 ```
 
-示例中的 `packageSha256` 需要替换为实际插件 zip 的小写 sha256 后才能用于真实 dry-run。
+示例中的 `packageSha256` 需要替换为实际插件 zip 的小写 sha256 后才能用于 dry-run 或真实 replace。真实 repository replace 默认关闭，需要显式配置 `spring.pf4boot.plugin-repository-replace-enabled=true`，并建议配置 `spring.pf4boot.plugin-repository-cache-directory`。
 
 ## Runtime smoke 脚本
 
@@ -134,16 +144,19 @@ Gradle smoke 会生成机器可读报告：
 
 ```text
 samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
+samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-smoke.xml
 ```
 
 脚本会输出以下关键证据：
 
-- `SMOKE_PLUGIN_ZIPS`：确认 domain、user-book、workflow 插件 zip 已打包。
+- `SMOKE_PLUGIN_ZIPS`：确认 domain、user-book、workflow、unrelated 插件 zip 已打包。
 - `SMOKE_HOST_READY`：宿主已在本地端口就绪。
 - `SMOKE_WORKFLOW_OK`：正常跨插件 JPA workflow 成功。
 - `SMOKE_WORKFLOW_ROLLBACK`：强制失败 workflow 触发主事务回滚，审计记录保留。
+- `SMOKE_UNRELATED_PLUGIN_ALIVE`：无关插件可访问，且 workflow rollback 后仍可访问。
 - `SMOKE_MANAGEMENT_OPERATION`：使用 `X-PF4Boot-Admin-Token` 和 `X-Idempotency-Key` 调用管理接口。
 - `SMOKE_IDEMPOTENCY_REPLAY`：重复幂等请求返回同一个 operation id。
+- `SMOKE_JPA_PROVIDER_ISOLATION`：停止 JPA provider 后，无关插件仍可访问。
 - `SMOKE_FAILURE_CASE`：有效插件包 + 不存在目标插件的部署预检返回失败响应，并可通过部署记录查询。
 - `SMOKE_ACTUATOR_GOVERNANCE`：`/actuator/pf4bootgovernance` 和 management metrics 可读。
 - `SMOKE_CLEANUP_OK`：脚本已关闭进程并清理临时运行目录。
