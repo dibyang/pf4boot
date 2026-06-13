@@ -41,6 +41,9 @@ Use the parent directory for design notes before implementing non-trivial change
 - [plugin-framework-next-stage-hardening.md](plugin-framework-next-stage-hardening.md): next-stage production hardening design for offline repositories, strict version-range prechecks, and Gradle/CI runtime smoke.
 - [plugin-framework-next-stage-hardening-plan.md](plugin-framework-next-stage-hardening-plan.md): implementation plan for next-stage plugin framework hardening.
 - [plugin-framework-next-stage-hardening-acceptance.md](plugin-framework-next-stage-hardening-acceptance.md): acceptance tracking for next-stage plugin framework hardening.
+- [plugin-framework-follow-up-hardening.md](plugin-framework-follow-up-hardening.md): follow-up hardening design for repository real replace, cross-platform smoke, and no-jpa isolation samples.
+- [plugin-framework-follow-up-hardening-plan.md](plugin-framework-follow-up-hardening-plan.md): implementation plan for follow-up plugin framework hardening.
+- [plugin-framework-follow-up-hardening-acceptance.md](plugin-framework-follow-up-hardening-acceptance.md): acceptance tracking for follow-up plugin framework hardening.
 - [jpa-runtime-refresh-decision.md](jpa-runtime-refresh-decision.md): decision for JPA runtime refresh and EntityManagerFactory rebuild.
 - [cross-datasource-transaction-decision.md](cross-datasource-transaction-decision.md): decision for cross-datasource transaction boundaries, Saga/Outbox, and optional XA.
 - [plugin-repository-governance-decision.md](plugin-repository-governance-decision.md): decision for offline plugin repository, signed releases, rollout, and rollback governance.
