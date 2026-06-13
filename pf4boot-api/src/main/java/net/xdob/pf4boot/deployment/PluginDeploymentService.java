@@ -1,5 +1,7 @@
 package net.xdob.pf4boot.deployment;
 
+import net.xdob.pf4boot.repository.PluginReleaseRequest;
+
 import java.nio.file.Path;
 
 /**
@@ -17,6 +19,16 @@ public interface PluginDeploymentService {
    * @return 部署记录，包含计划、影响范围和预检结果
    */
   DeploymentRecord planReplacement(String targetPluginId, Path stagedPluginPath);
+
+  /**
+   * 从插件仓库 release 解析结果生成替换计划。
+   *
+   * @param request 仓库 release 请求
+   * @return 部署记录，包含计划、影响范围和预检结果
+   */
+  default DeploymentRecord planReplacement(PluginReleaseRequest request) {
+    throw new UnsupportedOperationException("Repository release deployment planning is not supported");
+  }
 
   /**
    * 执行短暂停机式插件替换。

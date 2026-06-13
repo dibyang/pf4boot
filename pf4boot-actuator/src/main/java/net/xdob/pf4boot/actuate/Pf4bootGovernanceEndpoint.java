@@ -56,7 +56,11 @@ public class Pf4bootGovernanceEndpoint {
         countFailed(snapshots),
         properties == null ? "UNKNOWN" : String.valueOf(properties.getPluginPackageTrustMode()),
         properties == null ? "UNKNOWN" : String.valueOf(properties.getPluginCapabilityPrecheckMode()),
+        properties == null ? "UNKNOWN" : String.valueOf(properties.getPluginCompatibilityPrecheckMode()),
         properties == null ? "" : properties.getPluginPackageTrustManifestExtension(),
+        properties != null && properties.isPluginRepositoryEnabled(),
+        properties == null ? "" : properties.getPluginRepositoryType(),
+        properties != null && hasText(properties.getPluginRepositoryLocation()),
         deploymentSummary(),
         cleanupReports,
         warnings);

@@ -26,6 +26,9 @@ public class Pf4bootGovernanceEndpointTest {
     Pf4bootProperties properties = new Pf4bootProperties();
     properties.setPluginPackageTrustMode(PluginPackageVerificationMode.WARN);
     properties.setPluginCapabilityPrecheckMode(PluginPackageVerificationMode.ENFORCE);
+    properties.setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode.WARN);
+    properties.setPluginRepositoryEnabled(true);
+    properties.setPluginRepositoryLocation("repo");
     PluginDeploymentMetricsSnapshot deploymentMetrics =
         new PluginDeploymentMetricsSnapshot(3, 1, 2, 99);
     Pf4bootGovernanceEndpoint endpoint = new Pf4bootGovernanceEndpoint(
@@ -59,7 +62,11 @@ public class Pf4bootGovernanceEndpointTest {
     assertEquals(1, summary.getFailedPluginCount());
     assertEquals("WARN", summary.getTrustMode());
     assertEquals("ENFORCE", summary.getCapabilityPrecheckMode());
+    assertEquals("WARN", summary.getCompatibilityPrecheckMode());
     assertEquals(".pf4boot-trust.json", summary.getTrustManifestExtension());
+    assertTrue(summary.isRepositoryEnabled());
+    assertEquals("offline-index", summary.getRepositoryType());
+    assertTrue(summary.isRepositoryLocationConfigured());
     assertEquals(3, summary.getDeploymentSummary().getDeploymentTotal());
     assertEquals(2, summary.getCleanupReports().size());
     assertTrue(summary.getWarnings().isEmpty());

@@ -7,6 +7,9 @@ public class PluginDeploymentRequest {
 
   private String pluginId;
   private String stagedPluginPath;
+  private String repositoryVersion;
+  private String repositoryVersionRange;
+  private Boolean repositoryRollback;
   private Boolean dryRun;
 
   public String getPluginId() {
@@ -25,6 +28,30 @@ public class PluginDeploymentRequest {
     this.stagedPluginPath = stagedPluginPath;
   }
 
+  public String getRepositoryVersion() {
+    return repositoryVersion;
+  }
+
+  public void setRepositoryVersion(String repositoryVersion) {
+    this.repositoryVersion = repositoryVersion;
+  }
+
+  public String getRepositoryVersionRange() {
+    return repositoryVersionRange;
+  }
+
+  public void setRepositoryVersionRange(String repositoryVersionRange) {
+    this.repositoryVersionRange = repositoryVersionRange;
+  }
+
+  public Boolean getRepositoryRollback() {
+    return repositoryRollback;
+  }
+
+  public void setRepositoryRollback(Boolean repositoryRollback) {
+    this.repositoryRollback = repositoryRollback;
+  }
+
   public Boolean getDryRun() {
     return dryRun;
   }
@@ -33,4 +60,3 @@ public class PluginDeploymentRequest {
     this.dryRun = dryRun;
   }
 }
-

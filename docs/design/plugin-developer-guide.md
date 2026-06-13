@@ -24,6 +24,7 @@ spring:
     plugin-package-checksum-extension: .sha256
     plugin-package-trust-manifest-extension: .pf4boot-trust.json
     plugin-capability-precheck-mode: WARN
+    plugin-compatibility-precheck-mode: WARN
     system-version: 1.0.0
 ```
 
@@ -39,6 +40,8 @@ spring:
   "pluginId": "sample-workflow",
   "pluginVersion": "3.0.0-SNAPSHOT",
   "packageSha256": "lowercase-hex-sha256",
+  "pf4bootVersionRange": "[3.0.0,4.0.0)",
+  "springBootVersionRange": "[2.7.0,2.8.0)",
   "signature": {
     "algorithm": "SHA256withRSA",
     "keyId": "local-dev-key",
@@ -70,6 +73,64 @@ spring:
   }
 }
 ```
+
+版本范围第一阶段支持精确版本和常见 Maven 风格范围：
+
+| 表达式 | 含义 |
+| --- | --- |
+| `1.2.3` | 精确匹配 |
+| `[1.0,2.0)` | 大于等于 1.0 且小于 2.0 |
+| `(1.0,2.0]` | 大于 1.0 且小于等于 2.0 |
+| `[1.0,)` | 大于等于 1.0 |
+| `(,2.0]` | 小于等于 2.0 |
+
+`plugin-compatibility-precheck-mode` 控制 `pf4bootVersionRange` 和 `springBootVersionRange`。`plugin-capability-precheck-mode` 控制 `requiredCapabilities[].versionRange`。建议先用 `WARN` 观察，再切换到 `ENFORCE`。
+
+## 离线插件仓库
+
+宿主可以启用本地或内网挂载的 offline-index 仓库。仓库目录包含 `repository-index.json` 和插件包，框架不会从远程中心服务下载插件：
+
+```yaml
+spring:
+  pf4boot:
+    plugin-repository-enabled: true
+    plugin-repository-type: offline-index
+    plugin-repository-location: /opt/pf4boot/repository
+    plugin-repository-trust-mode: WARN
+```
+
+`repository-index.json` 使用相对路径，包路径解析后必须仍在仓库根目录内：
+
+```json
+{
+  "schemaVersion": 1,
+  "repositoryId": "local-prod",
+  "generatedAt": 1781280000000,
+  "releases": [
+    {
+      "pluginId": "sample-workflow",
+      "version": "3.0.0-SNAPSHOT",
+      "packagePath": "plugins/plugin-workflow-3.0.0-SNAPSHOT.zip",
+      "packageSha256": "lowercase-sha256",
+      "trustManifestPath": "plugins/plugin-workflow-3.0.0-SNAPSHOT.zip.pf4boot-trust.json",
+      "rolloutPolicy": "manual",
+      "rollbackCandidate": true
+    }
+  ]
+}
+```
+
+管理接口可用 release 字段做 dry-run plan：
+
+```json
+{
+  "pluginId": "sample-workflow",
+  "repositoryVersion": "3.0.0-SNAPSHOT",
+  "dryRun": true
+}
+```
+
+第一阶段 repository release 只保证解析、校验和 plan；真实 replace 仍建议使用已经 staging 的包路径。
 
 生产迁移建议：
 
@@ -159,4 +220,11 @@ pf4boot:
 .\gradlew.bat :pf4boot-core:test
 .\gradlew.bat :pf4boot-actuator:test
 .\gradlew.bat :pf4boot-jpa-starter:test
+.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke
+```
+
+`runtimeSmoke` 会生成机器可读报告：
+
+```text
+samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
 ```

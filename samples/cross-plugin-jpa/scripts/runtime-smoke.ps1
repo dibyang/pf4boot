@@ -2,13 +2,57 @@ param(
   [int] $Port = 7791,
   [string] $Token = "sample-token",
   [int] $TimeoutSeconds = 120,
-  [switch] $SkipAssemble
+  [switch] $SkipAssemble,
+  [string] $ResultPath = "",
+  [switch] $KeepWorkDir
 )
 
 $ErrorActionPreference = "Stop"
 
 function Write-Smoke($Message) {
   Write-Output $Message
+}
+
+$script:SmokeChecks = New-Object System.Collections.ArrayList
+$script:SmokeStatus = "FAILED"
+$script:SmokeFailure = $null
+$script:SmokeStartedAt = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
+
+function Add-SmokeCheck {
+  param(
+    [string] $Name,
+    [string] $Status,
+    [string] $Message
+  )
+  [void]$script:SmokeChecks.Add([pscustomobject]@{
+    name = $Name
+    status = $Status
+    message = $Message
+  })
+}
+
+function Write-SmokeReport {
+  param(
+    [string] $Status,
+    [string] $Failure
+  )
+  if ([string]::IsNullOrWhiteSpace($ResultPath)) {
+    return
+  }
+  $reportFile = $ResultPath
+  $reportDir = Split-Path -Parent $reportFile
+  if (-not [string]::IsNullOrWhiteSpace($reportDir)) {
+    New-Item -ItemType Directory -Force -Path $reportDir | Out-Null
+  }
+  $report = [pscustomobject]@{
+    status = $Status
+    startedAt = $script:SmokeStartedAt
+    finishedAt = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
+    port = $Port
+    checks = @($script:SmokeChecks)
+    failure = $Failure
+  }
+  $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $reportFile -Encoding UTF8
 }
 
 function Invoke-SmokeRequest {
@@ -62,6 +106,7 @@ function Wait-HostReady {
     $response = Invoke-SmokeRequest -Method "GET" -Path "/api/sample/workflow/summary"
     if ($response.StatusCode -eq 200) {
       Write-Smoke "SMOKE_HOST_READY port=$Port"
+      Add-SmokeCheck -Name "hostReady" -Status "PASSED" -Message "HTTP 200"
       return
     }
     Start-Sleep -Seconds 1
@@ -112,6 +157,22 @@ function Stop-PortProcess {
   }
 }
 
+function Remove-SmokeDirectory {
+  param([string] $Path)
+  if (-not (Test-Path $Path)) {
+    return
+  }
+  for ($i = 0; $i -lt 5; $i++) {
+    try {
+      Remove-Item -LiteralPath $Path -Recurse -Force
+      return
+    } catch {
+      Start-Sleep -Milliseconds 500
+    }
+  }
+  Write-Output "SMOKE_CLEANUP_WARN path=runtime-smoke"
+}
+
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sampleRoot = Resolve-Path (Join-Path $scriptRoot "..")
 $repoRoot = Resolve-Path (Join-Path $sampleRoot "..\..")
@@ -126,8 +187,9 @@ $stderrLog = Join-Path $logDir "stderr.log"
 $badZip = $null
 
 try {
+  Stop-PortProcess -TargetPort $Port
   if (Test-Path $smokeDir) {
-    Remove-Item -LiteralPath $smokeDir -Recurse -Force
+    Remove-SmokeDirectory -Path $smokeDir
   }
   New-Item -ItemType Directory -Force -Path $logDir, $homeDir, $operationStore | Out-Null
 
@@ -148,8 +210,10 @@ try {
   $pluginZips = Get-ChildItem -LiteralPath (Join-Path $runtime "plugins") -Filter "*.zip"
   Write-Smoke "SMOKE_PLUGIN_ZIPS count=$($pluginZips.Count)"
   if ($pluginZips.Count -lt 3) {
+    Add-SmokeCheck -Name "pluginZips" -Status "FAILED" -Message "Expected at least 3 plugin zips"
     throw "Expected at least 3 plugin zips"
   }
+  Add-SmokeCheck -Name "pluginZips" -Status "PASSED" -Message "count=$($pluginZips.Count)"
 
   $javaArgs = @(
     "-Duser.home=$homeDir",
@@ -174,6 +238,7 @@ try {
   $normal = Invoke-SmokeRequest -Method "GET" -Path "/api/sample/workflow/place?username=$normalUser&password=123&bookName=RuntimeBook"
   Assert-Status -Response $normal -Expected @(200) -Label "workflow normal"
   Write-Smoke "SMOKE_WORKFLOW_OK status=$($normal.StatusCode)"
+  Add-SmokeCheck -Name "workflowOk" -Status "PASSED" -Message "HTTP $($normal.StatusCode)"
 
   $beforeFailure = Invoke-SmokeRequest -Method "GET" -Path "/api/sample/workflow/summary"
   Assert-Status -Response $beforeFailure -Expected @(200) -Label "summary before failure"
@@ -189,6 +254,7 @@ try {
     throw "workflow failure did not keep REQUIRES_NEW audit evidence"
   }
   Write-Smoke "SMOKE_WORKFLOW_ROLLBACK status=$($failure.StatusCode)"
+  Add-SmokeCheck -Name "workflowRollback" -Status "PASSED" -Message "HTTP $($failure.StatusCode)"
 
   $adminHeaders = @{
     "X-PF4Boot-Admin-Token" = $Token
@@ -214,6 +280,7 @@ try {
   }
   Write-Smoke "SMOKE_MANAGEMENT_OPERATION operationId=$($plan.Json.operationId)"
   Write-Smoke "SMOKE_IDEMPOTENCY_REPLAY operationId=$($planReplay.Json.operationId)"
+  Add-SmokeCheck -Name "managementIdempotency" -Status "PASSED" -Message "operation replayed"
 
   $badHeaders = @{
     "X-PF4Boot-Admin-Token" = $Token
@@ -232,15 +299,23 @@ try {
   $deployments = Invoke-SmokeRequest -Method "GET" -Path "/pf4boot/admin/deployments" -Headers $adminHeaders
   Assert-AdminSuccess -Response $deployments -Label "deployment records"
   Write-Smoke "SMOKE_FAILURE_CASE code=$($badPlan.Json.code)"
+  Add-SmokeCheck -Name "failureCase" -Status "PASSED" -Message "code=$($badPlan.Json.code)"
 
   $governance = Invoke-SmokeRequest -Method "GET" -Path "/actuator/pf4bootgovernance"
   Assert-Status -Response $governance -Expected @(200) -Label "actuator governance"
   $metrics = Invoke-SmokeRequest -Method "GET" -Path "/actuator/metrics/pf4boot.management.request.total"
   Assert-Status -Response $metrics -Expected @(200) -Label "actuator management metric"
   Write-Smoke "SMOKE_ACTUATOR_GOVERNANCE status=$($governance.StatusCode)"
+  Add-SmokeCheck -Name "actuatorGovernance" -Status "PASSED" -Message "HTTP $($governance.StatusCode)"
 
   Write-Smoke "SMOKE_CLEANUP_OK"
+  Add-SmokeCheck -Name "cleanup" -Status "PASSED" -Message "process cleanup requested"
+  $script:SmokeStatus = "PASSED"
 } catch {
+  $script:SmokeFailure = $_.Exception.Message
+  if ($script:SmokeChecks.Count -eq 0 -or $script:SmokeChecks[$script:SmokeChecks.Count - 1].status -ne "FAILED") {
+    Add-SmokeCheck -Name "runtimeSmoke" -Status "FAILED" -Message $_.Exception.Message
+  }
   Write-Output "SMOKE_FAILED $($_.Exception.Message)"
   if (Test-Path $stdoutLog) {
     Write-Output "---- stdout tail ----"
@@ -255,5 +330,9 @@ try {
   Stop-PortProcess -TargetPort $Port
   if ($badZip -ne $null -and (Test-Path $badZip)) {
     Remove-Item -LiteralPath $badZip -Force
+  }
+  Write-SmokeReport -Status $script:SmokeStatus -Failure $script:SmokeFailure
+  if (-not $KeepWorkDir -and $script:SmokeStatus -eq "PASSED" -and (Test-Path $smokeDir)) {
+    Remove-SmokeDirectory -Path $smokeDir
   }
 }

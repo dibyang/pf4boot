@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "repositoryId": "cross-plugin-jpa-sample",
+  "generatedAt": 1781280000000,
+  "releases": [
+    {
+      "pluginId": "sample-demo-jpa-domain",
+      "version": "3.0.0-SNAPSHOT",
+      "packagePath": "plugins/plugin-demo-jpa-domain-3.0.0-SNAPSHOT.zip",
+      "packageSha256": "replace-with-lowercase-sha256",
+      "trustManifestPath": "plugins/plugin-demo-jpa-domain-3.0.0-SNAPSHOT.zip.pf4boot-trust.json",
+      "rolloutPolicy": "manual",
+      "rollbackCandidate": true,
+      "attributes": {
+        "channel": "sample"
+      }
+    },
+    {
+      "pluginId": "sample-user-book-service",
+      "version": "3.0.0-SNAPSHOT",
+      "packagePath": "plugins/plugin-user-book-service-3.0.0-SNAPSHOT.zip",
+      "packageSha256": "replace-with-lowercase-sha256",
+      "trustManifestPath": "plugins/plugin-user-book-service-3.0.0-SNAPSHOT.zip.pf4boot-trust.json",
+      "rolloutPolicy": "manual",
+      "rollbackCandidate": true,
+      "attributes": {
+        "channel": "sample"
+      }
+    },
+    {
+      "pluginId": "sample-workflow",
+      "version": "3.0.0-SNAPSHOT",
+      "packagePath": "plugins/plugin-workflow-3.0.0-SNAPSHOT.zip",
+      "packageSha256": "replace-with-lowercase-sha256",
+      "trustManifestPath": "plugins/plugin-workflow-3.0.0-SNAPSHOT.zip.pf4boot-trust.json",
+      "rolloutPolicy": "manual",
+      "rollbackCandidate": true,
+      "attributes": {
+        "channel": "sample"
+      }
+    }
+  ]
+}

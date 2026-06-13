@@ -48,4 +48,28 @@ task sampleDistZip(type: Zip) {
     }
 }
 
+task runtimeSmoke(type: Exec) {
+    group = "verification"
+    description = "Runs the cross-plugin JPA runtime smoke and writes a machine-readable report."
+    dependsOn assembleSampleRuntime
+
+    def smokePort = project.findProperty("pf4bootSmokePort") ?: "7791"
+    def keepWorkDir = project.findProperty("pf4bootSmokeKeepWorkDir") ?: "false"
+    def reportPath = layout.buildDirectory.file("reports/runtime-smoke/result.json").get().asFile
+    def scriptPath = project.rootProject.file("samples/cross-plugin-jpa/scripts/runtime-smoke.ps1")
+
+    doFirst {
+        reportPath.parentFile.mkdirs()
+    }
+
+    commandLine "powershell", "-ExecutionPolicy", "Bypass",
+            "-File", scriptPath.absolutePath,
+            "-Port", smokePort.toString(),
+            "-SkipAssemble",
+            "-ResultPath", reportPath.absolutePath
+    if (keepWorkDir.toString().toBoolean()) {
+        args "-KeepWorkDir"
+    }
+}
+
 assemble.dependsOn sampleDistZip

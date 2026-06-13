@@ -24,6 +24,7 @@ spring:
     plugin-package-checksum-extension: .sha256
     plugin-package-trust-manifest-extension: .pf4boot-trust.json
     plugin-capability-precheck-mode: WARN
+    plugin-compatibility-precheck-mode: WARN
     system-version: 1.0.0
 ```
 
@@ -39,6 +40,8 @@ The default checksum file lives next to the plugin package, for example `sample-
   "pluginId": "sample-workflow",
   "pluginVersion": "3.0.0-SNAPSHOT",
   "packageSha256": "lowercase-hex-sha256",
+  "pf4bootVersionRange": "[3.0.0,4.0.0)",
+  "springBootVersionRange": "[2.7.0,2.8.0)",
   "signature": {
     "algorithm": "SHA256withRSA",
     "keyId": "local-dev-key",
@@ -70,6 +73,64 @@ The default checksum file lives next to the plugin package, for example `sample-
   }
 }
 ```
+
+The first-stage version range matcher supports exact versions and common Maven-style ranges:
+
+| Expression | Meaning |
+| --- | --- |
+| `1.2.3` | Exact match |
+| `[1.0,2.0)` | `>= 1.0` and `< 2.0` |
+| `(1.0,2.0]` | `> 1.0` and `<= 2.0` |
+| `[1.0,)` | `>= 1.0` |
+| `(,2.0]` | `<= 2.0` |
+
+`plugin-compatibility-precheck-mode` controls `pf4bootVersionRange` and `springBootVersionRange`. `plugin-capability-precheck-mode` controls `requiredCapabilities[].versionRange`. Start with `WARN`, then move to `ENFORCE`.
+
+## Offline Plugin Repository
+
+Hosts can enable a local or mounted offline-index repository. The repository directory contains `repository-index.json` and plugin packages; the framework does not download packages from a remote central service:
+
+```yaml
+spring:
+  pf4boot:
+    plugin-repository-enabled: true
+    plugin-repository-type: offline-index
+    plugin-repository-location: /opt/pf4boot/repository
+    plugin-repository-trust-mode: WARN
+```
+
+`repository-index.json` uses relative paths, and resolved package paths must stay inside the repository root:
+
+```json
+{
+  "schemaVersion": 1,
+  "repositoryId": "local-prod",
+  "generatedAt": 1781280000000,
+  "releases": [
+    {
+      "pluginId": "sample-workflow",
+      "version": "3.0.0-SNAPSHOT",
+      "packagePath": "plugins/plugin-workflow-3.0.0-SNAPSHOT.zip",
+      "packageSha256": "lowercase-sha256",
+      "trustManifestPath": "plugins/plugin-workflow-3.0.0-SNAPSHOT.zip.pf4boot-trust.json",
+      "rolloutPolicy": "manual",
+      "rollbackCandidate": true
+    }
+  ]
+}
+```
+
+The management API can dry-run a plan using release fields:
+
+```json
+{
+  "pluginId": "sample-workflow",
+  "repositoryVersion": "3.0.0-SNAPSHOT",
+  "dryRun": true
+}
+```
+
+In the first stage, repository releases provide resolution, verification, and planning. Real replacement should still use an already staged package path.
 
 Recommended production migration:
 
@@ -159,4 +220,11 @@ Hosts can use `upgradePlugin(pluginId, newPluginPath, rollbackPluginPath)` for u
 .\gradlew.bat :pf4boot-core:test
 .\gradlew.bat :pf4boot-actuator:test
 .\gradlew.bat :pf4boot-jpa-starter:test
+.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke
+```
+
+`runtimeSmoke` writes a machine-readable report:
+
+```text
+samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
 ```

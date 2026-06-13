@@ -15,6 +15,7 @@ import net.xdob.pf4boot.management.PluginManagementMetricsSnapshot;
 import net.xdob.pf4boot.management.PluginManagementOperation;
 import net.xdob.pf4boot.management.PluginManagementRequest;
 import net.xdob.pf4boot.modal.PluginRuntimeSnapshot;
+import net.xdob.pf4boot.repository.PluginReleaseRequest;
 import org.junit.Test;
 import org.pf4j.PluginState;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -30,6 +31,7 @@ import java.util.List;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class PluginManagementControllerTest {
@@ -104,6 +106,32 @@ public class PluginManagementControllerTest {
     assertEquals("plan-result", response.getData().getDeploymentId());
     assertEquals(1, deploymentService.planCalls);
     assertEquals(0, deploymentService.replaceCalls);
+  }
+
+  @Test
+  public void repositoryPlanEndpointUsesReleaseRequestAndReplaysIdempotency() {
+    Pf4bootManagementProperties properties = properties();
+    properties.setRequireIdempotencyKey(true);
+    RecordingDeploymentService deploymentService = new RecordingDeploymentService();
+    InvocationRecorder invocation = new InvocationRecorder();
+
+    PluginManagementController controller = controller(properties, invocation.createPluginManager(), deploymentService);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/plan");
+    request.addHeader("X-Idempotency-Key", "repo-plan");
+    PluginDeploymentRequest body = new PluginDeploymentRequest();
+    body.setPluginId("sample-workflow");
+    body.setRepositoryVersion("3.0.0-SNAPSHOT");
+    body.setDryRun(true);
+
+    PluginAdminResponse<DeploymentRecord> first = controller.plan(body, request);
+    PluginAdminResponse<DeploymentRecord> replay = controller.plan(body, request);
+
+    assertNotNull(first);
+    assertEquals(first.getOperationId(), replay.getOperationId());
+    assertEquals(1, deploymentService.repositoryPlanCalls);
+    assertEquals("sample-workflow", deploymentService.lastReleaseRequest.getPluginId());
+    assertEquals("3.0.0-SNAPSHOT", deploymentService.lastReleaseRequest.getVersion());
+    assertTrue(replay.isSuccess());
   }
 
   @Test
@@ -579,8 +607,10 @@ public class PluginManagementControllerTest {
   private static class RecordingDeploymentService implements PluginDeploymentService {
 
     private int planCalls;
+    private int repositoryPlanCalls;
     private int replaceCalls;
     private String lastReplacePluginId;
+    private PluginReleaseRequest lastReleaseRequest;
 
     @Override
     public DeploymentRecord planReplacement(String targetPluginId, java.nio.file.Path stagedPluginPath) {
@@ -592,6 +622,20 @@ public class PluginManagementControllerTest {
           1L,
           1L,
           "plan ok",
+          null);
+    }
+
+    @Override
+    public DeploymentRecord planReplacement(PluginReleaseRequest request) {
+      repositoryPlanCalls++;
+      lastReleaseRequest = request;
+      return new DeploymentRecord(
+          "repository-plan-result",
+          request.getPluginId(),
+          DeploymentState.PRECHECKED,
+          1L,
+          1L,
+          "repository plan ok",
           null);
     }
 

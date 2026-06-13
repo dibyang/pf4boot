@@ -68,6 +68,8 @@ public class DefaultPluginTrustManifestLoader implements PluginTrustManifestLoad
     manifest.setPluginId(stringField(normalized, "pluginId"));
     manifest.setPluginVersion(stringField(normalized, "pluginVersion"));
     manifest.setPackageSha256(stringField(normalized, "packageSha256"));
+    manifest.setPf4bootVersionRange(stringField(normalized, "pf4bootVersionRange"));
+    manifest.setSpringBootVersionRange(stringField(normalized, "springBootVersionRange"));
     PluginSignatureMetadata signature = parseSignature(normalized);
     if (signature != null) {
       manifest.setSignature(signature);

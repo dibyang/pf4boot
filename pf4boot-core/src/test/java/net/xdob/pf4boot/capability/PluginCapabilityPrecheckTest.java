@@ -69,6 +69,33 @@ public class PluginCapabilityPrecheckTest {
     assertEquals("OK", results.get(0).getCode());
   }
 
+  @Test
+  public void rejectsCapabilityVersionOutsideRange() {
+    List<PluginCapabilityPrecheckResult> results = precheck.check(
+        descriptor(new PluginCapabilityRequirement(
+            "jpa.datasource", "[2,3)", true, datasourceAttributes("orderDs"))),
+        Collections.singletonList(capability("jpa.datasource", "orderDs")),
+        PluginPackageVerificationMode.ENFORCE);
+
+    assertEquals(1, results.size());
+    assertFalse(results.get(0).isValid());
+    assertEquals("PFC-003", results.get(0).getCode());
+  }
+
+  @Test
+  public void warnsInvalidCapabilityVersionRange() {
+    List<PluginCapabilityPrecheckResult> results = precheck.check(
+        descriptor(new PluginCapabilityRequirement(
+            "jpa.datasource", "[1 2)", true, datasourceAttributes("orderDs"))),
+        Collections.singletonList(capability("jpa.datasource", "orderDs")),
+        PluginPackageVerificationMode.WARN);
+
+    assertEquals(1, results.size());
+    assertTrue(results.get(0).isValid());
+    assertTrue(results.get(0).isWarning());
+    assertEquals("PFC-004", results.get(0).getCode());
+  }
+
   private PluginCapabilityDescriptor descriptor(PluginCapabilityRequirement requirement) {
     return new DefaultPluginCapabilityDescriptor(
         "consumer",

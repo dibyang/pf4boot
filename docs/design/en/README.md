@@ -38,6 +38,9 @@ Use the parent directory for design notes before implementing non-trivial change
 - [plugin-framework-production-hardening.md](plugin-framework-production-hardening.md): production hardening design for package trust, persistent records, lifecycle verification, capability manifests, and observability closure.
 - [plugin-framework-production-hardening-plan.md](plugin-framework-production-hardening-plan.md): implementation plan for plugin framework production hardening.
 - [plugin-framework-production-hardening-acceptance.md](plugin-framework-production-hardening-acceptance.md): acceptance tracking for plugin framework production hardening.
+- [plugin-framework-next-stage-hardening.md](plugin-framework-next-stage-hardening.md): next-stage production hardening design for offline repositories, strict version-range prechecks, and Gradle/CI runtime smoke.
+- [plugin-framework-next-stage-hardening-plan.md](plugin-framework-next-stage-hardening-plan.md): implementation plan for next-stage plugin framework hardening.
+- [plugin-framework-next-stage-hardening-acceptance.md](plugin-framework-next-stage-hardening-acceptance.md): acceptance tracking for next-stage plugin framework hardening.
 - [jpa-runtime-refresh-decision.md](jpa-runtime-refresh-decision.md): decision for JPA runtime refresh and EntityManagerFactory rebuild.
 - [cross-datasource-transaction-decision.md](cross-datasource-transaction-decision.md): decision for cross-datasource transaction boundaries, Saga/Outbox, and optional XA.
 - [plugin-repository-governance-decision.md](plugin-repository-governance-decision.md): decision for offline plugin repository, signed releases, rollout, and rollback governance.

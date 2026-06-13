@@ -17,6 +17,7 @@ import net.xdob.pf4boot.management.PluginManagementPrincipal;
 import net.xdob.pf4boot.management.PluginManagementRequest;
 import net.xdob.pf4boot.management.PluginOperationRecord;
 import net.xdob.pf4boot.management.PluginOperationStore;
+import net.xdob.pf4boot.repository.PluginReleaseRequest;
 import org.pf4j.PluginDescriptor;
 import org.pf4j.PluginState;
 import org.pf4j.PluginWrapper;
@@ -541,13 +542,17 @@ public class PluginManagementController {
           "pluginId is required",
           400);
     }
-    if (stagedPluginPath == null || stagedPluginPath.trim().isEmpty()) {
+    boolean repositoryRequest = body != null
+        && (hasText(body.getRepositoryVersion())
+        || hasText(body.getRepositoryVersionRange())
+        || Boolean.TRUE.equals(body.getRepositoryRollback()));
+    if (!repositoryRequest && (stagedPluginPath == null || stagedPluginPath.trim().isEmpty())) {
       throw rejectManagement(
           requestForAudit(mgmtRequest, pluginId, null),
           principal,
           operation,
           PluginManagementErrorCode.INVALID_REQUEST,
-          "stagedPluginPath is required",
+          "stagedPluginPath or repository release request is required",
           400);
     }
 
@@ -558,13 +563,17 @@ public class PluginManagementController {
       dryRun = properties.isDryRunDefault();
     }
 
-    Path resolvedStagedPath = resolveStagedPath(mgmtRequest, principal, operation, stagedPluginPath);
+    Path resolvedStagedPath = repositoryRequest
+        ? null
+        : resolveStagedPath(mgmtRequest, principal, operation, stagedPluginPath);
     String principalId = safePrincipalId(principal, mgmtRequest);
     String operationId = requestFactory.buildOperationId();
     String requestHash = requestHash(
         mgmtRequest,
         pluginId,
-        resolvedStagedPath.toString(),
+        repositoryRequest ? safe(body.getRepositoryVersion()) : resolvedStagedPath.toString(),
+        repositoryRequest ? safe(body.getRepositoryVersionRange()) : "",
+        repositoryRequest ? String.valueOf(Boolean.TRUE.equals(body.getRepositoryRollback())) : "",
         String.valueOf(dryRun));
 
     PluginManagementRequest requestForHash = requestFactory.toPluginRequest(
@@ -591,7 +600,9 @@ public class PluginManagementController {
     }
 
     try {
-      DeploymentRecord record = executeDeployment(operation, pluginId, resolvedStagedPath, dryRun);
+      DeploymentRecord record = repositoryRequest
+          ? executeRepositoryDeployment(operation, body, dryRun)
+          : executeDeployment(operation, pluginId, resolvedStagedPath, dryRun);
       deploymentRecordStore.save(record);
       PluginOperationRecord operationRecord = operationStore.findById(operationId);
       if (!isDeploymentSucceeded(record)) {
@@ -764,6 +775,24 @@ public class PluginManagementController {
         PluginManagementErrorCode.INVALID_REQUEST,
         "Unsupported deployment operation: " + operation,
         400);
+  }
+
+  private DeploymentRecord executeRepositoryDeployment(
+      PluginManagementOperation operation,
+      PluginDeploymentRequest body,
+      boolean dryRun) {
+    if (operation != PluginManagementOperation.DEPLOYMENT_PLAN && !dryRun) {
+      throw new PluginManagementException(
+          PluginManagementErrorCode.INVALID_REQUEST,
+          "Repository release deployment supports dry-run plan only in this stage",
+          400);
+    }
+    PluginReleaseRequest request = new PluginReleaseRequest();
+    request.setPluginId(body.getPluginId());
+    request.setVersion(body.getRepositoryVersion());
+    request.setVersionRange(body.getRepositoryVersionRange());
+    request.setRollback(Boolean.TRUE.equals(body.getRepositoryRollback()));
+    return deploymentService.planReplacement(request);
   }
 
   private DeploymentRecord rollbackByPlan(DeploymentPlan plan) {

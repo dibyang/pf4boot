@@ -84,6 +84,12 @@ curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
   http://127.0.0.1:7791/pf4boot/admin/deployments/plan
 
 curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
+  -H "X-Idempotency-Key: repository-plan-01" \
+  -H "Content-Type: application/json" \
+  -d '{"pluginId":"sample-workflow","repositoryVersion":"3.0.0-SNAPSHOT","dryRun":true}' \
+  http://127.0.0.1:7791/pf4boot/admin/deployments/plan
+
+curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
   -H "Content-Type: application/json" \
   -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip","dryRun":false}' \
   http://127.0.0.1:7791/pf4boot/admin/deployments/replace
@@ -93,6 +99,14 @@ curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" \
 ```
 
 说明：`plan/replace` 会校验 `stagedPluginPath` 必须位于 `staging-root` 下，避免目录穿越。
+
+离线仓库索引示例位于：
+
+```text
+samples/cross-plugin-jpa/repository/repository-index.example.json
+```
+
+示例中的 `packageSha256` 需要替换为实际插件 zip 的小写 sha256 后才能用于真实 dry-run。
 
 ## Runtime smoke 脚本
 
@@ -108,6 +122,18 @@ powershell -ExecutionPolicy Bypass -File samples/cross-plugin-jpa/scripts/runtim
 ```powershell
 .\gradlew.bat :samples:cross-plugin-jpa:app-run:assembleSampleRuntime
 powershell -ExecutionPolicy Bypass -File samples\cross-plugin-jpa\scripts\runtime-smoke.ps1 -SkipAssemble
+```
+
+也可以通过 Gradle 入口运行，适合本地复验和 CI：
+
+```powershell
+.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke
+```
+
+Gradle smoke 会生成机器可读报告：
+
+```text
+samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
 ```
 
 脚本会输出以下关键证据：

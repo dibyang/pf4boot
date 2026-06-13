@@ -25,6 +25,8 @@ public class DefaultPluginTrustManifestLoaderTest {
     assertEquals("sample", manifest.getPluginId());
     assertEquals("1.0.0", manifest.getPluginVersion());
     assertEquals("abc", manifest.getPackageSha256());
+    assertEquals("[3.0.0,4.0.0)", manifest.getPf4bootVersionRange());
+    assertEquals("[2.7.0,2.8.0)", manifest.getSpringBootVersionRange());
     assertNotNull(manifest.getSignature());
     assertEquals("SHA256withRSA", manifest.getSignature().getAlgorithm());
     assertEquals("local-dev-key", manifest.getSignature().getKeyId());
@@ -64,6 +66,8 @@ public class DefaultPluginTrustManifestLoaderTest {
         + "\"pluginId\":\"" + pluginId + "\","
         + "\"pluginVersion\":\"" + version + "\","
         + "\"packageSha256\":\"" + sha256 + "\","
+        + "\"pf4bootVersionRange\":\"[3.0.0,4.0.0)\","
+        + "\"springBootVersionRange\":\"[2.7.0,2.8.0)\","
         + "\"signature\":{"
         + "\"algorithm\":\"SHA256withRSA\","
         + "\"keyId\":\"local-dev-key\","

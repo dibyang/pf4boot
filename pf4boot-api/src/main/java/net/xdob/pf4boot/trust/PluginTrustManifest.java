@@ -18,6 +18,8 @@ public class PluginTrustManifest {
   private String pluginId;
   private String pluginVersion;
   private String packageSha256;
+  private String pf4bootVersionRange;
+  private String springBootVersionRange;
   private PluginSignatureMetadata signature;
   private List<PluginCapability> providedCapabilities = new ArrayList<>();
   private List<PluginCapabilityRequirement> requiredCapabilities = new ArrayList<>();
@@ -44,6 +46,22 @@ public class PluginTrustManifest {
 
   public void setPackageSha256(String packageSha256) {
     this.packageSha256 = packageSha256;
+  }
+
+  public String getPf4bootVersionRange() {
+    return pf4bootVersionRange;
+  }
+
+  public void setPf4bootVersionRange(String pf4bootVersionRange) {
+    this.pf4bootVersionRange = pf4bootVersionRange;
+  }
+
+  public String getSpringBootVersionRange() {
+    return springBootVersionRange;
+  }
+
+  public void setSpringBootVersionRange(String springBootVersionRange) {
+    this.springBootVersionRange = springBootVersionRange;
   }
 
   public PluginSignatureMetadata getSignature() {

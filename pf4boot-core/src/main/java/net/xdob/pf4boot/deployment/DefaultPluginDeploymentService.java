@@ -14,7 +14,16 @@ import net.xdob.pf4boot.capability.PluginCapabilityDescriptor;
 import net.xdob.pf4boot.capability.PluginCapabilityPrecheck;
 import net.xdob.pf4boot.capability.PluginCapabilityPrecheckResult;
 import net.xdob.pf4boot.capability.PluginCapabilityResolver;
+import net.xdob.pf4boot.repository.OfflineIndexPluginRepositoryResolver;
+import net.xdob.pf4boot.repository.PluginReleaseRequest;
+import net.xdob.pf4boot.repository.PluginRepositoryResolution;
+import net.xdob.pf4boot.repository.PluginRepositoryResolver;
 import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
+import net.xdob.pf4boot.trust.PluginTrustManifest;
+import net.xdob.pf4boot.trust.PluginTrustManifestLoader;
+import net.xdob.pf4boot.version.DefaultVersionRangeMatcher;
+import net.xdob.pf4boot.version.VersionMatchResult;
+import net.xdob.pf4boot.version.VersionRangeMatcher;
 import org.pf4j.PluginDependency;
 import org.pf4j.PluginDescriptor;
 import org.pf4j.PluginRuntimeException;
@@ -50,6 +59,9 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
   private final List<PluginDeploymentRecorder> deploymentRecorders;
   private final PluginCapabilityResolver capabilityResolver;
   private final PluginCapabilityPrecheck capabilityPrecheck;
+  private final PluginTrustManifestLoader trustManifestLoader;
+  private final VersionRangeMatcher versionRangeMatcher;
+  private final PluginRepositoryResolver repositoryResolver;
 
   public DefaultPluginDeploymentService(Pf4bootPluginManager pluginManager, Pf4bootProperties properties) {
     this(pluginManager, properties, Collections.emptyList());
@@ -101,7 +113,10 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
     this.deploymentRecorders = unmodifiableCopy(deploymentRecorders);
     this.capabilityResolver = new DefaultPluginCapabilityResolver(
         null, this.properties.getPluginPackageTrustManifestExtension());
-    this.capabilityPrecheck = new PluginCapabilityPrecheck();
+    this.versionRangeMatcher = new DefaultVersionRangeMatcher();
+    this.capabilityPrecheck = new PluginCapabilityPrecheck(versionRangeMatcher);
+    this.trustManifestLoader = new net.xdob.pf4boot.DefaultPluginTrustManifestLoader();
+    this.repositoryResolver = new OfflineIndexPluginRepositoryResolver(this.properties, versionRangeMatcher);
   }
 
   private List<PluginPackageVerifier> createPluginPackageVerifiers(
@@ -126,16 +141,74 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
   public DeploymentRecord planReplacement(String targetPluginId, Path stagedPluginPath) {
     Assert.hasText(targetPluginId, "targetPluginId must not be empty");
     Assert.notNull(stagedPluginPath, "stagedPluginPath must not be null");
+    return planReplacement(targetPluginId, stagedPluginPath, Collections.<DeploymentCheckResult>emptyList());
+  }
+
+  @Override
+  public DeploymentRecord planReplacement(PluginReleaseRequest request) {
+    Assert.notNull(request, "request must not be null");
+    Assert.hasText(request.getPluginId(), "pluginId must not be empty");
+    try {
+      PluginRepositoryResolution resolution = repositoryResolver.resolve(request);
+      List<DeploymentCheckResult> repositoryChecks = new ArrayList<>();
+      repositoryChecks.add(DeploymentCheckResult.info(
+          "PFR-001",
+          "Repository release resolved: "
+              + resolution.getReleaseRecord().getRepositoryId()
+              + "/"
+              + resolution.getReleaseRecord().getPluginId()
+              + ":"
+              + resolution.getReleaseRecord().getVersion()));
+      for (String warning : resolution.getWarnings()) {
+        repositoryChecks.add(DeploymentCheckResult.warn("PFR-002", warning));
+      }
+      return planReplacement(request.getPluginId(), resolution.getPackagePath(), repositoryChecks);
+    } catch (RuntimeException e) {
+      long now = System.currentTimeMillis();
+      String deploymentId = UUID.randomUUID().toString();
+      List<DeploymentCheckResult> checks = Collections.singletonList(
+          DeploymentCheckResult.error("PFR-003", safeMessage(e)));
+      DeploymentPlan plan = new DeploymentPlan(
+          deploymentId,
+          request.getPluginId(),
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          Collections.<String>emptyList(),
+          Collections.<String>emptyList(),
+          Collections.<String>emptyList(),
+          checks,
+          null);
+      DeploymentRecord record = new DeploymentRecord(deploymentId, request.getPluginId(), DeploymentState.FAILED,
+          now, now, "repository precheck failed", plan,
+          DeploymentRecord.history(DeploymentState.PLANNED, DeploymentState.FAILED), 0,
+          "PRECHECK_FAILED");
+      record(record);
+      return record;
+    }
+  }
+
+  private DeploymentRecord planReplacement(
+      String targetPluginId,
+      Path stagedPluginPath,
+      List<DeploymentCheckResult> initialChecks) {
 
     String deploymentId = UUID.randomUUID().toString();
     long now = System.currentTimeMillis();
     List<DeploymentCheckResult> checks = new ArrayList<>();
+    if (initialChecks != null) {
+      checks.addAll(initialChecks);
+    }
     PluginWrapper currentPlugin = pluginManager.getPlugin(targetPluginId);
     PluginDescriptor stagedDescriptor = parseDescriptor(stagedPluginPath, checks);
 
     checkTargetPlugin(targetPluginId, currentPlugin, stagedDescriptor, checks);
     checkPackage(stagedPluginPath, stagedDescriptor, checks);
     checkSystemCompatibility(stagedDescriptor, checks);
+    checkManifestCompatibility(stagedPluginPath, stagedDescriptor, checks);
     checkDependencies(stagedDescriptor, checks);
     checkCapabilities(stagedPluginPath, stagedDescriptor, checks);
     checkVersionProgress(currentPlugin, stagedDescriptor, checks);
@@ -638,6 +711,100 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
     }
   }
 
+  private void checkManifestCompatibility(
+      Path stagedPluginPath,
+      PluginDescriptor stagedDescriptor,
+      List<DeploymentCheckResult> checks) {
+    if (stagedDescriptor == null) {
+      return;
+    }
+    PluginPackageVerificationMode mode = properties.getPluginCompatibilityPrecheckMode();
+    if (mode == null || PluginPackageVerificationMode.DISABLED.equals(mode)) {
+      return;
+    }
+    PluginTrustManifest manifest;
+    try {
+      manifest = trustManifestLoader.load(stagedPluginPath, properties.getPluginPackageTrustManifestExtension());
+    } catch (RuntimeException e) {
+      addCompatibilityResult(checks, mode, "PFC-004",
+          "Plugin compatibility manifest invalid: " + safeMessage(e), false);
+      return;
+    }
+    if (manifest == null) {
+      checks.add(DeploymentCheckResult.info(
+          "PLUGIN_COMPATIBILITY_MANIFEST_MISSING",
+          "Plugin compatibility manifest is not present"));
+      return;
+    }
+    checkVersionRange(
+        checks,
+        mode,
+        "PF4BOOT_VERSION_RANGE",
+        "pf4boot",
+        effectivePf4bootVersion(),
+        manifest.getPf4bootVersionRange());
+    checkVersionRange(
+        checks,
+        mode,
+        "SPRING_BOOT_VERSION_RANGE",
+        "springBoot",
+        effectiveSpringBootVersion(),
+        manifest.getSpringBootVersionRange());
+  }
+
+  private void checkVersionRange(
+      List<DeploymentCheckResult> checks,
+      PluginPackageVerificationMode mode,
+      String codePrefix,
+      String name,
+      String actualVersion,
+      String range) {
+    if (isBlank(range)) {
+      return;
+    }
+    VersionMatchResult result = versionRangeMatcher.matches(actualVersion, range);
+    if (!result.isValid()) {
+      addCompatibilityResult(checks, mode, "PFC-004",
+          name + " version range invalid: " + range + " reason=" + result.getMessage(), false);
+    } else if (!result.isMatched()) {
+      addCompatibilityResult(checks, mode, codePrefix + "_MISMATCH",
+          name + " version " + actualVersion + " does not satisfy " + range, false);
+    } else {
+      checks.add(DeploymentCheckResult.info(
+          codePrefix + "_MATCHED",
+          name + " version " + actualVersion + " satisfies " + range));
+    }
+  }
+
+  private void addCompatibilityResult(
+      List<DeploymentCheckResult> checks,
+      PluginPackageVerificationMode mode,
+      String code,
+      String message,
+      boolean info) {
+    if (info) {
+      checks.add(DeploymentCheckResult.info(code, message));
+    } else if (PluginPackageVerificationMode.ENFORCE.equals(mode)) {
+      checks.add(DeploymentCheckResult.error(code, message));
+    } else {
+      checks.add(DeploymentCheckResult.warn(code, message));
+    }
+  }
+
+  private String effectivePf4bootVersion() {
+    return isBlank(properties.getPluginCompatibilityPf4bootVersion())
+        ? properties.getSystemVersion()
+        : properties.getPluginCompatibilityPf4bootVersion();
+  }
+
+  private String effectiveSpringBootVersion() {
+    if (!isBlank(properties.getPluginCompatibilitySpringBootVersion())) {
+      return properties.getPluginCompatibilitySpringBootVersion();
+    }
+    String version = org.springframework.boot.SpringBootVersion.getVersion();
+    return isBlank(version) ? "0.0.0" : version;
+  }
+
   private List<PluginCapability> availableCapabilities(String targetPluginId) {
     List<PluginCapabilityDescriptor> descriptors = new ArrayList<>();
     for (PluginWrapper plugin : pluginManager.getPlugins()) {
@@ -746,6 +913,10 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
       }
     }
     return false;
+  }
+
+  private boolean isBlank(String value) {
+    return value == null || value.trim().isEmpty();
   }
 
   private List<String> reverse(List<String> source) {

@@ -45,6 +45,38 @@ public class Pf4bootProperties {
    */
   private PluginPackageVerificationMode pluginCapabilityPrecheckMode = PluginPackageVerificationMode.DISABLED;
   /**
+   * Plugin framework and Spring Boot compatibility precheck mode before deployment replacement.
+   */
+  private PluginPackageVerificationMode pluginCompatibilityPrecheckMode = PluginPackageVerificationMode.DISABLED;
+  /**
+   * Framework version used for trust manifest pf4bootVersionRange checks.
+   */
+  private String pluginCompatibilityPf4bootVersion = "0.0.0";
+  /**
+   * Spring Boot version used for trust manifest springBootVersionRange checks.
+   */
+  private String pluginCompatibilitySpringBootVersion = "";
+  /**
+   * Enables offline plugin repository resolution.
+   */
+  private boolean pluginRepositoryEnabled = false;
+  /**
+   * Plugin repository type. The first implementation supports offline-index.
+   */
+  private String pluginRepositoryType = "offline-index";
+  /**
+   * Local or mounted offline repository location.
+   */
+  private String pluginRepositoryLocation = "";
+  /**
+   * Repository index trust mode.
+   */
+  private PluginPackageVerificationMode pluginRepositoryTrustMode = PluginPackageVerificationMode.WARN;
+  /**
+   * Local staging/cache directory for repository packages.
+   */
+  private String pluginRepositoryCacheDirectory = "";
+  /**
    * Plugin trust manifest file extension.
    */
   private String pluginPackageTrustManifestExtension = ".pf4boot-trust.json";
@@ -173,6 +205,83 @@ public class Pf4bootProperties {
     this.pluginCapabilityPrecheckMode = pluginCapabilityPrecheckMode == null
         ? PluginPackageVerificationMode.DISABLED
         : pluginCapabilityPrecheckMode;
+  }
+
+  public PluginPackageVerificationMode getPluginCompatibilityPrecheckMode() {
+    return pluginCompatibilityPrecheckMode;
+  }
+
+  public void setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode pluginCompatibilityPrecheckMode) {
+    this.pluginCompatibilityPrecheckMode = pluginCompatibilityPrecheckMode == null
+        ? PluginPackageVerificationMode.DISABLED
+        : pluginCompatibilityPrecheckMode;
+  }
+
+  public String getPluginCompatibilityPf4bootVersion() {
+    return pluginCompatibilityPf4bootVersion;
+  }
+
+  public void setPluginCompatibilityPf4bootVersion(String pluginCompatibilityPf4bootVersion) {
+    this.pluginCompatibilityPf4bootVersion = pluginCompatibilityPf4bootVersion == null
+        || pluginCompatibilityPf4bootVersion.trim().isEmpty()
+        ? "0.0.0"
+        : pluginCompatibilityPf4bootVersion.trim();
+  }
+
+  public String getPluginCompatibilitySpringBootVersion() {
+    return pluginCompatibilitySpringBootVersion;
+  }
+
+  public void setPluginCompatibilitySpringBootVersion(String pluginCompatibilitySpringBootVersion) {
+    this.pluginCompatibilitySpringBootVersion = pluginCompatibilitySpringBootVersion == null
+        ? ""
+        : pluginCompatibilitySpringBootVersion.trim();
+  }
+
+  public boolean isPluginRepositoryEnabled() {
+    return pluginRepositoryEnabled;
+  }
+
+  public void setPluginRepositoryEnabled(boolean pluginRepositoryEnabled) {
+    this.pluginRepositoryEnabled = pluginRepositoryEnabled;
+  }
+
+  public String getPluginRepositoryType() {
+    return pluginRepositoryType;
+  }
+
+  public void setPluginRepositoryType(String pluginRepositoryType) {
+    this.pluginRepositoryType = pluginRepositoryType == null || pluginRepositoryType.trim().isEmpty()
+        ? "offline-index"
+        : pluginRepositoryType.trim();
+  }
+
+  public String getPluginRepositoryLocation() {
+    return pluginRepositoryLocation;
+  }
+
+  public void setPluginRepositoryLocation(String pluginRepositoryLocation) {
+    this.pluginRepositoryLocation = pluginRepositoryLocation == null ? "" : pluginRepositoryLocation.trim();
+  }
+
+  public PluginPackageVerificationMode getPluginRepositoryTrustMode() {
+    return pluginRepositoryTrustMode;
+  }
+
+  public void setPluginRepositoryTrustMode(PluginPackageVerificationMode pluginRepositoryTrustMode) {
+    this.pluginRepositoryTrustMode = pluginRepositoryTrustMode == null
+        ? PluginPackageVerificationMode.WARN
+        : pluginRepositoryTrustMode;
+  }
+
+  public String getPluginRepositoryCacheDirectory() {
+    return pluginRepositoryCacheDirectory;
+  }
+
+  public void setPluginRepositoryCacheDirectory(String pluginRepositoryCacheDirectory) {
+    this.pluginRepositoryCacheDirectory = pluginRepositoryCacheDirectory == null
+        ? ""
+        : pluginRepositoryCacheDirectory.trim();
   }
 
   public String getPluginPackageTrustManifestExtension() {

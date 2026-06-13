@@ -8,6 +8,7 @@ import net.xdob.pf4boot.Pf4bootPluginSupport;
 import net.xdob.pf4boot.Pf4bootPluginWrapper;
 import net.xdob.pf4boot.PluginPackageVerificationMode;
 import net.xdob.pf4boot.annotation.PluginStarter;
+import net.xdob.pf4boot.repository.PluginReleaseRequest;
 import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
 import org.junit.After;
 import org.junit.Before;
@@ -26,6 +27,7 @@ import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -173,6 +175,80 @@ public class DefaultPluginDeploymentServiceTest {
         .anyMatch(result -> "PFC-002".equals(result.getCode())));
     assertTrue(record.getPlan().getCheckResults().stream()
         .anyMatch(result -> "CAPABILITY_PRECHECK_PASSED".equals(result.getCode())));
+  }
+
+  @Test
+  public void planReplacementFromRepositoryRelease() throws Exception {
+    pluginManager.addResolvedPlugin("base");
+    Path repositoryRoot = Files.createTempDirectory("pf4boot-offline-repo");
+    Path packagePath = repositoryRoot.resolve("plugins/base-2.0.0.zip");
+    Files.createDirectories(packagePath.getParent());
+    Files.write(packagePath, "base".getBytes("UTF-8"));
+    pluginManager.addStagedDescriptor(packagePath, descriptor("base", "2.0.0"));
+    writeRepositoryIndex(repositoryRoot, "base", "2.0.0", "plugins/base-2.0.0.zip", sha256(packagePath));
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginRepositoryEnabled(true);
+    properties.setPluginRepositoryLocation(repositoryRoot.toString());
+
+    DeploymentRecord record = service(properties).planReplacement(releaseRequest("base", "2.0.0"));
+
+    assertEquals(DeploymentState.PRECHECKED, record.getState());
+    assertTrue(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PFR-001".equals(result.getCode())));
+    assertEquals(1, pluginManager.getPlugins().size());
+    assertEquals("1.0.0", pluginManager.getPlugin("base").getDescriptor().getVersion());
+  }
+
+  @Test
+  public void repositoryReleaseRecordsSafeSummary() throws Exception {
+    pluginManager.addResolvedPlugin("base");
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginRepositoryEnabled(true);
+    properties.setPluginRepositoryLocation(pluginsRoot.resolve("missing-repo").toString());
+
+    DeploymentRecord record = service(properties).planReplacement(releaseRequest("base", "2.0.0"));
+
+    assertEquals(DeploymentState.FAILED, record.getState());
+    assertFalse(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PFR-003".equals(result.getCode())));
+  }
+
+  @Test
+  public void planWarnsPf4bootVersionMismatch() throws Exception {
+    pluginManager.addResolvedPlugin("base");
+    Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
+    writeCompatibilityManifest(stagedPath, "base", "[9.0,10.0)", null);
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode.WARN);
+    properties.setPluginCompatibilityPf4bootVersion("3.0.0");
+
+    DeploymentRecord record = service(properties).planReplacement("base", stagedPath);
+
+    assertEquals(DeploymentState.PRECHECKED, record.getState());
+    assertTrue(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PF4BOOT_VERSION_RANGE_MISMATCH".equals(result.getCode())
+            && !result.isError()));
+  }
+
+  @Test
+  public void planRejectsSpringBootVersionMismatchInEnforceMode() throws Exception {
+    pluginManager.addResolvedPlugin("base");
+    Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
+    writeCompatibilityManifest(stagedPath, "base", null, "[3.0,4.0)");
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode.ENFORCE);
+    properties.setPluginCompatibilitySpringBootVersion("2.7.22");
+
+    DeploymentRecord record = service(properties).planReplacement("base", stagedPath);
+
+    assertEquals(DeploymentState.FAILED, record.getState());
+    assertFalse(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "SPRING_BOOT_VERSION_RANGE_MISMATCH".equals(result.getCode())
+            && result.isError()));
   }
 
   @Test
@@ -436,6 +512,45 @@ public class DefaultPluginDeploymentServiceTest {
     return stagedPath;
   }
 
+  private PluginReleaseRequest releaseRequest(String pluginId, String version) {
+    PluginReleaseRequest request = new PluginReleaseRequest();
+    request.setPluginId(pluginId);
+    request.setVersion(version);
+    return request;
+  }
+
+  private void writeRepositoryIndex(
+      Path root,
+      String pluginId,
+      String version,
+      String packagePath,
+      String sha256) throws Exception {
+    String json = "{"
+        + "\"schemaVersion\":1,"
+        + "\"repositoryId\":\"sample-repo\","
+        + "\"generatedAt\":1,"
+        + "\"releases\":[{"
+        + "\"pluginId\":\"" + pluginId + "\","
+        + "\"version\":\"" + version + "\","
+        + "\"packagePath\":\"" + packagePath + "\","
+        + "\"packageSha256\":\"" + sha256 + "\","
+        + "\"rolloutPolicy\":\"manual\","
+        + "\"rollbackCandidate\":true"
+        + "}]"
+        + "}";
+    Files.write(root.resolve("repository-index.json"), json.getBytes("UTF-8"));
+  }
+
+  private String sha256(Path path) throws Exception {
+    MessageDigest digest = MessageDigest.getInstance("SHA-256");
+    byte[] bytes = digest.digest(Files.readAllBytes(path));
+    StringBuilder builder = new StringBuilder();
+    for (byte b : bytes) {
+      builder.append(String.format("%02x", b));
+    }
+    return builder.toString();
+  }
+
   private void writeCapabilityManifest(Path pluginPath, String pluginId, String capabilitiesJson) throws Exception {
     String manifest = "{"
         + "\"pluginId\":\"" + pluginId + "\","
@@ -445,6 +560,26 @@ public class DefaultPluginDeploymentServiceTest {
         + "}";
     Files.write(pluginPath.resolveSibling(pluginPath.getFileName().toString() + ".pf4boot-trust.json"),
         manifest.getBytes("UTF-8"));
+  }
+
+  private void writeCompatibilityManifest(
+      Path pluginPath,
+      String pluginId,
+      String pf4bootVersionRange,
+      String springBootVersionRange) throws Exception {
+    StringBuilder manifest = new StringBuilder("{")
+        .append("\"pluginId\":\"").append(pluginId).append("\",")
+        .append("\"pluginVersion\":\"1.0.0\",")
+        .append("\"packageSha256\":\"abc\"");
+    if (pf4bootVersionRange != null) {
+      manifest.append(",\"pf4bootVersionRange\":\"").append(pf4bootVersionRange).append("\"");
+    }
+    if (springBootVersionRange != null) {
+      manifest.append(",\"springBootVersionRange\":\"").append(springBootVersionRange).append("\"");
+    }
+    manifest.append("}");
+    Files.write(pluginPath.resolveSibling(pluginPath.getFileName().toString() + ".pf4boot-trust.json"),
+        manifest.toString().getBytes("UTF-8"));
   }
 
   private String providesDatasource(String datasource) {

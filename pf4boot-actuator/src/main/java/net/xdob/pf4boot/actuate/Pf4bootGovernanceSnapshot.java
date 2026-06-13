@@ -20,7 +20,11 @@ public class Pf4bootGovernanceSnapshot {
   private final int failedPluginCount;
   private final String trustMode;
   private final String capabilityPrecheckMode;
+  private final String compatibilityPrecheckMode;
   private final String trustManifestExtension;
+  private final boolean repositoryEnabled;
+  private final String repositoryType;
+  private final boolean repositoryLocationConfigured;
   private final PluginDeploymentMetricsSnapshot deploymentSummary;
   private final List<PluginCleanupReport> cleanupReports;
   private final List<String> warnings;
@@ -31,7 +35,11 @@ public class Pf4bootGovernanceSnapshot {
       int failedPluginCount,
       String trustMode,
       String capabilityPrecheckMode,
+      String compatibilityPrecheckMode,
       String trustManifestExtension,
+      boolean repositoryEnabled,
+      String repositoryType,
+      boolean repositoryLocationConfigured,
       PluginDeploymentMetricsSnapshot deploymentSummary,
       List<PluginCleanupReport> cleanupReports,
       List<String> warnings) {
@@ -40,7 +48,11 @@ public class Pf4bootGovernanceSnapshot {
     this.failedPluginCount = failedPluginCount;
     this.trustMode = trustMode;
     this.capabilityPrecheckMode = capabilityPrecheckMode;
+    this.compatibilityPrecheckMode = compatibilityPrecheckMode;
     this.trustManifestExtension = trustManifestExtension;
+    this.repositoryEnabled = repositoryEnabled;
+    this.repositoryType = repositoryType;
+    this.repositoryLocationConfigured = repositoryLocationConfigured;
     this.deploymentSummary = deploymentSummary;
     this.cleanupReports = immutableList(cleanupReports);
     this.warnings = immutableList(warnings);
@@ -66,8 +78,24 @@ public class Pf4bootGovernanceSnapshot {
     return capabilityPrecheckMode;
   }
 
+  public String getCompatibilityPrecheckMode() {
+    return compatibilityPrecheckMode;
+  }
+
   public String getTrustManifestExtension() {
     return trustManifestExtension;
+  }
+
+  public boolean isRepositoryEnabled() {
+    return repositoryEnabled;
+  }
+
+  public String getRepositoryType() {
+    return repositoryType;
+  }
+
+  public boolean isRepositoryLocationConfigured() {
+    return repositoryLocationConfigured;
   }
 
   public PluginDeploymentMetricsSnapshot getDeploymentSummary() {
