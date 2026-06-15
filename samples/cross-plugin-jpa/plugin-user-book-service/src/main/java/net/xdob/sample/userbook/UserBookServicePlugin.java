@@ -19,6 +19,9 @@ public class UserBookServicePlugin extends Pf4bootPlugin {
 
   @Override
   public void initiate() {
+    setProperty("pf4boot.plugin.jpa.enabled", "true");
+    setProperty("pf4boot.plugin.jpa.plugins.sample-user-book-service.mode", "SHARED");
+    setProperty("pf4boot.plugin.jpa.plugins.sample-user-book-service.domain-id", "demo");
     setProperty("pf4boot.plugin.jpa.mode", "SHARED");
     setProperty("pf4boot.plugin.jpa.domain-id", "demo");
   }

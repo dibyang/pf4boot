@@ -80,12 +80,12 @@
 
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
-| D6-AC1：runtime smoke 包含 `jpaReloadDrainSuccess` | Planned | 待实现 |
-| D6-AC2：runtime smoke 包含 `jpaReloadDrainTimeoutNoMutation` | Planned | 待实现 |
-| D6-AC3：runtime smoke 包含 `actuatorJpaReloadDrainSummary` | Planned | 待实现 |
-| D6-AC4：`result.json` 和 JUnit XML 输出 drain 检查项 | Planned | 待实现 |
-| D6-AC5：drain timeout 后 workflow/unrelated 插件仍可访问 | Planned | 待实现 |
-| D6-AC6：`:samples:cross-plugin-jpa:app-run:runtimeSmoke` 通过 | Planned | 待验证 |
+| D6-AC1：runtime smoke 包含 `jpaReloadDrainSuccess` | Done | `RuntimeSmokeRunner.checkJpaReload`；输出 `SMOKE_JPA_RELOAD_DRAIN_SUCCESS` |
+| D6-AC2：runtime smoke 包含 `jpaReloadDrainTimeoutNoMutation` | Done | `RuntimeSmokeRunner.checkJpaReloadDrainTimeoutNoMutation`；输出 `SMOKE_JPA_RELOAD_DRAIN_TIMEOUT_NO_MUTATION` |
+| D6-AC3：runtime smoke 包含 `actuatorJpaReloadDrainSummary` | Done | `RuntimeSmokeRunner.checkActuator` 校验 `lastDrainFailureCode`、`lastDrainPluginCount` |
+| D6-AC4：`result.json` 和 JUnit XML 输出 drain 检查项 | Done | `addCheck("jpaReloadDrainSuccess")`、`addCheck("jpaReloadDrainTimeoutNoMutation")`、`addCheck("actuatorJpaReloadDrainSummary")` |
+| D6-AC5：drain timeout 后 workflow/unrelated 插件仍可访问 | Done | timeout 后访问 `/api/sample/workflow/summary` 与 `/api/sample/unrelated/health` 均为 200 |
+| D6-AC6：`:samples:cross-plugin-jpa:app-run:runtimeSmoke` 通过 | Done | `.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke` |
 
 ## 9. D7 文档和验收收口
 
@@ -100,4 +100,4 @@
 
 ## 10. 当前结论
 
-Drain SPI 当前处于设计和规划完成、实现未开始状态。建议按 D1-D7 顺序实施，D3 之后必须运行 `:pf4boot-jpa-starter:test`，D6 之后必须运行 runtime smoke。
+Drain SPI 当前已完成 D0-D6，剩余 D7 文档和验收收口。D6 已通过 runtime smoke，覆盖成功 drain、drain timeout 不变更和 Actuator 摘要。

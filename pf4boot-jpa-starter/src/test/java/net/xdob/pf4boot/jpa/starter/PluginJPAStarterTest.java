@@ -2,6 +2,7 @@ package net.xdob.pf4boot.jpa.starter;
 
 import net.xdob.pf4boot.PluginApplication;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
+import net.xdob.pf4boot.jpa.starter.reload.DefaultJpaPluginBindingRegistry;
 import org.junit.Test;
 import org.pf4j.DefaultPluginDescriptor;
 import org.pf4j.DefaultPluginManager;
@@ -370,6 +371,48 @@ public class PluginJPAStarterTest {
 
       assertTrue(definitions.stream()
           .anyMatch(definition -> "domain.order.entityManagerFactory".equals(definition.getBeanName())));
+    } finally {
+      context.close();
+      parent.close();
+    }
+  }
+
+  @Test
+  public void sharedModeRegistersBindingInParentBeanFactoryRegistry() {
+    AnnotationConfigApplicationContext parent = new AnnotationConfigApplicationContext();
+    AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
+    try {
+      parent.refresh();
+      registerDynamicSingleton(
+          parent.getDefaultListableBeanFactory(),
+          "domain.order.entityManagerFactory",
+          entityManagerFactory());
+      registerDynamicSingleton(
+          parent.getDefaultListableBeanFactory(),
+          "domain.order.transactionManager",
+          new TestTransactionManager());
+      registerDynamicSingleton(
+          parent.getDefaultListableBeanFactory(),
+          "domain.order.descriptor",
+          domainDescriptor("order", true));
+      DefaultJpaPluginBindingRegistry registry = new DefaultJpaPluginBindingRegistry();
+      registerDynamicSingleton(
+          parent.getDefaultListableBeanFactory(),
+          "jpaPluginBindingRegistry",
+          registry);
+
+      context.getDefaultListableBeanFactory()
+          .setParentBeanFactory(parent.getDefaultListableBeanFactory());
+      context.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
+      addProperties(context,
+          "pf4boot.plugin.jpa.enabled", "true",
+          "pf4boot.plugin.jpa.plugins.jpa-test.mode", "SHARED",
+          "pf4boot.plugin.jpa.plugins.jpa-test.domain-id", "order");
+      context.register(PluginJPAStarter.class);
+      context.refresh();
+
+      assertEquals("order", registry.findByPluginId("jpa-test").getDomainId());
+      assertEquals(1, registry.findByDomainId("order").size());
     } finally {
       context.close();
       parent.close();

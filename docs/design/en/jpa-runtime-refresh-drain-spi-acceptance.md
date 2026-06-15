@@ -80,12 +80,12 @@ Statuses:
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| D6-AC1: runtime smoke includes `jpaReloadDrainSuccess` | Planned | Pending implementation |
-| D6-AC2: runtime smoke includes `jpaReloadDrainTimeoutNoMutation` | Planned | Pending implementation |
-| D6-AC3: runtime smoke includes `actuatorJpaReloadDrainSummary` | Planned | Pending implementation |
-| D6-AC4: `result.json` and JUnit XML contain drain checks | Planned | Pending implementation |
-| D6-AC5: workflow and unrelated plugins stay available after drain timeout | Planned | Pending implementation |
-| D6-AC6: `:samples:cross-plugin-jpa:app-run:runtimeSmoke` passes | Planned | Pending verification |
+| D6-AC1: runtime smoke includes `jpaReloadDrainSuccess` | Done | `RuntimeSmokeRunner.checkJpaReload`; output `SMOKE_JPA_RELOAD_DRAIN_SUCCESS` |
+| D6-AC2: runtime smoke includes `jpaReloadDrainTimeoutNoMutation` | Done | `RuntimeSmokeRunner.checkJpaReloadDrainTimeoutNoMutation`; output `SMOKE_JPA_RELOAD_DRAIN_TIMEOUT_NO_MUTATION` |
+| D6-AC3: runtime smoke includes `actuatorJpaReloadDrainSummary` | Done | `RuntimeSmokeRunner.checkActuator` validates `lastDrainFailureCode` and `lastDrainPluginCount` |
+| D6-AC4: `result.json` and JUnit XML contain drain checks | Done | `addCheck("jpaReloadDrainSuccess")`, `addCheck("jpaReloadDrainTimeoutNoMutation")`, `addCheck("actuatorJpaReloadDrainSummary")` |
+| D6-AC5: workflow and unrelated plugins stay available after drain timeout | Done | after timeout, `/api/sample/workflow/summary` and `/api/sample/unrelated/health` both return 200 |
+| D6-AC6: `:samples:cross-plugin-jpa:app-run:runtimeSmoke` passes | Done | `.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke` |
 
 ## 9. D7 Documentation Closure
 
@@ -100,4 +100,4 @@ Statuses:
 
 ## 10. Current Conclusion
 
-Drain SPI is designed and planned, but implementation has not started. Recommended implementation order is D1-D7. After D3, run `:pf4boot-jpa-starter:test`; after D6, run runtime smoke.
+Drain SPI has completed D0-D6. D7 documentation and acceptance closure remains. D6 passed runtime smoke and covers successful drain, drain-timeout no-mutation, and Actuator summaries.

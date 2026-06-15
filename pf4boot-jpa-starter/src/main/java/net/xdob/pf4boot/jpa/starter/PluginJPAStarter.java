@@ -13,6 +13,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.DisposableBean;
+import org.springframework.beans.factory.HierarchicalBeanFactory;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
@@ -359,18 +360,32 @@ public class PluginJPAStarter implements BeanFactoryAware, EnvironmentAware, Ini
   }
 
   private JpaPluginBindingRegistry findBindingRegistry() {
-    if (this.beanFactory instanceof ListableBeanFactory) {
-      String[] names = ((ListableBeanFactory) this.beanFactory).getBeanNamesForType(JpaPluginBindingRegistry.class);
+    JpaPluginBindingRegistry registry = findBindingRegistry(this.beanFactory);
+    if (registry == null) {
+      LOG.debug("[PF4BOOT-JPA] no shared JPA binding registry available");
+    }
+    return registry;
+  }
+
+  private JpaPluginBindingRegistry findBindingRegistry(BeanFactory candidate) {
+    if (candidate == null) {
+      return null;
+    }
+    if (candidate instanceof ListableBeanFactory) {
+      String[] names = ((ListableBeanFactory) candidate).getBeanNamesForType(JpaPluginBindingRegistry.class);
       if (names.length > 0) {
-        return ((ListableBeanFactory) this.beanFactory).getBean(names[0], JpaPluginBindingRegistry.class);
+        return ((ListableBeanFactory) candidate).getBean(names[0], JpaPluginBindingRegistry.class);
       }
     }
     try {
-      return this.beanFactory.getBean(JpaPluginBindingRegistry.class);
+      return candidate.getBean(JpaPluginBindingRegistry.class);
     } catch (Exception e) {
-      LOG.debug("[PF4BOOT-JPA] no shared JPA binding registry available", e);
-      return null;
+      LOG.trace("[PF4BOOT-JPA] no shared JPA binding registry in current bean factory", e);
     }
+    if (candidate instanceof HierarchicalBeanFactory) {
+      return findBindingRegistry(((HierarchicalBeanFactory) candidate).getParentBeanFactory());
+    }
+    return null;
   }
 
   private <T> T getRequiredBean(String beanName, Class<T> type, String message) {

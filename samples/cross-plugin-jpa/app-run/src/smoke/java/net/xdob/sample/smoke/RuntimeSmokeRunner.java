@@ -56,6 +56,7 @@ public class RuntimeSmokeRunner {
       checkWorkflow();
       checkManagement();
       checkJpaReload();
+      checkJpaReloadDrainTimeoutNoMutation();
       checkJpaProviderIsolation();
       checkActuator();
       addCheck("cleanup", "PASSED", "process cleanup requested");
@@ -270,10 +271,39 @@ public class RuntimeSmokeRunner {
     addCheck("jpaReloadIdempotency", "PASSED", replayReloadId);
     HttpResult record = request("GET", "/pf4boot/admin/jpa/reloads/" + reloadId, admin, null);
     assertAdminSuccess(record, "JPA reload record");
+    if (!record.body.contains("\"drainReport\"") || !record.body.contains("\"accepted\":true")) {
+      throw new IllegalStateException("JPA reload record did not include accepted drain report: " + record.body);
+    }
+    System.out.println("SMOKE_JPA_RELOAD_DRAIN_SUCCESS reloadId=" + reloadId);
     addCheck("jpaReloadRecord", "PASSED", reloadId);
+    addCheck("jpaReloadDrainSuccess", "PASSED", reloadId);
 
     HttpResult summary = request("GET", "/api/sample/workflow/summary", null, null);
     assertStatus(summary, 200, "workflow summary after JPA reload");
+  }
+
+  private void checkJpaReloadDrainTimeoutNoMutation() throws Exception {
+    Path marker = smokeDir.resolve("home").resolve("jpa-drain-timeout.flag");
+    Files.createFile(marker);
+    try {
+      List<Header> admin = new ArrayList<Header>();
+      admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+      admin.add(new Header("X-Idempotency-Key", "runtime-smoke-jpa-drain-timeout-java"));
+      HttpResult reload = request("POST", "/pf4boot/admin/jpa/domains/demo/reload", admin,
+          "{\"drainTimeoutMillis\":10}");
+      assertAdminSuccess(reload, "JPA reload drain timeout response");
+      if (!reload.body.contains("DRAIN_TIMEOUT")) {
+        throw new IllegalStateException("JPA reload drain timeout did not report DRAIN_TIMEOUT: " + reload.body);
+      }
+      HttpResult workflow = request("GET", "/api/sample/workflow/summary", null, null);
+      assertStatus(workflow, 200, "workflow after JPA drain timeout");
+      HttpResult unrelated = request("GET", "/api/sample/unrelated/health", null, null);
+      assertStatus(unrelated, 200, "unrelated after JPA drain timeout");
+      System.out.println("SMOKE_JPA_RELOAD_DRAIN_TIMEOUT_NO_MUTATION status=" + reload.status);
+      addCheck("jpaReloadDrainTimeoutNoMutation", "PASSED", "DRAIN_TIMEOUT");
+    } finally {
+      Files.deleteIfExists(marker);
+    }
   }
 
   private void checkJpaReloadDisabledNoMutation() throws Exception {
@@ -296,12 +326,18 @@ public class RuntimeSmokeRunner {
     assertStatus(governance, 200, "actuator governance");
     HttpResult jpaReload = request("GET", "/actuator/pf4bootjpareload", null, null);
     assertStatus(jpaReload, 200, "actuator JPA reload");
+    if (!jpaReload.body.contains("lastDrainFailureCode")
+        || !jpaReload.body.contains("DRAIN_TIMEOUT")
+        || !jpaReload.body.contains("lastDrainPluginCount")) {
+      throw new IllegalStateException("actuator JPA reload did not expose drain summary: " + jpaReload.body);
+    }
     HttpResult metrics = request("GET", "/actuator/metrics/pf4boot.management.request.total", null, null);
     assertStatus(metrics, 200, "actuator management metric");
     System.out.println("SMOKE_ACTUATOR_GOVERNANCE status=" + governance.status);
     System.out.println("SMOKE_ACTUATOR_JPA_RELOAD status=" + jpaReload.status);
     addCheck("actuatorGovernance", "PASSED", "HTTP " + governance.status);
     addCheck("actuatorJpaReload", "PASSED", "HTTP " + jpaReload.status);
+    addCheck("actuatorJpaReloadDrainSummary", "PASSED", "DRAIN_TIMEOUT");
   }
 
   private HttpResult request(String method, String path, List<Header> headers, String body) throws Exception {
