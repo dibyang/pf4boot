@@ -1,6 +1,7 @@
 package net.xdob.pf4boot.jpa.starter.reload;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
+import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadPlanService;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecordRepository;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadService;
@@ -44,6 +45,14 @@ public class JpaDomainReloadAutoConfiguration {
   @ConditionalOnMissingBean
   public JpaDomainReloadRecordRepository jpaDomainReloadRecordRepository(Pf4bootJpaProperties properties) {
     return new InMemoryJpaDomainReloadRecordRepository(properties.getDomainReload().getMaxRecentRecords());
+  }
+
+  @Bean
+  @ConditionalOnMissingBean
+  public JpaDomainReloadDrainCoordinator jpaDomainReloadDrainCoordinator(
+      ObjectProvider<PluginTrafficDrainer> trafficDrainers,
+      Pf4bootJpaProperties properties) {
+    return new JpaDomainReloadDrainCoordinator(trafficDrainers, properties);
   }
 
   @Bean

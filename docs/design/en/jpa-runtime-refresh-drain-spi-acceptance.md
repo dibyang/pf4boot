@@ -36,14 +36,14 @@ Statuses:
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| D2-AC1: coordinator injects all `PluginTrafficDrainer` beans | Planned | Pending implementation |
-| D2-AC2: impact plugin IDs are stopOrder + provider, de-duplicated and stable | Planned | Pending implementation |
-| D2-AC3: no drainer with `require-drainer=false` returns accepted + warning | Planned | Pending implementation |
-| D2-AC4: no drainer with `require-drainer=true` returns `DRAIN_REJECTED` | Planned | Pending implementation |
-| D2-AC5: begin exception maps to `DRAIN_REJECTED` and ends already-begun drainers | Planned | Pending implementation |
-| D2-AC6: await false maps to `DRAIN_TIMEOUT` | Planned | Pending implementation |
-| D2-AC7: await exception/interruption maps to `DRAIN_REJECTED`; interrupt status is restored | Planned | Pending implementation |
-| D2-AC8: multiple drainers share one timeout budget | Planned | Pending implementation |
+| D2-AC1: coordinator injects all `PluginTrafficDrainer` beans | Done | `JpaDomainReloadDrainCoordinator`; `JpaDomainReloadAutoConfiguration` |
+| D2-AC2: impact plugin IDs are stopOrder + provider, de-duplicated and stable | Done | `JpaDomainReloadDrainCoordinator.impactPluginIds`; `JpaDomainReloadDrainCoordinatorTest.noDrainerContinuesForCompatibility` |
+| D2-AC3: no drainer with `require-drainer=false` returns accepted + warning | Done | `noDrainerContinuesForCompatibility` |
+| D2-AC4: no drainer with `require-drainer=true` returns `DRAIN_REJECTED` | Done | `noDrainerRejectsWhenStrictModeEnabled` |
+| D2-AC5: begin exception maps to `DRAIN_REJECTED` and ends already-begun drainers | Done | `beginFailureEndsAlreadyBegunDrainers` |
+| D2-AC6: await false maps to `DRAIN_TIMEOUT` | Done | `awaitFalseReturnsTimeoutAndEndsDrainers` |
+| D2-AC7: await exception/interruption maps to `DRAIN_REJECTED`; interrupt status is restored | Done | `awaitExceptionReturnsRejectedAndEndsDrainers`; interrupt restore logic in coordinator |
+| D2-AC8: multiple drainers share one timeout budget | Done | coordinator deadline/remaining logic; `successfulDrainEndsLaterByPlanId` covers multiple drainers |
 
 ## 5. D3 Reload Service Integration
 

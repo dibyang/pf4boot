@@ -36,14 +36,14 @@
 
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
-| D2-AC1：coordinator 能注入所有 `PluginTrafficDrainer` | Planned | 待实现 |
-| D2-AC2：impact plugin ids 为 stopOrder + provider，去重且顺序稳定 | Planned | 待实现 |
-| D2-AC3：无 drainer 且 `require-drainer=false` 返回 accepted + warning | Planned | 待实现 |
-| D2-AC4：无 drainer 且 `require-drainer=true` 返回 `DRAIN_REJECTED` | Planned | 待实现 |
-| D2-AC5：begin 异常映射 `DRAIN_REJECTED` 并反向 end 已 begin drainer | Planned | 待实现 |
-| D2-AC6：await false 映射 `DRAIN_TIMEOUT` | Planned | 待实现 |
-| D2-AC7：await 异常/中断映射 `DRAIN_REJECTED`，中断位被恢复 | Planned | 待实现 |
-| D2-AC8：多 drainer 共享总 timeout | Planned | 待实现 |
+| D2-AC1：coordinator 能注入所有 `PluginTrafficDrainer` | Done | `JpaDomainReloadDrainCoordinator`；`JpaDomainReloadAutoConfiguration` |
+| D2-AC2：impact plugin ids 为 stopOrder + provider，去重且顺序稳定 | Done | `JpaDomainReloadDrainCoordinator.impactPluginIds`；`JpaDomainReloadDrainCoordinatorTest.noDrainerContinuesForCompatibility` |
+| D2-AC3：无 drainer 且 `require-drainer=false` 返回 accepted + warning | Done | `noDrainerContinuesForCompatibility` |
+| D2-AC4：无 drainer 且 `require-drainer=true` 返回 `DRAIN_REJECTED` | Done | `noDrainerRejectsWhenStrictModeEnabled` |
+| D2-AC5：begin 异常映射 `DRAIN_REJECTED` 并反向 end 已 begin drainer | Done | `beginFailureEndsAlreadyBegunDrainers` |
+| D2-AC6：await false 映射 `DRAIN_TIMEOUT` | Done | `awaitFalseReturnsTimeoutAndEndsDrainers` |
+| D2-AC7：await 异常/中断映射 `DRAIN_REJECTED`，中断位被恢复 | Done | `awaitExceptionReturnsRejectedAndEndsDrainers`；中断恢复逻辑在 coordinator 中实现 |
+| D2-AC8：多 drainer 共享总 timeout | Done | `JpaDomainReloadDrainCoordinator.drain` 使用 deadline/remaining；`successfulDrainEndsLaterByPlanId` 覆盖多 drainer |
 
 ## 5. D3 Reload service 接入
 

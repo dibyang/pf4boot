@@ -207,6 +207,8 @@ public class Pf4bootJpaProperties {
     private long defaultHealthCheckTimeout = 60000L;
     private boolean allowInferredConsumers;
     private int maxRecentRecords = 100;
+    private boolean requireDrainer;
+    private boolean drainEndOnFailure = true;
 
     public JpaDomainReloadMode getMode() {
       return mode;
@@ -254,6 +256,22 @@ public class Pf4bootJpaProperties {
 
     public void setMaxRecentRecords(int maxRecentRecords) {
       this.maxRecentRecords = maxRecentRecords;
+    }
+
+    public boolean isRequireDrainer() {
+      return requireDrainer;
+    }
+
+    public void setRequireDrainer(boolean requireDrainer) {
+      this.requireDrainer = requireDrainer;
+    }
+
+    public boolean isDrainEndOnFailure() {
+      return drainEndOnFailure;
+    }
+
+    public void setDrainEndOnFailure(boolean drainEndOnFailure) {
+      this.drainEndOnFailure = drainEndOnFailure;
     }
   }
 }
