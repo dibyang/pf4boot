@@ -69,12 +69,12 @@ Statuses:
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| D5-AC1: no-drainer compatibility and strict mode are tested | Planned | Pending implementation |
-| D5-AC2: begin/await/end exception paths are tested | Planned | Pending implementation |
-| D5-AC3: timeout and remaining budget are tested | Planned | Pending implementation |
-| D5-AC4: drain failure causes no stop/start | Planned | Pending implementation |
-| D5-AC5: stop/start failure still ends drain | Planned | Pending implementation |
-| D5-AC6: `:pf4boot-jpa-starter:test` passes | Planned | Pending verification |
+| D5-AC1: no-drainer compatibility and strict mode are tested | Done | `JpaDomainReloadDrainCoordinatorTest.noDrainerContinuesForCompatibility`, `noDrainerRejectsWhenStrictModeEnabled` |
+| D5-AC2: begin/await/end exception paths are tested | Done | `beginFailureEndsAlreadyBegunDrainers`, `awaitExceptionReturnsRejectedAndEndsDrainers`, `endFailureIsWarningOnly` |
+| D5-AC3: timeout and remaining budget are tested | Done | `awaitFalseReturnsTimeoutAndEndsDrainers`; coordinator uses deadline/remaining |
+| D5-AC4: drain failure causes no stop/start | Done | `DefaultJpaDomainReloadServiceTest.reloadDoesNotStopPluginsWhenDrainTimesOut` |
+| D5-AC5: stop/start failure still ends drain | Done | `reloadEndsDrainWhenProviderStartFails` |
+| D5-AC6: `:pf4boot-jpa-starter:test` passes | Done | `.\gradlew.bat :pf4boot-jpa-starter:test :pf4boot-web-starter:test :pf4boot-core:test` |
 
 ## 8. D6 Sample Runtime Smoke
 

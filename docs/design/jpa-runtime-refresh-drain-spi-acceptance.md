@@ -69,12 +69,12 @@
 
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
-| D5-AC1：no-drainer 兼容和严格模式均有测试 | Planned | 待实现 |
-| D5-AC2：begin/await/end 异常路径有测试 | Planned | 待实现 |
-| D5-AC3：timeout 和剩余预算有测试 | Planned | 待实现 |
-| D5-AC4：drain 失败无 stop/start 有测试 | Planned | 待实现 |
-| D5-AC5：stop/start 失败仍 endDrain 有测试 | Planned | 待实现 |
-| D5-AC6：`:pf4boot-jpa-starter:test` 通过 | Planned | 待验证 |
+| D5-AC1：no-drainer 兼容和严格模式均有测试 | Done | `JpaDomainReloadDrainCoordinatorTest.noDrainerContinuesForCompatibility`、`noDrainerRejectsWhenStrictModeEnabled` |
+| D5-AC2：begin/await/end 异常路径有测试 | Done | `beginFailureEndsAlreadyBegunDrainers`、`awaitExceptionReturnsRejectedAndEndsDrainers`、`endFailureIsWarningOnly` |
+| D5-AC3：timeout 和剩余预算有测试 | Done | `awaitFalseReturnsTimeoutAndEndsDrainers`；coordinator 使用 deadline/remaining |
+| D5-AC4：drain 失败无 stop/start 有测试 | Done | `DefaultJpaDomainReloadServiceTest.reloadDoesNotStopPluginsWhenDrainTimesOut` |
+| D5-AC5：stop/start 失败仍 endDrain 有测试 | Done | `reloadEndsDrainWhenProviderStartFails` |
+| D5-AC6：`:pf4boot-jpa-starter:test` 通过 | Done | `.\gradlew.bat :pf4boot-jpa-starter:test :pf4boot-web-starter:test :pf4boot-core:test` |
 
 ## 8. D6 Sample runtime smoke
 
