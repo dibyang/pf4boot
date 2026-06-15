@@ -75,7 +75,7 @@
 | --- | --- | --- |
 | R5-AC1：同一 domain reload 串行执行 | Done | `DefaultJpaDomainReloadService` global lock + per-domain lock |
 | R5-AC2：幂等键重复请求不会重复执行 | Done | `InMemoryJpaDomainReloadRecordRepository`；单测 `reloadReplaysSameIdempotencyKey` |
-| R5-AC3：drain 失败时不停止插件 | Done | V1 暂无 drain SPI，执行状态记录 `DRAINING` 后继续；后续演进已规划 drain SPI |
+| R5-AC3：drain 失败时不停止插件 | Done | `DefaultJpaDomainReloadServiceTest.reloadDoesNotStopPluginsWhenDrainTimesOut`；runtime smoke 覆盖 `jpaReloadDrainTimeoutNoMutation` |
 | R5-AC4：consumer 按依赖下游优先停止 | Done | 单测 `reloadStopsConsumersRestartsProviderAndStartsConsumers` |
 | R5-AC5：provider 重启后旧 JPA 导出 Bean 已注销且新 descriptor ready | Done | `verifyProviderExportsRemoved` 检查 DataSource/EMF/TM/descriptor；health check 重新 plan |
 | R5-AC6：consumer 按依赖上游优先启动 | Done | 单测 `reloadStopsConsumersRestartsProviderAndStartsConsumers` |
@@ -124,4 +124,4 @@
 
 ## 11. 当前结论
 
-JPA 运行时刷新 V1 已完成：默认禁用、支持 plan-only、支持显式重启式 execute、管理接口和 Actuator 可观测、runtime smoke 覆盖禁用态、计划、执行、幂等和隔离。后续工作进入持久化记录、drain SPI、provider 包替换和更高级刷新策略。
+JPA 运行时刷新 V1 已完成：默认禁用、支持 plan-only、支持显式重启式 execute、接入通用 `PluginTrafficDrainer`、管理接口和 Actuator 可观测、runtime smoke 覆盖禁用态、计划、执行、幂等、drain 成功、drain timeout 不变更和隔离。后续工作进入持久化记录、provider 包替换和更高级刷新策略。

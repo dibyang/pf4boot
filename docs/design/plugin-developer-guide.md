@@ -180,7 +180,16 @@ pf4boot:
   plugin:
     jpa:
       enabled: true
+      plugins:
+        sample-workflow:
+          mode: SHARED
+          domain-id: demo
 ```
+
+`enabled=true` 用于激活 `PluginJPAStarter`。共享 domain consumer 推荐使用
+`pf4boot.plugin.jpa.plugins.{pluginId}.mode/domain-id`；旧的 `pf4boot.plugin.jpa.mode/domain-id`
+只作为兼容回退。使用 Java `initiate()` 写属性时也要同时设置 `pf4boot.plugin.jpa.enabled=true`，否则
+`PluginJPAStarter` 条件不会生效，JPA reload plan 只能把该插件识别为 inferred consumer。
 
 插件侧默认 `ddl-auto=none`。schema 迁移由宿主或插件显式接入迁移工具，框架不强制绑定 Flyway 或 Liquibase。
 
@@ -222,6 +231,8 @@ POST /pf4boot/admin/jpa/domains/demo/reload/plan
 
 只有显式配置 `STOP_CONSUMERS_AND_REBUILD` 且请求提供 `X-Idempotency-Key` 时，框架才会停止绑定该 domain 的 shared consumer，重启 provider 重建 EMF/TM，再按依赖顺序启动 consumer。该能力适合维护窗口，不承诺生产无停顿；跨数据源事务和多个 domain 原子刷新暂不支持。
 
+执行模式会在停止插件前复用通用 `PluginTrafficDrainer`。宿主已有 Web、定时任务等 drainer 时，JPA reload 会先拒绝新入口并等待在途工作归零；drain timeout 或 rejected 会写入 `drainReport`，返回 `DRAIN_TIMEOUT` 或 `DRAIN_REJECTED`，并且不会停止 consumer/provider。没有 drainer 时默认兼容继续并记录 warning；需要强约束时可设置 `pf4boot.plugin.jpa.domain-reload.require-drainer=true`。
+
 ## 升级回滚
 
 宿主可通过 `upgradePlugin(pluginId, newPluginPath, rollbackPluginPath)` 执行带回滚点的升级。升级失败时，框架会尝试从 `rollbackPluginPath` 重新加载上一版本；如果升级前插件处于启动态，回滚后会尝试恢复启动态。
@@ -242,4 +253,4 @@ samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
 samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-smoke.xml
 ```
 
-P10 后 `runtimeSmoke` 默认使用 sample 内的 Java runner，适合 Windows 和 Linux CI；PowerShell 脚本仍保留为 Windows 本地排障入口。报告包含 `unrelatedPluginAlive`、`jpaProviderIsolation`、`jpaReloadDisabledNoMutation`、`jpaReloadPlanOnly`、`jpaReloadSuccess` 和 `jpaReloadIdempotency`，用于验证无 JPA 依赖插件隔离和 JPA domain 重启式刷新。
+P10 后 `runtimeSmoke` 默认使用 sample 内的 Java runner，适合 Windows 和 Linux CI；PowerShell 脚本仍保留为 Windows 本地排障入口。报告包含 `unrelatedPluginAlive`、`jpaProviderIsolation`、`jpaReloadDisabledNoMutation`、`jpaReloadPlanOnly`、`jpaReloadSuccess`、`jpaReloadIdempotency`、`jpaReloadDrainSuccess`、`jpaReloadDrainTimeoutNoMutation` 和 `actuatorJpaReloadDrainSummary`，用于验证无 JPA 依赖插件隔离、JPA domain 重启式刷新和 drain 摘要可观测性。

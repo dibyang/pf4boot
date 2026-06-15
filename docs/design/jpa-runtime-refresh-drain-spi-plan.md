@@ -9,13 +9,13 @@
 | 阶段 | 状态 | 目标 |
 | --- | --- | --- |
 | D0 设计补齐 | Done | 设计包含字段、构造器、伪代码、配置、错误码、测试和验收 |
-| D1 公共模型扩展 | Planned | 扩展 drain report、drainer result 和 reload record |
-| D2 Drain coordinator | Planned | 在 JPA starter 中实现通用 drainer 编排 |
-| D3 Reload service 接入 | Planned | `DRAINING` 阶段执行 drain，失败不 stop |
-| D4 管理接口和 Actuator 摘要 | Planned | record/API/Actuator 输出 drain report 摘要 |
-| D5 单元和集成测试 | Planned | 覆盖 no-drainer、timeout、rejected、endDrain、stop/start 失败 |
-| D6 Sample runtime smoke | Planned | 覆盖 drain 成功、drain 超时无变更和 Actuator 摘要 |
-| D7 文档和验收收口 | Planned | 更新文档、验收清单和英文翻译 |
+| D1 公共模型扩展 | Done | 扩展 drain report、drainer result 和 reload record |
+| D2 Drain coordinator | Done | 在 JPA starter 中实现通用 drainer 编排 |
+| D3 Reload service 接入 | Done | `DRAINING` 阶段执行 drain，失败不 stop |
+| D4 管理接口和 Actuator 摘要 | Done | record/API/Actuator 输出 drain report 摘要 |
+| D5 单元和集成测试 | Done | 覆盖 no-drainer、timeout、rejected、endDrain、stop/start 失败 |
+| D6 Sample runtime smoke | Done | 覆盖 drain 成功、drain 超时无变更和 Actuator 摘要 |
+| D7 文档和验收收口 | Done | 更新文档、验收清单和英文翻译 |
 
 ## 3. D1 公共模型扩展
 

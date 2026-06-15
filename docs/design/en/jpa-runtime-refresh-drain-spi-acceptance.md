@@ -91,13 +91,13 @@ Statuses:
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| D7-AC1: main JPA refresh design updates drain semantics | Planned | Pending implementation |
-| D7-AC2: JPA integration docs update drain behavior | Planned | Pending implementation |
-| D7-AC3: developer guide updates drain usage and risks | Planned | Pending implementation |
-| D7-AC4: English translations are synchronized | Planned | Pending implementation |
-| D7-AC5: acceptance checklist is updated with actual evidence | Planned | Pending implementation |
-| D7-AC6: `git diff --check` and U+FFFD scan pass | Planned | Pending verification |
+| D7-AC1: main JPA refresh design updates drain semantics | Done | `jpa-runtime-refresh.md` 7.3 |
+| D7-AC2: JPA integration docs update drain behavior | Done | `jpa-integration.md` restart-based refresh section |
+| D7-AC3: developer guide updates drain usage and risks | Done | `plugin-developer-guide.md` JPA plugins |
+| D7-AC4: English translations are synchronized | Done | `en/jpa-runtime-refresh.md`, `en/jpa-integration.md`, `en/plugin-developer-guide.md` |
+| D7-AC5: acceptance checklist is updated with actual evidence | Done | this file marks D0-D7 as Done |
+| D7-AC6: `git diff --check` and U+FFFD scan pass | Done | `git diff --check`; U+FFFD scan |
 
 ## 10. Current Conclusion
 
-Drain SPI has completed D0-D6. D7 documentation and acceptance closure remains. D6 passed runtime smoke and covers successful drain, drain-timeout no-mutation, and Actuator summaries.
+Drain SPI has completed D0-D7. JPA reload execute mode now uses the common `PluginTrafficDrainer` and is covered by unit tests, management/Actuator summary tests, and runtime smoke for successful drain, drain-timeout no-mutation, and Actuator summaries.

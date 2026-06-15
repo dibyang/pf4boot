@@ -494,7 +494,7 @@ flowchart TD
 3. 再次生成 plan，防止 plan 到 execute 之间状态变化。
 4. 若 plan 不可执行，写入 `FAILED` record 并返回。
 5. 将 record 状态置为 `DRAINING`。
-6. V1 drain 只做框架内可用的轻量检查；如果没有 drain SPI，则记录 warning，不阻塞。
+6. 调用 `JpaDomainReloadDrainCoordinator` 复用通用 `PluginTrafficDrainer` 执行 drain；drain 被拒绝或超时时写入失败 record，且不执行 stop/start。
 7. 状态置为 `STOPPING_CONSUMERS`，按 `stopOrder` 停止 consumer。
 8. 状态置为 `STOPPING_PROVIDER`，停止 provider。
 9. 校验平台上下文中旧 JPA 导出 Bean 不再存在。
@@ -504,6 +504,20 @@ flowchart TD
 13. 状态置为 `HEALTH_CHECKING`，执行最小健康检查。
 14. 成功后置为 `SUCCEEDED`。
 15. 任一步失败都写入 failure code，并进入恢复逻辑。
+
+### 9.2.1 Drain SPI 行为
+
+JPA reload 的 drain 不定义平行 SPI，统一复用热替换部署已经使用的 `PluginTrafficDrainer`：
+
+1. coordinator 注入宿主中所有 `PluginTrafficDrainer` Bean。
+2. impact plugin ids 为 `stopOrder + providerPluginId`，去重并保持顺序稳定。
+3. 先调用所有 drainer 的 `beginDrain(pluginIds)`，再在同一个总超时预算内依次调用 `awaitDrain(pluginIds, remainingMillis)`。
+4. 任一 drainer begin 异常、await 异常或 await 返回 `false` 时，reload 记录 `drainReport.accepted=false`，failure code 为 `DRAIN_REJECTED` 或 `DRAIN_TIMEOUT`，并立即收尾，不停止 consumer/provider。
+5. drain 成功后，reload 继续原有 stop/start 流程；成功、失败或异常收尾都必须调用已 begin drainer 的 `endDrain(pluginIds)`。
+6. 没有 drainer 时默认兼容继续执行并写入 warning；如果 `require-drainer=true`，则返回 `DRAIN_REJECTED`。
+7. `drain-end-on-failure=true` 时，即使 stop/start 阶段失败也尽量调用 `endDrain`，end 失败只记录 warning，不覆盖主失败原因。
+
+`JpaDomainReloadRecord` 持有完整 `drainReport`，管理接口查询 reload record 时自然返回；Actuator `pf4bootjpareload` 只输出最近一次 drain 的摘要字段，避免泄露异常堆栈或敏感请求内容。
 
 ### 9.3 V1 健康检查
 
@@ -587,6 +601,8 @@ pf4boot:
         default-health-check-timeout: 60s
         allow-inferred-consumers: false
         max-recent-records: 100
+        require-drainer: false
+        drain-end-on-failure: true
 ```
 
 配置说明：
@@ -595,6 +611,8 @@ pf4boot:
 - `require-idempotency-key`：执行模式必须为 `true`，测试可临时关闭。
 - `allow-inferred-consumers`：默认 `false`，避免误停插件。
 - `max-recent-records`：内存记录上限。
+- `require-drainer`：默认 `false`，无 drainer 时兼容继续；设为 `true` 时无 drainer 会阻断执行。
+- `drain-end-on-failure`：默认 `true`，stop/start 失败时仍释放已 begin 的 drain 状态。
 
 ## 13. HTTP 使用示例
 
@@ -702,6 +720,9 @@ V1 建议按以下代码任务切分，任一任务都必须带测试：
 | `jpaReloadDisabledNoMutation` | 禁用态执行 reload 不停止任何插件 |
 | `jpaReloadSuccess` | 执行模式刷新后业务接口仍成功 |
 | `jpaReloadIdempotency` | 同一幂等键重复请求返回同一 reloadId |
+| `jpaReloadDrainSuccess` | 成功 reload record 包含 accepted drain report |
+| `jpaReloadDrainTimeoutNoMutation` | drain timeout 写入失败记录，且不停止 workflow/unrelated 插件 |
+| `actuatorJpaReloadDrainSummary` | Actuator JPA reload 摘要包含最近 drain failure code 和影响插件数量 |
 | `jpaReloadProviderFailureIsolation` | provider 启动失败时 unrelated 插件仍 200 |
 | `jpaReloadReport` | `result.json` 和 JUnit XML 包含 reload 检查 |
 
@@ -747,7 +768,7 @@ V1 只能在以下条件全部满足时标记完成：
 4. 执行模式只能在显式配置、无 blocker、幂等键存在时启动。
 5. provider 重启后旧导出 Bean 清理、新 descriptor ready 都有测试。
 6. 执行失败不会停止 unrelated 插件。
-7. Runtime smoke 覆盖 plan、success、failure isolation 和报告输出。
+7. Runtime smoke 覆盖 plan、success、drain success、drain timeout no-mutation、failure isolation 和报告输出。
 8. 管理接口和 Actuator 输出不泄露敏感路径、token 或完整堆栈。
 9. 中文文档、英文文档、验收清单同步更新。
 

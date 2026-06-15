@@ -83,6 +83,21 @@ default EMFs or repositories. Business plugins bind these platform beans through
 and explicit `@EnableJpaRepositories` settings for repository packages, `entityManagerFactoryRef`, and
 `transactionManagerRef`.
 
+Consumer plugins must explicitly enable plugin-side JPA. Prefer plugin-level binding configuration so multiple plugins do not overwrite each other through the legacy global `mode/domain-id` keys:
+
+```yaml
+pf4boot:
+  plugin:
+    jpa:
+      enabled: true
+      plugins:
+        sample-user-book-service:
+          mode: SHARED
+          domain-id: demo
+```
+
+The legacy `pf4boot.plugin.jpa.mode/domain-id` settings remain as a compatibility fallback, but new plugins and complex samples should prefer `pf4boot.plugin.jpa.plugins.{pluginId}.*`.
+
 When one consumer plugin needs multiple shared domains, configure the primary domain with `domain-id` and other domains with `additional-domains`. The starter registers local EMF/TM BeanDefinitions and validates descriptor readiness for both the primary and additional domains. Repositories must still be split by package and explicitly bound to their own EMF/TM. Cross-domain atomic transactions remain unsupported.
 
 Note: Spring Data JPA recursively scans parent BeanFactories for `EntityManagerFactory` beans and then looks up matching BeanDefinitions. Therefore, when JPA domain beans are exported to root/platform/application shared contexts, dynamic shared beans cannot be singleton-only. `Pf4bootPluginManagerImpl` also registers a BeanDefinition pointing to the same instance so Spring Data JPA post-processors can recognize it.
@@ -107,7 +122,14 @@ Available modes:
 - `PLAN_ONLY`: produces an impact plan but never mutates plugin lifecycle.
 - `STOP_CONSUMERS_AND_REBUILD`: enables explicit restart-based execution.
 
-Consumers are detected from `JpaPluginBindingRegistry`, which is populated by `PluginJPAStarter` after a shared binding is validated. Plugins inferred only from the PF4J dependency graph make the plan non-executable until their shared domain binding is explicit. V1 does not support provider package replacement, cross-domain atomic transactions, persistent reload records, or zero-downtime production refresh.
+Consumers are detected from `JpaPluginBindingRegistry`, which is populated by `PluginJPAStarter` after a shared binding is validated. `JpaDomainReloadAutoConfiguration` exports the same `JpaPluginBindingRegistry` instance to the pf4boot root context, so the host reload service and plugin starters use one shared registry. Plugins inferred only from the PF4J dependency graph make the plan non-executable until their shared domain binding is explicit. V1 does not support provider package replacement, cross-domain atomic transactions, persistent reload records, or zero-downtime production refresh.
+
+Before stopping consumers/providers, execute mode calls `JpaDomainReloadDrainCoordinator` and reuses the common `PluginTrafficDrainer` contract:
+
+- accepted drain continues into stop/start;
+- drain timeout or rejection records `drainReport`, returns `DRAIN_TIMEOUT` or `DRAIN_REJECTED`, and does not stop any plugin;
+- no drainer defaults to compatibility mode with a warning; `require-drainer=true` blocks execution;
+- reload record queries return the full `drainReport`, while Actuator exposes only summary fields for the latest drain.
 
 ## DDL Defaults
 

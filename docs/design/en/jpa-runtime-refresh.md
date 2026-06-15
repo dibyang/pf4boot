@@ -178,16 +178,31 @@ Executable V1 must:
 3. Rebuild the plan immediately before execution.
 4. Reject non-executable plans.
 5. Record all state transitions.
-6. Stop consumers in stop order.
-7. Stop the provider.
-8. Verify old exported descriptor, EMF, TM, and datasource beans are removed.
-9. Start the provider.
-10. Wait for a ready descriptor.
-11. Start consumers in start order.
-12. Run health checks.
-13. Mark success or enter recovery/manual intervention.
+6. Run drain through `JpaDomainReloadDrainCoordinator` and the common `PluginTrafficDrainer` SPI.
+7. Stop consumers in stop order only after drain is accepted.
+8. Stop the provider.
+9. Verify old exported descriptor, EMF, TM, and datasource beans are removed.
+10. Start the provider.
+11. Wait for a ready descriptor.
+12. Start consumers in start order.
+13. Run health checks.
+14. Mark success or enter recovery/manual intervention.
 
 V1 does not support `providerReplacementPath`; non-empty values must return `UNSUPPORTED_REPLACEMENT_PATH`.
+
+### 7.3 Drain SPI Behavior
+
+JPA reload does not define a separate drain SPI. It reuses the same `PluginTrafficDrainer` contract used by hot replacement deployment:
+
+1. the coordinator injects all host `PluginTrafficDrainer` beans;
+2. impact plugin IDs are `stopOrder + providerPluginId`, de-duplicated with stable order;
+3. it calls `beginDrain(pluginIds)` for every drainer, then calls `awaitDrain(pluginIds, remainingMillis)` within one shared timeout budget;
+4. begin exceptions, await exceptions, or await returning `false` make the reload fail with `DRAIN_REJECTED` or `DRAIN_TIMEOUT`, and no consumer/provider stop is attempted;
+5. after an accepted drain, reload continues with the existing stop/start flow; success, failure, and exceptional cleanup all call `endDrain(pluginIds)` for begun drainers;
+6. when no drainer exists, the default is compatibility mode with a warning; `require-drainer=true` turns this into `DRAIN_REJECTED`;
+7. `drain-end-on-failure=true` keeps releasing drain state even when stop/start later fails, and end failures are recorded as warnings without overriding the primary failure.
+
+`JpaDomainReloadRecord` carries the full `drainReport`. Management record queries return it naturally, while the `pf4bootjpareload` Actuator endpoint exposes only summary fields for the latest drain.
 
 ## 8. Configuration
 
@@ -202,6 +217,8 @@ pf4boot:
         default-health-check-timeout: 60s
         allow-inferred-consumers: false
         max-recent-records: 100
+        require-drainer: false
+        drain-end-on-failure: true
 ```
 
 ## 9. HTTP Examples
@@ -266,6 +283,9 @@ Required runtime smoke checks:
 - `jpaReloadDisabledNoMutation`;
 - `jpaReloadSuccess`;
 - `jpaReloadIdempotency`;
+- `jpaReloadDrainSuccess`;
+- `jpaReloadDrainTimeoutNoMutation`;
+- `actuatorJpaReloadDrainSummary`;
 - `jpaReloadProviderFailureIsolation`;
 - report entries in `result.json` and JUnit XML.
 
@@ -279,7 +299,7 @@ V1 is complete only when:
 4. Executable mode requires explicit configuration, no blockers, and an idempotency key.
 5. Provider restart cleanup and descriptor readiness are tested.
 6. Failure scenarios do not stop unrelated plugins.
-7. Runtime smoke covers plan, success, failure isolation, and reports.
+7. Runtime smoke covers plan, success, drain success, drain-timeout no-mutation, failure isolation, and reports.
 8. Management and Actuator output do not leak sensitive paths, tokens, or full stacks.
 
 ## 11. Open Decisions

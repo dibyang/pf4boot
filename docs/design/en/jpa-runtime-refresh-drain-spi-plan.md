@@ -9,13 +9,13 @@ This plan tracks [jpa-runtime-refresh-drain-spi.md](jpa-runtime-refresh-drain-sp
 | Phase | Status | Goal |
 | --- | --- | --- |
 | D0 Design completion | Done | fields, constructors, pseudocode, config, errors, tests, and acceptance are specified |
-| D1 Public model extension | Planned | extend drain report, drainer result, and reload record |
-| D2 Drain coordinator | Planned | implement common drainer orchestration in JPA starter |
-| D3 Reload service integration | Planned | execute drain during `DRAINING`; no stop on drain failure |
-| D4 Management and Actuator summary | Planned | expose drain report summaries |
-| D5 Unit and integration tests | Planned | cover no-drainer, timeout, rejected, endDrain, and stop/start failures |
-| D6 Sample runtime smoke | Planned | cover drain success, timeout/no-mutation, and Actuator summary |
-| D7 Documentation and acceptance closure | Planned | update docs, acceptance, and translations |
+| D1 Public model extension | Done | extend drain report, drainer result, and reload record |
+| D2 Drain coordinator | Done | implement common drainer orchestration in JPA starter |
+| D3 Reload service integration | Done | execute drain during `DRAINING`; no stop on drain failure |
+| D4 Management and Actuator summary | Done | expose drain report summaries |
+| D5 Unit and integration tests | Done | cover no-drainer, timeout, rejected, endDrain, and stop/start failures |
+| D6 Sample runtime smoke | Done | cover drain success, timeout/no-mutation, and Actuator summary |
+| D7 Documentation and acceptance closure | Done | update docs, acceptance, and translations |
 
 ## 3. D1 Public Model Extension
 

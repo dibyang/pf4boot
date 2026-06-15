@@ -73,7 +73,7 @@ Statuses:
 | --- | --- | --- |
 | R5-AC1: reload is serialized per domain | Done | `DefaultJpaDomainReloadService` global lock and per-domain lock |
 | R5-AC2: repeated idempotency keys do not execute twice | Done | `InMemoryJpaDomainReloadRecordRepository`; `reloadReplaysSameIdempotencyKey` |
-| R5-AC3: drain failure does not stop plugins | Done | V1 has no drain SPI; execution records `DRAINING` and continues. A drain SPI is listed as post-V1 work |
+| R5-AC3: drain failure does not stop plugins | Done | `DefaultJpaDomainReloadServiceTest.reloadDoesNotStopPluginsWhenDrainTimesOut`; runtime smoke covers `jpaReloadDrainTimeoutNoMutation` |
 | R5-AC4: consumers stop in downstream-first order | Done | `reloadStopsConsumersRestartsProviderAndStartsConsumers` |
 | R5-AC5: provider restart removes old JPA exports and produces a ready descriptor | Done | `verifyProviderExportsRemoved`; post-start health check |
 | R5-AC6: consumers start in upstream-first order | Done | `reloadStopsConsumersRestartsProviderAndStartsConsumers` |
@@ -122,4 +122,4 @@ Statuses:
 
 ## 11. Current Conclusion
 
-JPA runtime refresh V1 is complete: disabled by default, plan-only capable, explicitly executable through restart-based refresh, observable through management APIs and Actuator, and covered by runtime smoke for disabled mode, planning, execution, idempotency, and isolation. Follow-up work moves to persistent records, drain SPI, provider package replacement, and more advanced refresh strategies.
+JPA runtime refresh V1 is complete: disabled by default, plan-only capable, explicitly executable through restart-based refresh, integrated with the common `PluginTrafficDrainer`, observable through management APIs and Actuator, and covered by runtime smoke for disabled mode, planning, execution, idempotency, successful drain, drain-timeout no-mutation, and isolation. Follow-up work moves to persistent records, provider package replacement, and more advanced refresh strategies.

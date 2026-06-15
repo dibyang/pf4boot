@@ -181,7 +181,13 @@ pf4boot:
   plugin:
     jpa:
       enabled: true
+      plugins:
+        sample-workflow:
+          mode: SHARED
+          domain-id: demo
 ```
+
+`enabled=true` activates `PluginJPAStarter`. Shared-domain consumers should prefer `pf4boot.plugin.jpa.plugins.{pluginId}.mode/domain-id`; the legacy `pf4boot.plugin.jpa.mode/domain-id` keys are only a compatibility fallback. When a plugin writes properties from Java `initiate()`, it must also set `pf4boot.plugin.jpa.enabled=true`; otherwise the starter condition does not match and JPA reload planning can only classify the plugin as an inferred consumer.
 
 Plugin-side `ddl-auto` defaults to `none`. Schema migration is explicitly owned by the host or plugin through migration tooling. The framework does not force Flyway or Liquibase.
 
@@ -227,6 +233,8 @@ pf4boot:
 
 For production rehearsal, start with `PLAN_ONLY` first. The plan API reports provider, exact consumers, inferred consumers, unrelated plugins, stop/start order, blockers, and warnings without mutating lifecycle. Execute mode stops exact consumers, stops the provider, verifies that old DataSource/EMF/TM/descriptor exports are gone, starts the provider, waits for the new descriptor, and then starts consumers. V1 rejects `providerReplacementPath`; provider package replacement is intentionally outside this phase.
 
+Execute mode reuses the common `PluginTrafficDrainer` before stopping plugins. If the host has web, scheduled-task, or other drainers, JPA reload first rejects new entrypoints and waits for in-flight work. Drain timeout or rejection records `drainReport`, returns `DRAIN_TIMEOUT` or `DRAIN_REJECTED`, and does not stop consumers or providers. With no drainer, the default is compatibility mode with a warning; set `pf4boot.plugin.jpa.domain-reload.require-drainer=true` when a drainer must be present.
+
 ## Upgrade Rollback
 
 Hosts can use `upgradePlugin(pluginId, newPluginPath, rollbackPluginPath)` for upgrades with a rollback point. If upgrade fails, the framework attempts to reload the previous package from `rollbackPluginPath`; if the plugin was started before upgrade, rollback attempts to restore the started state.
@@ -249,4 +257,4 @@ samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-sm
 
 After P10, `runtimeSmoke` uses the sample Java runner by default for Windows and Linux CI. The PowerShell script remains as a Windows troubleshooting entry. Reports include `unrelatedPluginAlive` and `jpaProviderIsolation` to verify that a non-JPA plugin remains available after the JPA provider is stopped.
 
-The JPA refresh checks include `jpaReloadDisabledNoMutation`, `jpaReloadPlanOnly`, `jpaReloadSuccess`, `jpaReloadIdempotency`, and `jpaReloadRecord`. They prove that disabled mode does not mutate lifecycle, plan output is usable, execute mode completes, repeated idempotency keys replay the same record, and the record query endpoint can read the result.
+The JPA refresh checks include `jpaReloadDisabledNoMutation`, `jpaReloadPlanOnly`, `jpaReloadSuccess`, `jpaReloadIdempotency`, `jpaReloadRecord`, `jpaReloadDrainSuccess`, `jpaReloadDrainTimeoutNoMutation`, and `actuatorJpaReloadDrainSummary`. They prove that disabled mode does not mutate lifecycle, plan output is usable, execute mode completes, repeated idempotency keys replay the same record, the record query endpoint can read the result, drain timeout does not stop plugins, and Actuator exposes a drain summary.

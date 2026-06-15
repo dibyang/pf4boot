@@ -91,13 +91,13 @@
 
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
-| D7-AC1：JPA refresh 主设计更新 drain 语义 | Planned | 待实现 |
-| D7-AC2：JPA 集成文档更新 drain 说明 | Planned | 待实现 |
-| D7-AC3：开发指南更新 drain 使用和风险说明 | Planned | 待实现 |
-| D7-AC4：英文翻译同步 | Planned | 待实现 |
-| D7-AC5：验收清单按实际结果更新 | Planned | 待实现 |
-| D7-AC6：`git diff --check` 和 U+FFFD 检查通过 | Planned | 待验证 |
+| D7-AC1：JPA refresh 主设计更新 drain 语义 | Done | `jpa-runtime-refresh.md` 9.2.1 |
+| D7-AC2：JPA 集成文档更新 drain 说明 | Done | `jpa-integration.md` JPA domain 重启式刷新 |
+| D7-AC3：开发指南更新 drain 使用和风险说明 | Done | `plugin-developer-guide.md` JPA 插件 |
+| D7-AC4：英文翻译同步 | Done | `en/jpa-runtime-refresh.md`、`en/jpa-integration.md`、`en/plugin-developer-guide.md` |
+| D7-AC5：验收清单按实际结果更新 | Done | 本文件 D0-D7 均为 Done |
+| D7-AC6：`git diff --check` 和 U+FFFD 检查通过 | Done | `git diff --check`；U+FFFD 扫描 |
 
 ## 10. 当前结论
 
-Drain SPI 当前已完成 D0-D6，剩余 D7 文档和验收收口。D6 已通过 runtime smoke，覆盖成功 drain、drain timeout 不变更和 Actuator 摘要。
+Drain SPI 当前已完成 D0-D7。JPA reload 执行模式已接入通用 `PluginTrafficDrainer`，并通过单元测试、管理/Actuator 摘要测试和 runtime smoke 覆盖成功 drain、drain timeout 不变更和 Actuator 摘要。
