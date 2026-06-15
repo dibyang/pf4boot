@@ -61,11 +61,13 @@ public class JpaDomainReloadAutoConfiguration {
       ObjectProvider<Pf4bootPluginManager> pluginManager,
       DefaultJpaDomainReloadPlanService planService,
       JpaDomainReloadRecordRepository recordRepository,
+      JpaDomainReloadDrainCoordinator drainCoordinator,
       Pf4bootJpaProperties properties) {
     return new DefaultJpaDomainReloadService(
         pluginManager.getIfAvailable(),
         planService,
         recordRepository,
+        drainCoordinator,
         properties);
   }
 }

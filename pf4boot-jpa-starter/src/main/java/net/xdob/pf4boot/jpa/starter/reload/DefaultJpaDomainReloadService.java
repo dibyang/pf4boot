@@ -4,6 +4,8 @@ import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
+import net.xdob.pf4boot.jpa.reload.JpaDomainDrainReport;
+import net.xdob.pf4boot.jpa.reload.JpaDomainDrainerResult;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadBlocker;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadFailureCode;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadMode;
@@ -36,6 +38,7 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
   private final Pf4bootPluginManager pluginManager;
   private final DefaultJpaDomainReloadPlanService planService;
   private final JpaDomainReloadRecordRepository recordRepository;
+  private final JpaDomainReloadDrainCoordinator drainCoordinator;
   private final Pf4bootJpaProperties properties;
   private final ReentrantLock globalLock = new ReentrantLock();
   private final ConcurrentHashMap<String, ReentrantLock> domainLocks = new ConcurrentHashMap<>();
@@ -46,9 +49,26 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
       DefaultJpaDomainReloadPlanService planService,
       JpaDomainReloadRecordRepository recordRepository,
       Pf4bootJpaProperties properties) {
+    this(
+        pluginManager,
+        planService,
+        recordRepository,
+        new JpaDomainReloadDrainCoordinator(Collections.emptyList(), properties),
+        properties);
+  }
+
+  public DefaultJpaDomainReloadService(
+      Pf4bootPluginManager pluginManager,
+      DefaultJpaDomainReloadPlanService planService,
+      JpaDomainReloadRecordRepository recordRepository,
+      JpaDomainReloadDrainCoordinator drainCoordinator,
+      Pf4bootJpaProperties properties) {
     this.pluginManager = pluginManager;
     this.planService = planService;
     this.recordRepository = recordRepository;
+    this.drainCoordinator = drainCoordinator == null
+        ? new JpaDomainReloadDrainCoordinator(Collections.emptyList(), properties)
+        : drainCoordinator;
     this.properties = properties == null ? new Pf4bootJpaProperties() : properties;
   }
 
@@ -94,9 +114,33 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
       }
       List<JpaDomainReloadState> states = new ArrayList<>();
       long startedAt = System.currentTimeMillis();
+      JpaDomainDrainReport drainReport = null;
+      boolean drainEnded = false;
       try {
         states.add(JpaDomainReloadState.PLANNED);
         states.add(JpaDomainReloadState.DRAINING);
+        drainReport = drainCoordinator.drain(plan, resolveDrainTimeout(request));
+        if (!drainReport.isAccepted()) {
+          states.add(JpaDomainReloadState.FAILED);
+          JpaDomainReloadRecord record = new JpaDomainReloadRecord(
+              reloadId,
+              plan.getPlanId(),
+              domainId,
+              JpaDomainReloadState.FAILED,
+              startedAt,
+              System.currentTimeMillis(),
+              request,
+              plan,
+              states,
+              drainReport.getFailureCode() == null
+                  ? JpaDomainReloadFailureCode.DRAIN_REJECTED
+                  : drainReport.getFailureCode(),
+              drainReport.getMessage(),
+              null,
+              drainReport);
+          save(record);
+          return record;
+        }
         states.add(JpaDomainReloadState.STOPPING_CONSUMERS);
         stopPlugins(plan.getStopOrder());
         states.add(JpaDomainReloadState.STOPPING_PROVIDER);
@@ -111,6 +155,8 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
         if (afterStartPlan.getDescriptor() == null || !afterStartPlan.getDescriptor().isReady()) {
           throw new ReloadStepException(JpaDomainReloadFailureCode.HEALTH_CHECK_FAILED, "provider descriptor is not ready");
         }
+        drainReport = finishDrain(plan, drainReport);
+        drainEnded = true;
         states.add(JpaDomainReloadState.SUCCEEDED);
         JpaDomainReloadRecord record = new JpaDomainReloadRecord(
             reloadId,
@@ -124,10 +170,15 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
             states,
             null,
             null,
-            null);
+            null,
+            drainReport);
         save(record);
         return record;
       } catch (ReloadStepException e) {
+        if (drainReport != null && drainReport.isAccepted() && !drainEnded) {
+          drainReport = finishDrain(plan, drainReport);
+          drainEnded = true;
+        }
         JpaDomainReloadRecord record = new JpaDomainReloadRecord(
             reloadId,
             plan.getPlanId(),
@@ -140,9 +191,14 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
             states,
             e.failureCode,
             e.getMessage(),
-            "manual intervention required");
+            "manual intervention required",
+            drainReport);
         save(record);
         return record;
+      } finally {
+        if (drainReport != null && drainReport.isAccepted() && !drainEnded) {
+          finishDrain(plan, drainReport);
+        }
       }
     } finally {
       currentReloads.remove(domainId, reloadId);
@@ -175,6 +231,35 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
     if (request.getReason() != null && request.getReason().length() > 512) {
       throw new IllegalArgumentException("reason is too long");
     }
+  }
+
+  private long resolveDrainTimeout(JpaDomainReloadRequest request) {
+    if (request != null && request.getDrainTimeoutMillis() > 0) {
+      return request.getDrainTimeoutMillis();
+    }
+    return properties.getDomainReload().getDefaultDrainTimeout();
+  }
+
+  private JpaDomainDrainReport finishDrain(JpaDomainReloadPlan plan, JpaDomainDrainReport drainReport) {
+    JpaDomainDrainReport endReport = drainCoordinator.endDrain(plan);
+    if (drainReport == null) {
+      return endReport;
+    }
+    List<JpaDomainDrainerResult> results = new ArrayList<>();
+    results.addAll(drainReport.getDrainerResults());
+    results.addAll(endReport.getDrainerResults());
+    List<String> warnings = new ArrayList<>();
+    warnings.addAll(drainReport.getWarnings());
+    warnings.addAll(endReport.getWarnings());
+    return new JpaDomainDrainReport(
+        drainReport.isAccepted(),
+        drainReport.getFailureCode(),
+        drainReport.getMessage(),
+        drainReport.getPluginIds(),
+        results,
+        drainReport.getStartedAt(),
+        System.currentTimeMillis(),
+        warnings);
   }
 
   private void stopPlugins(List<String> pluginIds) {

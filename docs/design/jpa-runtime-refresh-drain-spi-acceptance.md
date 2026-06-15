@@ -49,12 +49,12 @@
 
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
-| D3-AC1：`DRAINING` 阶段调用 coordinator | Planned | 待实现 |
-| D3-AC2：drain 失败不调用 `stopPlugin/startPlugin` | Planned | 待实现 |
-| D3-AC3：drain 成功后 stop/start 顺序保持 V1 行为 | Planned | 待实现 |
-| D3-AC4：成功路径调用 `endDrain` | Planned | 待实现 |
-| D3-AC5：stop/start/health 失败路径仍调用或记录 `endDrain` | Planned | 待实现 |
-| D3-AC6：失败 record 包含 `drainReport`、failure code 和 transitions | Planned | 待实现 |
+| D3-AC1：`DRAINING` 阶段调用 coordinator | Done | `DefaultJpaDomainReloadService` 调用 `drainCoordinator.drain` |
+| D3-AC2：drain 失败不调用 `stopPlugin/startPlugin` | Done | `DefaultJpaDomainReloadServiceTest.reloadDoesNotStopPluginsWhenDrainTimesOut` |
+| D3-AC3：drain 成功后 stop/start 顺序保持 V1 行为 | Done | `reloadStopsConsumersRestartsProviderAndStartsConsumers` |
+| D3-AC4：成功路径调用 `endDrain` | Done | `reloadEndsDrainAfterSuccess` |
+| D3-AC5：stop/start/health 失败路径仍调用或记录 `endDrain` | Done | `reloadEndsDrainWhenProviderStartFails` |
+| D3-AC6：失败 record 包含 `drainReport`、failure code 和 transitions | Done | `reloadDoesNotStopPluginsWhenDrainTimesOut` |
 
 ## 6. D4 管理接口和 Actuator 摘要
 

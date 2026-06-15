@@ -1,6 +1,7 @@
 package net.xdob.pf4boot.jpa.starter.reload;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
+import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadMode;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecord;
@@ -27,6 +28,7 @@ import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 public class DefaultJpaDomainReloadServiceTest {
@@ -150,6 +152,70 @@ public class DefaultJpaDomainReloadServiceTest {
   }
 
   @Test
+  public void reloadDoesNotStopPluginsWhenDrainTimesOut() {
+    Fixture fixture = new Fixture();
+    try {
+      fixture.addPlugin("provider-demo", PluginState.STARTED);
+      fixture.addPlugin("sample-user-book-service", PluginState.STARTED, "provider-demo");
+      fixture.registerDescriptor("demo", "provider-demo", true);
+      fixture.registry.register(binding("sample-user-book-service", "demo"));
+      TestDrainer drainer = new TestDrainer(false);
+
+      JpaDomainReloadRecord record = fixture.service(drainer).reload(request("demo", "drain-timeout-key"));
+
+      assertEquals(JpaDomainReloadState.FAILED, record.getState());
+      assertEquals(JpaDomainReloadFailureCode.DRAIN_TIMEOUT, record.getFailureCode());
+      assertEquals(0, fixture.operations.size());
+      assertEquals("begin,await,end", String.join(",", drainer.events));
+      assertEquals(JpaDomainReloadFailureCode.DRAIN_TIMEOUT, record.getDrainReport().getFailureCode());
+    } finally {
+      fixture.close();
+    }
+  }
+
+  @Test
+  public void reloadEndsDrainAfterSuccess() {
+    Fixture fixture = new Fixture();
+    try {
+      fixture.addPlugin("provider-demo", PluginState.STARTED);
+      fixture.addPlugin("sample-user-book-service", PluginState.STARTED, "provider-demo");
+      fixture.registerDescriptor("demo", "provider-demo", true);
+      fixture.registry.register(binding("sample-user-book-service", "demo"));
+      TestDrainer drainer = new TestDrainer(true);
+
+      JpaDomainReloadRecord record = fixture.service(drainer).reload(request("demo", "drain-success-key"));
+
+      assertEquals(JpaDomainReloadState.SUCCEEDED, record.getState());
+      assertEquals("begin,await,end", String.join(",", drainer.events));
+      assertTrue(record.getDrainReport().isAccepted());
+      assertEquals(3, record.getDrainReport().getDrainerResults().size());
+    } finally {
+      fixture.close();
+    }
+  }
+
+  @Test
+  public void reloadEndsDrainWhenProviderStartFails() {
+    Fixture fixture = new Fixture();
+    try {
+      fixture.addPlugin("provider-demo", PluginState.STARTED);
+      fixture.addPlugin("sample-user-book-service", PluginState.STARTED, "provider-demo");
+      fixture.registerDescriptor("demo", "provider-demo", true);
+      fixture.registry.register(binding("sample-user-book-service", "demo"));
+      fixture.startFailures.put("provider-demo", 2);
+      TestDrainer drainer = new TestDrainer(true);
+
+      JpaDomainReloadRecord record = fixture.service(drainer).reload(request("demo", "drain-failure-key"));
+
+      assertEquals(JpaDomainReloadState.MANUAL_INTERVENTION_REQUIRED, record.getState());
+      assertEquals(JpaDomainReloadFailureCode.PROVIDER_START_FAILED, record.getFailureCode());
+      assertEquals("begin,await,end", String.join(",", drainer.events));
+    } finally {
+      fixture.close();
+    }
+  }
+
+  @Test
   public void reloadFailsWhenProviderExportsRemainAfterStop() {
     Fixture fixture = new Fixture();
     try {
@@ -233,6 +299,19 @@ public class DefaultJpaDomainReloadServiceTest {
           manager(),
           planService,
           new InMemoryJpaDomainReloadRecordRepository(100),
+          properties);
+    }
+
+    DefaultJpaDomainReloadService service(PluginTrafficDrainer drainer) {
+      Pf4bootJpaProperties properties = new Pf4bootJpaProperties();
+      properties.getDomainReload().setMode(JpaDomainReloadMode.STOP_CONSUMERS_AND_REBUILD);
+      DefaultJpaDomainReloadPlanService planService =
+          new DefaultJpaDomainReloadPlanService(manager(), registry, properties);
+      return new DefaultJpaDomainReloadService(
+          manager(),
+          planService,
+          new InMemoryJpaDomainReloadRecordRepository(100),
+          new JpaDomainReloadDrainCoordinator(Collections.singletonList(drainer), properties),
           properties);
     }
 
@@ -340,6 +419,31 @@ public class DefaultJpaDomainReloadServiceTest {
 
     void close() {
       platform.close();
+    }
+  }
+
+  private static class TestDrainer implements PluginTrafficDrainer {
+    private final boolean awaitResult;
+    private final List<String> events = new ArrayList<>();
+
+    private TestDrainer(boolean awaitResult) {
+      this.awaitResult = awaitResult;
+    }
+
+    @Override
+    public void beginDrain(java.util.Collection<String> pluginIds) {
+      events.add("begin");
+    }
+
+    @Override
+    public boolean awaitDrain(java.util.Collection<String> pluginIds, long timeoutMillis) {
+      events.add("await");
+      return awaitResult;
+    }
+
+    @Override
+    public void endDrain(java.util.Collection<String> pluginIds) {
+      events.add("end");
     }
   }
 }

@@ -49,12 +49,12 @@ Statuses:
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| D3-AC1: `DRAINING` phase calls the coordinator | Planned | Pending implementation |
-| D3-AC2: drain failure does not call `stopPlugin/startPlugin` | Planned | Pending implementation |
-| D3-AC3: drain success preserves V1 stop/start order | Planned | Pending implementation |
-| D3-AC4: success path calls `endDrain` | Planned | Pending implementation |
-| D3-AC5: stop/start/health failure path still calls or records `endDrain` | Planned | Pending implementation |
-| D3-AC6: failed record includes `drainReport`, failure code, and transitions | Planned | Pending implementation |
+| D3-AC1: `DRAINING` phase calls the coordinator | Done | `DefaultJpaDomainReloadService` calls `drainCoordinator.drain` |
+| D3-AC2: drain failure does not call `stopPlugin/startPlugin` | Done | `DefaultJpaDomainReloadServiceTest.reloadDoesNotStopPluginsWhenDrainTimesOut` |
+| D3-AC3: drain success preserves V1 stop/start order | Done | `reloadStopsConsumersRestartsProviderAndStartsConsumers` |
+| D3-AC4: success path calls `endDrain` | Done | `reloadEndsDrainAfterSuccess` |
+| D3-AC5: stop/start/health failure path still calls or records `endDrain` | Done | `reloadEndsDrainWhenProviderStartFails` |
+| D3-AC6: failed record includes `drainReport`, failure code, and transitions | Done | `reloadDoesNotStopPluginsWhenDrainTimesOut` |
 
 ## 6. D4 Management And Actuator Summary
 
