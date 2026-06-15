@@ -25,12 +25,12 @@ Statuses:
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| D1-AC1: add `JpaDomainDrainerPhase` | Planned | Pending implementation |
-| D1-AC2: add `JpaDomainDrainerResult` | Planned | Pending implementation |
-| D1-AC3: `JpaDomainDrainReport` keeps old constructor and adds full constructor | Planned | Pending implementation |
-| D1-AC4: list fields are immutable and null-safe | Planned | Pending implementation |
-| D1-AC5: `JpaDomainReloadRecord` adds `drainReport` and keeps old constructor | Planned | Pending implementation |
-| D1-AC6: `:pf4boot-jpa:compileJava` passes | Planned | Pending verification |
+| D1-AC1: add `JpaDomainDrainerPhase` | Done | `pf4boot-jpa/src/main/java/net/xdob/pf4boot/jpa/reload/JpaDomainDrainerPhase.java` |
+| D1-AC2: add `JpaDomainDrainerResult` | Done | `JpaDomainDrainerResult.java` |
+| D1-AC3: `JpaDomainDrainReport` keeps old constructor and adds full constructor | Done | both constructors in `JpaDomainDrainReport` |
+| D1-AC4: list fields are immutable and null-safe | Done | `JpaDomainDrainReport.copy/copyStrings` |
+| D1-AC5: `JpaDomainReloadRecord` adds `drainReport` and keeps old constructor | Done | overloaded constructor and `getDrainReport()` |
+| D1-AC6: `:pf4boot-jpa:compileJava` passes | Done | `.\gradlew.bat :pf4boot-jpa:compileJava` |
 
 ## 4. D2 Drain Coordinator
 

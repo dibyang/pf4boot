@@ -21,6 +21,7 @@ public class JpaDomainReloadRecord {
   private final JpaDomainReloadFailureCode failureCode;
   private final String failureMessage;
   private final String rollbackSummary;
+  private final JpaDomainDrainReport drainReport;
 
   public JpaDomainReloadRecord(
       String reloadId,
@@ -35,6 +36,36 @@ public class JpaDomainReloadRecord {
       JpaDomainReloadFailureCode failureCode,
       String failureMessage,
       String rollbackSummary) {
+    this(
+        reloadId,
+        planId,
+        domainId,
+        state,
+        startedAt,
+        finishedAt,
+        request,
+        plan,
+        stateTransitions,
+        failureCode,
+        failureMessage,
+        rollbackSummary,
+        null);
+  }
+
+  public JpaDomainReloadRecord(
+      String reloadId,
+      String planId,
+      String domainId,
+      JpaDomainReloadState state,
+      long startedAt,
+      long finishedAt,
+      JpaDomainReloadRequest request,
+      JpaDomainReloadPlan plan,
+      List<JpaDomainReloadState> stateTransitions,
+      JpaDomainReloadFailureCode failureCode,
+      String failureMessage,
+      String rollbackSummary,
+      JpaDomainDrainReport drainReport) {
     this.reloadId = reloadId;
     this.planId = planId;
     this.domainId = domainId;
@@ -49,6 +80,7 @@ public class JpaDomainReloadRecord {
     this.failureCode = failureCode;
     this.failureMessage = failureMessage;
     this.rollbackSummary = rollbackSummary;
+    this.drainReport = drainReport;
   }
 
   public String getReloadId() {
@@ -97,5 +129,9 @@ public class JpaDomainReloadRecord {
 
   public String getRollbackSummary() {
     return rollbackSummary;
+  }
+
+  public JpaDomainDrainReport getDrainReport() {
+    return drainReport;
   }
 }

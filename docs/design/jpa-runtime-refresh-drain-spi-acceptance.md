@@ -25,12 +25,12 @@
 
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
-| D1-AC1：新增 `JpaDomainDrainerPhase` | Planned | 待实现 |
-| D1-AC2：新增 `JpaDomainDrainerResult` | Planned | 待实现 |
-| D1-AC3：`JpaDomainDrainReport` 保留旧构造器并新增完整构造器 | Planned | 待实现 |
-| D1-AC4：list 字段不可变且 null 转空集合 | Planned | 待实现 |
-| D1-AC5：`JpaDomainReloadRecord` 新增 `drainReport` 且保留旧构造器 | Planned | 待实现 |
-| D1-AC6：`:pf4boot-jpa:compileJava` 通过 | Planned | 待验证 |
+| D1-AC1：新增 `JpaDomainDrainerPhase` | Done | `pf4boot-jpa/src/main/java/net/xdob/pf4boot/jpa/reload/JpaDomainDrainerPhase.java` |
+| D1-AC2：新增 `JpaDomainDrainerResult` | Done | `JpaDomainDrainerResult.java` |
+| D1-AC3：`JpaDomainDrainReport` 保留旧构造器并新增完整构造器 | Done | `JpaDomainDrainReport` 两个构造器 |
+| D1-AC4：list 字段不可变且 null 转空集合 | Done | `JpaDomainDrainReport.copy/copyStrings` |
+| D1-AC5：`JpaDomainReloadRecord` 新增 `drainReport` 且保留旧构造器 | Done | `JpaDomainReloadRecord` 重载构造器和 `getDrainReport()` |
+| D1-AC6：`:pf4boot-jpa:compileJava` 通过 | Done | `.\gradlew.bat :pf4boot-jpa:compileJava` |
 
 ## 4. D2 Drain coordinator
 
