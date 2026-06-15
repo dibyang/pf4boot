@@ -60,10 +60,10 @@ Statuses:
 
 | Acceptance Item | Status | Evidence |
 | --- | --- | --- |
-| D4-AC1: reload record query returns `drainReport` | Planned | Pending implementation |
-| D4-AC2: Actuator `pf4bootjpareload` exposes latest drain summary | Planned | Pending implementation |
-| D4-AC3: Actuator does not throw with no history | Planned | Pending implementation |
-| D4-AC4: output does not include stack traces, absolute paths, tokens, or sensitive raw requests | Planned | Pending implementation |
+| D4-AC1: reload record query returns `drainReport` | Done | `JpaDomainReloadRecord.getDrainReport()`; management API returns the record DTO |
+| D4-AC2: Actuator `pf4bootjpareload` exposes latest drain summary | Done | `Pf4bootJpaReloadEndpoint.summary`; `Pf4bootJpaReloadEndpointTest.summaryReturnsLatestDrainSummary` |
+| D4-AC3: Actuator does not throw with no history | Done | `summaryReturnsEmptyDrainFieldsWhenNoRecordExists` |
+| D4-AC4: output does not include stack traces, absolute paths, tokens, or sensitive raw requests | Done | Actuator only exposes reloadId and drain boolean/duration/code/count summaries |
 
 ## 7. D5 Unit And Integration Tests
 

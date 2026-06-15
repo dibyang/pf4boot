@@ -12,4 +12,11 @@ public interface JpaDomainReloadRecordRepository {
   JpaDomainReloadRecord findByIdempotencyKey(String idempotencyKey);
 
   void bindIdempotencyKey(String idempotencyKey, String reloadId);
+
+  /**
+   * 查询最近一次刷新记录。
+   */
+  default JpaDomainReloadRecord findLatest() {
+    return null;
+  }
 }

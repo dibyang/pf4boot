@@ -220,6 +220,11 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
     return reloadId == null ? null : recordRepository.findById(reloadId);
   }
 
+  @Override
+  public JpaDomainReloadRecord getLatestRecord() {
+    return recordRepository.findLatest();
+  }
+
   private void validateRequest(JpaDomainReloadRequest request) {
     if (request == null || !StringUtils.hasText(request.getDomainId())) {
       throw new IllegalArgumentException("domainId is required");

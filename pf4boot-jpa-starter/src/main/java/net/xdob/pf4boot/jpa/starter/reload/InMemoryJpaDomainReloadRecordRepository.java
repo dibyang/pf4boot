@@ -48,6 +48,15 @@ public class InMemoryJpaDomainReloadRecordRepository implements JpaDomainReloadR
     }
   }
 
+  @Override
+  public synchronized JpaDomainReloadRecord findLatest() {
+    JpaDomainReloadRecord latest = null;
+    for (JpaDomainReloadRecord record : records.values()) {
+      latest = record;
+    }
+    return latest;
+  }
+
   private void trim() {
     while (records.size() > maxRecentRecords) {
       Iterator<String> iterator = records.keySet().iterator();

@@ -22,4 +22,11 @@ public interface JpaDomainReloadService extends JpaDomainReloadPlanService {
    * 查询指定 domain 当前正在执行的刷新记录。
    */
   JpaDomainReloadRecord getCurrent(String domainId);
+
+  /**
+   * 查询最近一次刷新记录。
+   */
+  default JpaDomainReloadRecord getLatestRecord() {
+    return null;
+  }
 }

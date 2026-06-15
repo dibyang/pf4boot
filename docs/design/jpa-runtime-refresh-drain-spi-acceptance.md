@@ -60,10 +60,10 @@
 
 | 验收项 | 状态 | 证据 |
 | --- | --- | --- |
-| D4-AC1：reload record 查询能返回 `drainReport` | Planned | 待实现 |
-| D4-AC2：Actuator `pf4bootjpareload` 输出最近 drain 摘要 | Planned | 待实现 |
-| D4-AC3：无历史记录时 Actuator 不抛异常 | Planned | 待实现 |
-| D4-AC4：输出不包含堆栈、绝对路径、token 或敏感请求明文 | Planned | 待实现 |
+| D4-AC1：reload record 查询能返回 `drainReport` | Done | `JpaDomainReloadRecord.getDrainReport()`；管理接口返回 record DTO |
+| D4-AC2：Actuator `pf4bootjpareload` 输出最近 drain 摘要 | Done | `Pf4bootJpaReloadEndpoint.summary`；`Pf4bootJpaReloadEndpointTest.summaryReturnsLatestDrainSummary` |
+| D4-AC3：无历史记录时 Actuator 不抛异常 | Done | `summaryReturnsEmptyDrainFieldsWhenNoRecordExists` |
+| D4-AC4：输出不包含堆栈、绝对路径、token 或敏感请求明文 | Done | Actuator 只输出 reloadId、drain 布尔/耗时/code/count 摘要 |
 
 ## 7. D5 单元和集成测试
 

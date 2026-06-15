@@ -1,6 +1,8 @@
 package net.xdob.pf4boot.actuate;
 
+import net.xdob.pf4boot.jpa.reload.JpaDomainDrainReport;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadPlanService;
+import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecord;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadService;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
@@ -33,6 +35,16 @@ public class Pf4bootJpaReloadEndpoint {
     summary.put("planAvailable", planService != null);
     summary.put("executeAvailable", reloadService != null);
     summary.put("mode", reloadService == null ? "PLAN_ONLY_OR_DISABLED" : "EXECUTE_SERVICE_PRESENT");
+    JpaDomainReloadRecord latest = reloadService == null ? null : reloadService.getLatestRecord();
+    JpaDomainDrainReport drainReport = latest == null ? null : latest.getDrainReport();
+    summary.put("lastReloadId", latest == null ? null : latest.getReloadId());
+    summary.put("lastDrainAccepted", drainReport == null ? null : drainReport.isAccepted());
+    summary.put("lastDrainDurationMillis", drainReport == null ? 0L : drainReport.getDurationMillis());
+    summary.put("lastDrainFailureCode", drainReport == null || drainReport.getFailureCode() == null
+        ? null
+        : drainReport.getFailureCode().name());
+    summary.put("lastDrainPluginCount", drainReport == null ? 0 : drainReport.getPluginIds().size());
+    summary.put("lastDrainWarningCount", drainReport == null ? 0 : drainReport.getWarnings().size());
     return summary;
   }
 }
