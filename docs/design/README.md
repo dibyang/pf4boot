@@ -41,6 +41,9 @@
 - [plugin-framework-follow-up-hardening-plan.md](plugin-framework-follow-up-hardening-plan.md)：插件框架后续增强实施规划。
 - [plugin-framework-follow-up-hardening-acceptance.md](plugin-framework-follow-up-hardening-acceptance.md)：插件框架后续增强验收追踪。
 - [jpa-runtime-refresh-decision.md](jpa-runtime-refresh-decision.md)：JPA 运行时刷新/EntityManagerFactory 重建决策。
+- [jpa-runtime-refresh.md](jpa-runtime-refresh.md)：JPA 运行时刷新设计，覆盖 PLAN_ONLY、影响范围识别、provider 重启式刷新和管理接口。
+- [jpa-runtime-refresh-plan.md](jpa-runtime-refresh-plan.md)：JPA 运行时刷新实施规划。
+- [jpa-runtime-refresh-acceptance.md](jpa-runtime-refresh-acceptance.md)：JPA 运行时刷新验收清单。
 - [cross-datasource-transaction-decision.md](cross-datasource-transaction-decision.md)：跨数据源事务边界、Saga/Outbox 和 XA 可选模块决策。
 - [plugin-repository-governance-decision.md](plugin-repository-governance-decision.md)：插件离线仓库、签名发布、灰度和回滚治理决策。
 - [plugin-management-console-boundary.md](plugin-management-console-boundary.md)：插件管理控制台 UI 与 HTTP API/Actuator 边界决策。
@@ -85,6 +88,9 @@
 - [en/plugin-framework-follow-up-hardening-plan.md](en/plugin-framework-follow-up-hardening-plan.md)
 - [en/plugin-framework-follow-up-hardening-acceptance.md](en/plugin-framework-follow-up-hardening-acceptance.md)
 - [en/jpa-runtime-refresh-decision.md](en/jpa-runtime-refresh-decision.md)
+- [en/jpa-runtime-refresh.md](en/jpa-runtime-refresh.md)
+- [en/jpa-runtime-refresh-plan.md](en/jpa-runtime-refresh-plan.md)
+- [en/jpa-runtime-refresh-acceptance.md](en/jpa-runtime-refresh-acceptance.md)
 - [en/cross-datasource-transaction-decision.md](en/cross-datasource-transaction-decision.md)
 - [en/plugin-repository-governance-decision.md](en/plugin-repository-governance-decision.md)
 - [en/plugin-management-console-boundary.md](en/plugin-management-console-boundary.md)

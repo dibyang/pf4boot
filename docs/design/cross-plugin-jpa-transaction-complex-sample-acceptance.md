@@ -32,11 +32,11 @@
 | HTTP smoke | 通过 | `OK_STATUS=200`，成功路径返回 `{"books":1,"audits":1,"users":1}`；失败路径返回 500 后 summary 为 `{"books":1,"audits":2,"users":1}` |
 | 事务边界演示 | 通过 | 失败路径 user/book 回滚，`REQUIRES_NEW` audit 独立提交 |
 
-## 4. 未完成项
+## 4. 补充通过项
 
 | 项 | 结果 | 当前表现 | 后续处理 |
 | --- | --- | --- | --- |
-| provider 失败隔离运行验收 | 部分通过 | `PluginJPAStarterTest.providerMissingFailureDoesNotAffectUnrelatedNonJpaPluginContext` 覆盖 provider 缺失时 shared consumer 失败、无关非 JPA 插件上下文仍可启动；当前 sample 仍无无关插件运行态对照 | 后续可补 no-jpa/unrelated sample 插件做端到端运行态对照 |
+| provider 失败隔离运行验收 | 通过 | P10 已新增 `samples/cross-plugin-jpa:plugin-unrelated-service`，runtime smoke 在停止 `sample-demo-jpa-domain` 后验证 unrelated 插件仍返回 200 | 已由 `plugin-framework-follow-up-hardening-acceptance.md` 的 P10-C 闭环 |
 
 ## 5. 运行态发现
 

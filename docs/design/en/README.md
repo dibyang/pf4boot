@@ -45,6 +45,9 @@ Use the parent directory for design notes before implementing non-trivial change
 - [plugin-framework-follow-up-hardening-plan.md](plugin-framework-follow-up-hardening-plan.md): implementation plan for follow-up plugin framework hardening.
 - [plugin-framework-follow-up-hardening-acceptance.md](plugin-framework-follow-up-hardening-acceptance.md): acceptance tracking for follow-up plugin framework hardening.
 - [jpa-runtime-refresh-decision.md](jpa-runtime-refresh-decision.md): decision for JPA runtime refresh and EntityManagerFactory rebuild.
+- [jpa-runtime-refresh.md](jpa-runtime-refresh.md): JPA runtime refresh design for PLAN_ONLY, impact analysis, provider restart based refresh, and management APIs.
+- [jpa-runtime-refresh-plan.md](jpa-runtime-refresh-plan.md): implementation plan for JPA runtime refresh.
+- [jpa-runtime-refresh-acceptance.md](jpa-runtime-refresh-acceptance.md): acceptance checklist for JPA runtime refresh.
 - [cross-datasource-transaction-decision.md](cross-datasource-transaction-decision.md): decision for cross-datasource transaction boundaries, Saga/Outbox, and optional XA.
 - [plugin-repository-governance-decision.md](plugin-repository-governance-decision.md): decision for offline plugin repository, signed releases, rollout, and rollback governance.
 - [plugin-management-console-boundary.md](plugin-management-console-boundary.md): decision for management console UI boundaries against HTTP APIs and Actuator.

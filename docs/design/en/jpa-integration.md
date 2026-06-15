@@ -87,6 +87,28 @@ When one consumer plugin needs multiple shared domains, configure the primary do
 
 Note: Spring Data JPA recursively scans parent BeanFactories for `EntityManagerFactory` beans and then looks up matching BeanDefinitions. Therefore, when JPA domain beans are exported to root/platform/application shared contexts, dynamic shared beans cannot be singleton-only. `Pf4bootPluginManagerImpl` also registers a BeanDefinition pointing to the same instance so Spring Data JPA post-processors can recognize it.
 
+## JPA Domain Restart-Based Refresh
+
+`pf4boot-jpa` exposes `net.xdob.pf4boot.jpa.reload.*` models and SPI for shared JPA domain runtime refresh. `pf4boot-jpa-starter` provides the default in-memory implementation. V1 is restart-based refresh: it does not rebuild an existing `EntityManagerFactory` in place. Instead, it identifies the provider and exact shared consumers, stops consumers, stops the provider, verifies that old DataSource/EMF/TM/descriptor exports are gone, starts the provider, waits for the new descriptor to become ready, and then starts consumers again.
+
+The capability is disabled by default:
+
+```yaml
+pf4boot:
+  plugin:
+    jpa:
+      domain-reload:
+        mode: DISABLED
+```
+
+Available modes:
+
+- `DISABLED`: planning and execution both return a `RELOAD_DISABLED` blocker.
+- `PLAN_ONLY`: produces an impact plan but never mutates plugin lifecycle.
+- `STOP_CONSUMERS_AND_REBUILD`: enables explicit restart-based execution.
+
+Consumers are detected from `JpaPluginBindingRegistry`, which is populated by `PluginJPAStarter` after a shared binding is validated. Plugins inferred only from the PF4J dependency graph make the plan non-executable until their shared domain binding is explicit. V1 does not support provider package replacement, cross-domain atomic transactions, persistent reload records, or zero-downtime production refresh.
+
 ## DDL Defaults
 
 The starter intentionally defaults plugin `ddl-auto` to `none` through `HibernateSettings.ddlAuto`. Automatic schema updates are considered risky in production and must be explicitly configured by the application or plugin.
@@ -109,5 +131,6 @@ For JPA changes, run:
 - `.\gradlew.bat :pf4boot-jpa-starter:compileJava`
 - `.\gradlew.bat :pf4boot-jpa-domain-starter:compileJava :pf4boot-jpa-domain-starter:test`
 - `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
+- `.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke`
 
 Manual checks should start `samples:cross-plugin-jpa:demo-host` and verify repository beans are created in the service/workflow plugin contexts.

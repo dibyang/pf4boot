@@ -4,6 +4,7 @@ import com.google.common.collect.Sets;
 import net.xdob.pf4boot.PluginApplication;
 import net.xdob.pf4boot.annotation.SpringBootPlugin;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
+import net.xdob.pf4boot.jpa.starter.reload.JpaPluginBindingRegistry;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.pf4j.Plugin;
 import org.slf4j.Logger;
@@ -11,7 +12,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
+import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -82,7 +85,7 @@ import java.util.function.Supplier;
     DataSourceAutoConfiguration.class
 })
 @Import(SharedJpaAutoConfiguration.class)
-public class PluginJPAStarter implements BeanFactoryAware, EnvironmentAware, InitializingBean {
+public class PluginJPAStarter implements BeanFactoryAware, EnvironmentAware, InitializingBean, DisposableBean {
   static final Logger LOG = LoggerFactory.getLogger(PluginJPAStarter.class);
 
   private final JpaProperties properties;
@@ -92,6 +95,7 @@ public class PluginJPAStarter implements BeanFactoryAware, EnvironmentAware, Ini
 
   private BeanFactory beanFactory;
   private Environment environment;
+  private String registeredPluginId;
 
   public PluginJPAStarter(
       JpaProperties properties,
@@ -260,6 +264,15 @@ public class PluginJPAStarter implements BeanFactoryAware, EnvironmentAware, Ini
     for (JpaDomainBinding additionalDomain : binding.getAdditionalDomains()) {
       validateDomainBinding(binding.getPluginId(), additionalDomain);
     }
+    registerBinding(binding);
+  }
+
+  @Override
+  public void destroy() {
+    JpaPluginBindingRegistry registry = findBindingRegistry();
+    if (registry != null && StringUtils.hasText(this.registeredPluginId)) {
+      registry.remove(this.registeredPluginId);
+    }
   }
 
   private void validateDomainBinding(String pluginId, JpaDomainBinding domainBinding) {
@@ -329,6 +342,35 @@ public class PluginJPAStarter implements BeanFactoryAware, EnvironmentAware, Ini
         this.pf4bootJpaProperties.getDescriptorRef(),
         JpaPluginBindingResolver.additionalDomains(this.pf4bootJpaProperties.getAdditionalDomains()),
         false);
+  }
+
+  private void registerBinding(JpaPluginBinding binding) {
+    JpaPluginBindingRegistry registry = findBindingRegistry();
+    if (registry == null) {
+      LOG.debug("[PF4BOOT-JPA] shared JPA binding registry not found, plugin={}", binding.getPluginId());
+      return;
+    }
+    if (StringUtils.hasText(binding.getPluginId())) {
+      registry.register(binding);
+      this.registeredPluginId = binding.getPluginId();
+      LOG.info("[PF4BOOT-JPA] register shared JPA binding, plugin={}, domain={}",
+          binding.getPluginId(), binding.getDomainId());
+    }
+  }
+
+  private JpaPluginBindingRegistry findBindingRegistry() {
+    if (this.beanFactory instanceof ListableBeanFactory) {
+      String[] names = ((ListableBeanFactory) this.beanFactory).getBeanNamesForType(JpaPluginBindingRegistry.class);
+      if (names.length > 0) {
+        return ((ListableBeanFactory) this.beanFactory).getBean(names[0], JpaPluginBindingRegistry.class);
+      }
+    }
+    try {
+      return this.beanFactory.getBean(JpaPluginBindingRegistry.class);
+    } catch (Exception e) {
+      LOG.debug("[PF4BOOT-JPA] no shared JPA binding registry available", e);
+      return null;
+    }
   }
 
   private <T> T getRequiredBean(String beanName, Class<T> type, String message) {

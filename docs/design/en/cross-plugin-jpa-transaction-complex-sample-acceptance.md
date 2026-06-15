@@ -32,11 +32,11 @@ Failure-path acceptance semantics:
 | HTTP smoke | pass | `OK_STATUS=200`, success returns `{"books":1,"audits":1,"users":1}`; after the forced failure summary is `{"books":1,"audits":2,"users":1}` |
 | transaction boundary demo | pass | failure path rolls back user/book while `REQUIRES_NEW` audit commits independently |
 
-## 4. Pending Items
+## 4. Additional Passed Items
 
 | Item | Result | Current Behavior | Follow-up |
 | --- | --- | --- | --- |
-| provider failure isolation runtime acceptance | partial pass | `PluginJPAStarterTest.providerMissingFailureDoesNotAffectUnrelatedNonJpaPluginContext` covers provider-missing failure for the shared consumer while an unrelated non-JPA plugin context still starts; the current sample still has no unrelated runtime comparison plugin | add a no-JPA/unrelated sample plugin later for end-to-end runtime comparison |
+| provider failure isolation runtime acceptance | pass | P10 added `samples/cross-plugin-jpa:plugin-unrelated-service`; runtime smoke verifies the unrelated plugin still returns 200 after stopping `sample-demo-jpa-domain` | closed by P10-C in `plugin-framework-follow-up-hardening-acceptance.md` |
 
 ## 5. Runtime Findings
 

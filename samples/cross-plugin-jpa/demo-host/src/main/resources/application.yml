@@ -4,7 +4,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,metrics,pf4bootplugins,pf4bootgovernance
+        include: health,metrics,pf4bootplugins,pf4bootgovernance,pf4bootjpareload
 spring:
   mvc:
     static-path-pattern: /**
@@ -43,6 +43,8 @@ pf4boot:
       enabled: true
       mode: SHARED
       domain-id: demo
+      domain-reload:
+        mode: STOP_CONSUMERS_AND_REBUILD
       domain:
         id: demo
         entity-packages:

@@ -27,6 +27,18 @@ public class JpaDomainBinding {
     return domainId;
   }
 
+  public String getEntityManagerFactoryRef() {
+    return entityManagerFactoryRef;
+  }
+
+  public String getTransactionManagerRef() {
+    return transactionManagerRef;
+  }
+
+  public String getDescriptorRef() {
+    return descriptorRef;
+  }
+
   public String resolveEntityManagerFactoryRef() {
     if (StringUtils.hasText(this.entityManagerFactoryRef)) {
       return this.entityManagerFactoryRef;

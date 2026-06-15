@@ -1,5 +1,6 @@
 package net.xdob.pf4boot.jpa.starter;
 
+import net.xdob.pf4boot.jpa.reload.JpaDomainReloadMode;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.util.StringUtils;
 
@@ -38,6 +39,8 @@ public class Pf4bootJpaProperties {
   private List<DomainBinding> additionalDomains = new ArrayList<>();
 
   private Map<String, Binding> plugins = new LinkedHashMap<>();
+
+  private DomainReload domainReload = new DomainReload();
 
   public Mode getMode() {
     return mode;
@@ -93,6 +96,14 @@ public class Pf4bootJpaProperties {
 
   public void setPlugins(Map<String, Binding> plugins) {
     this.plugins = plugins == null ? new LinkedHashMap<>() : plugins;
+  }
+
+  public DomainReload getDomainReload() {
+    return domainReload;
+  }
+
+  public void setDomainReload(DomainReload domainReload) {
+    this.domainReload = domainReload == null ? new DomainReload() : domainReload;
   }
 
   public boolean isShared() {
@@ -183,6 +194,66 @@ public class Pf4bootJpaProperties {
 
     public void setDescriptorRef(String descriptorRef) {
       this.descriptorRef = descriptorRef;
+    }
+  }
+
+  /**
+   * JPA domain 运行时刷新配置。
+   */
+  public static class DomainReload {
+    private JpaDomainReloadMode mode = JpaDomainReloadMode.DISABLED;
+    private boolean requireIdempotencyKey = true;
+    private long defaultDrainTimeout = 30000L;
+    private long defaultHealthCheckTimeout = 60000L;
+    private boolean allowInferredConsumers;
+    private int maxRecentRecords = 100;
+
+    public JpaDomainReloadMode getMode() {
+      return mode;
+    }
+
+    public void setMode(JpaDomainReloadMode mode) {
+      this.mode = mode == null ? JpaDomainReloadMode.DISABLED : mode;
+    }
+
+    public boolean isRequireIdempotencyKey() {
+      return requireIdempotencyKey;
+    }
+
+    public void setRequireIdempotencyKey(boolean requireIdempotencyKey) {
+      this.requireIdempotencyKey = requireIdempotencyKey;
+    }
+
+    public long getDefaultDrainTimeout() {
+      return defaultDrainTimeout;
+    }
+
+    public void setDefaultDrainTimeout(long defaultDrainTimeout) {
+      this.defaultDrainTimeout = defaultDrainTimeout;
+    }
+
+    public long getDefaultHealthCheckTimeout() {
+      return defaultHealthCheckTimeout;
+    }
+
+    public void setDefaultHealthCheckTimeout(long defaultHealthCheckTimeout) {
+      this.defaultHealthCheckTimeout = defaultHealthCheckTimeout;
+    }
+
+    public boolean isAllowInferredConsumers() {
+      return allowInferredConsumers;
+    }
+
+    public void setAllowInferredConsumers(boolean allowInferredConsumers) {
+      this.allowInferredConsumers = allowInferredConsumers;
+    }
+
+    public int getMaxRecentRecords() {
+      return maxRecentRecords;
+    }
+
+    public void setMaxRecentRecords(int maxRecentRecords) {
+      this.maxRecentRecords = maxRecentRecords;
     }
   }
 }

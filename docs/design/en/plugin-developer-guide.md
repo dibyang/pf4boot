@@ -215,6 +215,18 @@ pf4boot:
             - domain-id: audit
 ```
 
+Shared JPA domain runtime refresh is optional and disabled by default. A host or sample that wants the V1 restart-based flow must enable it explicitly:
+
+```yaml
+pf4boot:
+  plugin:
+    jpa:
+      domain-reload:
+        mode: STOP_CONSUMERS_AND_REBUILD
+```
+
+For production rehearsal, start with `PLAN_ONLY` first. The plan API reports provider, exact consumers, inferred consumers, unrelated plugins, stop/start order, blockers, and warnings without mutating lifecycle. Execute mode stops exact consumers, stops the provider, verifies that old DataSource/EMF/TM/descriptor exports are gone, starts the provider, waits for the new descriptor, and then starts consumers. V1 rejects `providerReplacementPath`; provider package replacement is intentionally outside this phase.
+
 ## Upgrade Rollback
 
 Hosts can use `upgradePlugin(pluginId, newPluginPath, rollbackPluginPath)` for upgrades with a rollback point. If upgrade fails, the framework attempts to reload the previous package from `rollbackPluginPath`; if the plugin was started before upgrade, rollback attempts to restore the started state.
@@ -235,7 +247,6 @@ samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
 samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-smoke.xml
 ```
 
-After P10, `runtimeSmoke` uses the sample Java runner by default for Windows and Linux CI. The
-PowerShell script remains as a Windows troubleshooting entry. Reports include `unrelatedPluginAlive`
-and `jpaProviderIsolation` to verify that a non-JPA plugin remains available after the JPA provider is
-stopped.
+After P10, `runtimeSmoke` uses the sample Java runner by default for Windows and Linux CI. The PowerShell script remains as a Windows troubleshooting entry. Reports include `unrelatedPluginAlive` and `jpaProviderIsolation` to verify that a non-JPA plugin remains available after the JPA provider is stopped.
+
+The JPA refresh checks include `jpaReloadDisabledNoMutation`, `jpaReloadPlanOnly`, `jpaReloadSuccess`, `jpaReloadIdempotency`, and `jpaReloadRecord`. They prove that disabled mode does not mutate lifecycle, plan output is usable, execute mode completes, repeated idempotency keys replay the same record, and the record query endpoint can read the result.

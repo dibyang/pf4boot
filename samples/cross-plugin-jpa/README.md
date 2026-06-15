@@ -156,9 +156,14 @@ samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-sm
 - `SMOKE_UNRELATED_PLUGIN_ALIVE`：无关插件可访问，且 workflow rollback 后仍可访问。
 - `SMOKE_MANAGEMENT_OPERATION`：使用 `X-PF4Boot-Admin-Token` 和 `X-Idempotency-Key` 调用管理接口。
 - `SMOKE_IDEMPOTENCY_REPLAY`：重复幂等请求返回同一个 operation id。
+- `SMOKE_JPA_RELOAD_DISABLED_NO_MUTATION`：JPA reload 禁用态下请求返回 `RELOAD_DISABLED`，且不影响无关插件。
+- `SMOKE_JPA_RELOAD_PLAN`：JPA reload plan 接口返回 provider、consumer 和影响范围。
+- `SMOKE_JPA_RELOAD_SUCCESS`：执行重启式 JPA domain 刷新后业务仍可访问。
+- `SMOKE_JPA_RELOAD_IDEMPOTENCY`：重复 JPA reload 请求返回同一个 reload id。
 - `SMOKE_JPA_PROVIDER_ISOLATION`：停止 JPA provider 后，无关插件仍可访问。
 - `SMOKE_FAILURE_CASE`：有效插件包 + 不存在目标插件的部署预检返回失败响应，并可通过部署记录查询。
 - `SMOKE_ACTUATOR_GOVERNANCE`：`/actuator/pf4bootgovernance` 和 management metrics 可读。
+- `SMOKE_ACTUATOR_JPA_RELOAD`：`/actuator/pf4bootjpareload` 可读。
 - `SMOKE_CLEANUP_OK`：脚本已关闭进程并清理临时运行目录。
 
 ### REMOTE_DELEGATED 示例

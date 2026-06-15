@@ -94,6 +94,16 @@ starter 通过 `HibernateSettings.ddlAuto` 将插件默认 `ddl-auto` 设为 `no
 
 插件 JPA entity 的有效发现边界是 `PluginJPAStarter` 创建 `EntityManagerFactory` 时的启动时扫描。需要新增 entity 的插件应在插件启动前通过 `@EntityScan`、auto-configuration package 或插件主类包扫描暴露实体。
 
+## JPA domain 重启式刷新
+
+V1 运行时刷新是“重启式刷新”，不是无感热刷新。框架通过 `pf4boot.plugin.jpa.domain-reload.mode` 控制能力：
+
+- `DISABLED`：默认禁用，请求会返回 `RELOAD_DISABLED`，不执行插件启停。
+- `PLAN_ONLY`：只生成影响范围、consumer、unrelated 插件、停止顺序和启动顺序。
+- `STOP_CONSUMERS_AND_REBUILD`：显式维护窗口模式，按计划停止 consumer、重启 provider、再启动 consumer。
+
+`PluginJPAStarter` 在 shared consumer 启动后登记 `JpaPluginBinding`，用于 plan 精确识别 consumer；插件停止或上下文销毁时清理登记。provider 重启后必须重新导出 `domain.{domain-id}.descriptor`、EMF、TM 和 DataSource。V1 不支持 `providerReplacementPath`、跨数据源事务或多个 domain 原子刷新。
+
 ## 兼容性
 
 JPA 支持依赖 Spring Boot 2.7.x 和 Hibernate 5.6.x 行为。包扫描顺序、默认 DDL 行为、事务 Bean 条件或运行时动态同步边界的变更，都可能影响插件启动和 schema 管理。
@@ -106,5 +116,6 @@ JPA 变更运行：
 - `.\gradlew.bat :pf4boot-jpa-starter:compileJava`
 - `.\gradlew.bat :pf4boot-jpa-domain-starter:compileJava :pf4boot-jpa-domain-starter:test`
 - `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
+- `.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke`
 
 手动检查应启动 `samples:cross-plugin-jpa:demo-host`，并确认 service/workflow 插件的 repository Bean 在插件上下文中创建成功。

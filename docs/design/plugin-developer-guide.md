@@ -214,6 +214,14 @@ pf4boot:
             - domain-id: audit
 ```
 
+JPA domain 运行时刷新 V1 是重启式刷新。默认 `pf4boot.plugin.jpa.domain-reload.mode=DISABLED`，不会启停插件。需要先使用管理接口生成计划：
+
+```http
+POST /pf4boot/admin/jpa/domains/demo/reload/plan
+```
+
+只有显式配置 `STOP_CONSUMERS_AND_REBUILD` 且请求提供 `X-Idempotency-Key` 时，框架才会停止绑定该 domain 的 shared consumer，重启 provider 重建 EMF/TM，再按依赖顺序启动 consumer。该能力适合维护窗口，不承诺生产无停顿；跨数据源事务和多个 domain 原子刷新暂不支持。
+
 ## 升级回滚
 
 宿主可通过 `upgradePlugin(pluginId, newPluginPath, rollbackPluginPath)` 执行带回滚点的升级。升级失败时，框架会尝试从 `rollbackPluginPath` 重新加载上一版本；如果升级前插件处于启动态，回滚后会尝试恢复启动态。
@@ -234,4 +242,4 @@ samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
 samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-smoke.xml
 ```
 
-P10 后 `runtimeSmoke` 默认使用 sample 内的 Java runner，适合 Windows 和 Linux CI；PowerShell 脚本仍保留为 Windows 本地排障入口。报告包含 `unrelatedPluginAlive` 和 `jpaProviderIsolation`，用于验证无 JPA 依赖插件在 JPA provider 停止后仍可工作。
+P10 后 `runtimeSmoke` 默认使用 sample 内的 Java runner，适合 Windows 和 Linux CI；PowerShell 脚本仍保留为 Windows 本地排障入口。报告包含 `unrelatedPluginAlive`、`jpaProviderIsolation`、`jpaReloadDisabledNoMutation`、`jpaReloadPlanOnly`、`jpaReloadSuccess` 和 `jpaReloadIdempotency`，用于验证无 JPA 依赖插件隔离和 JPA domain 重启式刷新。

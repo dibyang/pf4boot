@@ -46,11 +46,16 @@ public class RuntimeSmokeRunner {
     try {
       prepare();
       assertPluginZips();
-      startHost();
+      startHost("DISABLED");
+      waitHostReady();
+      checkJpaReloadDisabledNoMutation();
+      stopHost();
+      startHost("STOP_CONSUMERS_AND_REBUILD");
       waitHostReady();
       checkUnrelated();
       checkWorkflow();
       checkManagement();
+      checkJpaReload();
       checkJpaProviderIsolation();
       checkActuator();
       addCheck("cleanup", "PASSED", "process cleanup requested");
@@ -110,7 +115,7 @@ public class RuntimeSmokeRunner {
     addCheck("pluginZips", "PASSED", "count=" + count);
   }
 
-  private void startHost() throws Exception {
+  private void startHost(String jpaReloadMode) throws Exception {
     String java = Paths.get(System.getProperty("java.home"), "bin",
         isWindows() ? "java.exe" : "java").toString();
     List<String> command = new ArrayList<String>();
@@ -124,6 +129,7 @@ public class RuntimeSmokeRunner {
     command.add("--spring.pf4boot.management.http.token=sample-token");
     command.add("--spring.pf4boot.management.http.operation-store.type=file");
     command.add("--spring.pf4boot.management.http.operation-store.directory=" + smokeDir.resolve("operations"));
+    command.add("--pf4boot.plugin.jpa.domain-reload.mode=" + jpaReloadMode);
     ProcessBuilder builder = new ProcessBuilder(command);
     builder.directory(runtime.toFile());
     builder.redirectOutput(smokeDir.resolve("logs").resolve("stdout.log").toFile());
@@ -234,13 +240,68 @@ public class RuntimeSmokeRunner {
     addCheck("jpaProviderIsolation", "PASSED", "unrelated plugin alive after provider stop");
   }
 
+  private void checkJpaReload() throws Exception {
+    List<Header> admin = new ArrayList<Header>();
+    admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult plan = request("POST", "/pf4boot/admin/jpa/domains/demo/reload/plan", admin, "{}");
+    assertAdminSuccess(plan, "JPA reload plan");
+    if (!plan.body.contains("sample-demo-jpa-domain")
+        || !plan.body.contains("sample-user-book-service")
+        || !plan.body.contains("sample-workflow")) {
+      throw new IllegalStateException("JPA reload plan did not include provider and consumers: " + plan.body);
+    }
+    System.out.println("SMOKE_JPA_RELOAD_PLAN status=" + plan.status);
+    addCheck("jpaReloadPlanOnly", "PASSED", "plan generated");
+
+    List<Header> reloadHeaders = new ArrayList<Header>(admin);
+    reloadHeaders.add(new Header("X-Idempotency-Key", "runtime-smoke-jpa-reload-java"));
+    HttpResult reload = request("POST", "/pf4boot/admin/jpa/domains/demo/reload", reloadHeaders, "{}");
+    assertAdminSuccess(reload, "JPA reload execute");
+    String reloadId = stringField(reload.body, "reloadId");
+    HttpResult replay = request("POST", "/pf4boot/admin/jpa/domains/demo/reload", reloadHeaders, "{}");
+    assertAdminSuccess(replay, "JPA reload replay");
+    String replayReloadId = stringField(replay.body, "reloadId");
+    if (!reloadId.equals(replayReloadId)) {
+      throw new IllegalStateException("JPA reload idempotency did not replay reloadId");
+    }
+    System.out.println("SMOKE_JPA_RELOAD_SUCCESS reloadId=" + reloadId);
+    System.out.println("SMOKE_JPA_RELOAD_IDEMPOTENCY reloadId=" + replayReloadId);
+    addCheck("jpaReloadSuccess", "PASSED", reloadId);
+    addCheck("jpaReloadIdempotency", "PASSED", replayReloadId);
+    HttpResult record = request("GET", "/pf4boot/admin/jpa/reloads/" + reloadId, admin, null);
+    assertAdminSuccess(record, "JPA reload record");
+    addCheck("jpaReloadRecord", "PASSED", reloadId);
+
+    HttpResult summary = request("GET", "/api/sample/workflow/summary", null, null);
+    assertStatus(summary, 200, "workflow summary after JPA reload");
+  }
+
+  private void checkJpaReloadDisabledNoMutation() throws Exception {
+    List<Header> admin = new ArrayList<Header>();
+    admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    admin.add(new Header("X-Idempotency-Key", "runtime-smoke-jpa-disabled-java"));
+    HttpResult reload = request("POST", "/pf4boot/admin/jpa/domains/demo/reload", admin, "{}");
+    assertStatus(reload, 200, "JPA reload disabled response");
+    if (!reload.body.contains("RELOAD_DISABLED")) {
+      throw new IllegalStateException("disabled JPA reload did not report RELOAD_DISABLED: " + reload.body);
+    }
+    HttpResult unrelated = request("GET", "/api/sample/unrelated/health", null, null);
+    assertStatus(unrelated, 200, "unrelated plugin after disabled JPA reload");
+    System.out.println("SMOKE_JPA_RELOAD_DISABLED_NO_MUTATION status=" + reload.status);
+    addCheck("jpaReloadDisabledNoMutation", "PASSED", "RELOAD_DISABLED");
+  }
+
   private void checkActuator() throws Exception {
     HttpResult governance = request("GET", "/actuator/pf4bootgovernance", null, null);
     assertStatus(governance, 200, "actuator governance");
+    HttpResult jpaReload = request("GET", "/actuator/pf4bootjpareload", null, null);
+    assertStatus(jpaReload, 200, "actuator JPA reload");
     HttpResult metrics = request("GET", "/actuator/metrics/pf4boot.management.request.total", null, null);
     assertStatus(metrics, 200, "actuator management metric");
     System.out.println("SMOKE_ACTUATOR_GOVERNANCE status=" + governance.status);
+    System.out.println("SMOKE_ACTUATOR_JPA_RELOAD status=" + jpaReload.status);
     addCheck("actuatorGovernance", "PASSED", "HTTP " + governance.status);
+    addCheck("actuatorJpaReload", "PASSED", "HTTP " + jpaReload.status);
   }
 
   private HttpResult request(String method, String path, List<Header> headers, String body) throws Exception {

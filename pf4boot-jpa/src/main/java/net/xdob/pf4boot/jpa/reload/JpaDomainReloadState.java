@@ -1,0 +1,18 @@
+package net.xdob.pf4boot.jpa.reload;
+
+/**
+ * JPA domain 刷新记录状态。
+ */
+public enum JpaDomainReloadState {
+  PLANNED,
+  DRAINING,
+  STOPPING_CONSUMERS,
+  STOPPING_PROVIDER,
+  STARTING_PROVIDER,
+  STARTING_CONSUMERS,
+  HEALTH_CHECKING,
+  SUCCEEDED,
+  FAILED,
+  ROLLED_BACK,
+  MANUAL_INTERVENTION_REQUIRED
+}

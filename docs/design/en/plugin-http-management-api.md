@@ -141,6 +141,19 @@ All responses use `PluginAdminResponse<T>`:
 
 Package paths must reference files under configured staging roots only.
 
+### JPA Domain Refresh APIs
+
+These APIs are registered only when the host includes `pf4boot-jpa` and a `JpaDomainReloadPlanService` exists. They reuse the same management security, request, idempotency, and audit pipeline.
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| `POST` | `/pf4boot/admin/jpa/domains/{domainId}/reload/plan` | Generate a JPA domain impact plan without lifecycle mutation |
+| `POST` | `/pf4boot/admin/jpa/domains/{domainId}/reload` | Execute restart-based refresh when `domain-reload.mode=STOP_CONSUMERS_AND_REBUILD`; disabled/plan-only modes return blockers |
+| `GET` | `/pf4boot/admin/jpa/reloads/{reloadId}` | Query a reload record |
+| `GET` | `/pf4boot/admin/jpa/domains/{domainId}/reload/current` | Query the currently running reload for a domain |
+
+The reload request can carry `reason`, timeout fields, and `providerReplacementPath`. V1 rejects `providerReplacementPath` with `UNSUPPORTED_REPLACEMENT_PATH` and does not replace provider packages. Use the `X-Idempotency-Key` header for execute requests when management idempotency is required.
+
 ## Authorization Model
 
 | Permission | Operations |
@@ -152,6 +165,7 @@ Package paths must reference files under configured staging roots only.
 | `pf4boot:deployment:replace` | hot replacement |
 | `pf4boot:deployment:confirm` | execute confirmed/prechecked deployment |
 | `pf4boot:deployment:rollback` | rollback |
+| `pf4boot:jpa:reload` | JPA domain reload plan, execute, and record queries |
 | `pf4boot:admin:all` | all operations |
 
 SPI:

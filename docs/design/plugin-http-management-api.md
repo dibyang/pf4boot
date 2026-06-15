@@ -119,6 +119,15 @@ spring:
 | `GET` | `/pf4boot/admin/deployments/{deploymentId}` | 查询部署记录 |
 | `GET` | `/pf4boot/admin/deployments` | 查询近期部署记录 |
 
+### JPA domain 刷新接口
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/pf4boot/admin/jpa/domains/{domainId}/reload/plan` | 生成 JPA domain 刷新计划，不产生启停副作用 |
+| `POST` | `/pf4boot/admin/jpa/domains/{domainId}/reload` | 执行 JPA domain 重启式刷新；默认禁用，必须显式配置并提供幂等键 |
+| `GET` | `/pf4boot/admin/jpa/reloads/{reloadId}` | 查询 JPA domain 刷新记录 |
+| `GET` | `/pf4boot/admin/jpa/domains/{domainId}/reload/current` | 查询 JPA domain 当前刷新记录 |
+
 ### 生命周期接口
 
 | 方法 | 路径 | 行为 |
