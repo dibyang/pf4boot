@@ -47,6 +47,8 @@
 - [jpa-runtime-refresh-drain-spi.md](jpa-runtime-refresh-drain-spi.md)：JPA 运行时刷新 drain SPI 设计，复用热替换通用摘流扩展点。
 - [jpa-runtime-refresh-drain-spi-plan.md](jpa-runtime-refresh-drain-spi-plan.md)：JPA 运行时刷新 drain SPI 实施规划。
 - [jpa-runtime-refresh-drain-spi-acceptance.md](jpa-runtime-refresh-drain-spi-acceptance.md)：JPA 运行时刷新 drain SPI 验收清单。
+- [plugin-framework-priority-roadmap.md](plugin-framework-priority-roadmap.md)：插件框架下一优先级增强设计，覆盖持久化记录、providerReplacementPath、Saga/Outbox sample 和管理控制台 UI。
+- [plugin-framework-priority-roadmap-plan.md](plugin-framework-priority-roadmap-plan.md)：插件框架下一优先级增强实施规划。
 - [cross-datasource-transaction-decision.md](cross-datasource-transaction-decision.md)：跨数据源事务边界、Saga/Outbox 和 XA 可选模块决策。
 - [plugin-repository-governance-decision.md](plugin-repository-governance-decision.md)：插件离线仓库、签名发布、灰度和回滚治理决策。
 - [plugin-management-console-boundary.md](plugin-management-console-boundary.md)：插件管理控制台 UI 与 HTTP API/Actuator 边界决策。
@@ -97,6 +99,8 @@
 - [en/jpa-runtime-refresh-drain-spi.md](en/jpa-runtime-refresh-drain-spi.md)
 - [en/jpa-runtime-refresh-drain-spi-plan.md](en/jpa-runtime-refresh-drain-spi-plan.md)
 - [en/jpa-runtime-refresh-drain-spi-acceptance.md](en/jpa-runtime-refresh-drain-spi-acceptance.md)
+- [en/plugin-framework-priority-roadmap.md](en/plugin-framework-priority-roadmap.md)
+- [en/plugin-framework-priority-roadmap-plan.md](en/plugin-framework-priority-roadmap-plan.md)
 - [en/cross-datasource-transaction-decision.md](en/cross-datasource-transaction-decision.md)
 - [en/plugin-repository-governance-decision.md](en/plugin-repository-governance-decision.md)
 - [en/plugin-management-console-boundary.md](en/plugin-management-console-boundary.md)

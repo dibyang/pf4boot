@@ -51,6 +51,8 @@ Use the parent directory for design notes before implementing non-trivial change
 - [jpa-runtime-refresh-drain-spi.md](jpa-runtime-refresh-drain-spi.md): JPA runtime refresh drain SPI design reusing the common hot-replacement drainer.
 - [jpa-runtime-refresh-drain-spi-plan.md](jpa-runtime-refresh-drain-spi-plan.md): implementation plan for JPA runtime refresh drain SPI.
 - [jpa-runtime-refresh-drain-spi-acceptance.md](jpa-runtime-refresh-drain-spi-acceptance.md): acceptance checklist for JPA runtime refresh drain SPI.
+- [plugin-framework-priority-roadmap.md](plugin-framework-priority-roadmap.md): priority roadmap design for persistent records, providerReplacementPath, Saga/Outbox sample, and management console UI.
+- [plugin-framework-priority-roadmap-plan.md](plugin-framework-priority-roadmap-plan.md): implementation plan for the priority roadmap.
 - [cross-datasource-transaction-decision.md](cross-datasource-transaction-decision.md): decision for cross-datasource transaction boundaries, Saga/Outbox, and optional XA.
 - [plugin-repository-governance-decision.md](plugin-repository-governance-decision.md): decision for offline plugin repository, signed releases, rollout, and rollback governance.
 - [plugin-management-console-boundary.md](plugin-management-console-boundary.md): decision for management console UI boundaries against HTTP APIs and Actuator.
