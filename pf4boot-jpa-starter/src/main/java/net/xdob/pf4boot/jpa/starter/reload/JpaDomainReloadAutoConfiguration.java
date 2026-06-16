@@ -15,6 +15,9 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.util.StringUtils;
+
+import java.nio.file.Paths;
 
 /**
  * JPA domain 刷新 V1-Plan 自动配置。
@@ -75,7 +78,24 @@ public class JpaDomainReloadAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean
   public JpaDomainReloadRecordRepository jpaDomainReloadRecordRepository(Pf4bootJpaProperties properties) {
-    return new InMemoryJpaDomainReloadRecordRepository(properties.getDomainReload().getMaxRecentRecords());
+    Pf4bootJpaProperties.DomainReload domainReload = properties.getDomainReload();
+    Pf4bootJpaProperties.DomainReload.RecordStore store = domainReload.getRecordStore();
+    if (store != null && "file".equalsIgnoreCase(store.getType())) {
+      try {
+        String directory = StringUtils.hasText(store.getDirectory())
+            ? store.getDirectory()
+            : "work/pf4boot/jpa-reloads";
+        return new FileJpaDomainReloadRecordRepository(
+            Paths.get(directory),
+            domainReload.getMaxRecentRecords(),
+            store.isFailClosed());
+      } catch (RuntimeException e) {
+        if (store.isFailClosed()) {
+          throw e;
+        }
+      }
+    }
+    return new InMemoryJpaDomainReloadRecordRepository(domainReload.getMaxRecentRecords());
   }
 
   @Bean

@@ -3,6 +3,7 @@ package net.xdob.pf4boot.actuate;
 import net.xdob.pf4boot.jpa.reload.JpaDomainDrainReport;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadFailureCode;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecord;
+import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecordRepository;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadService;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadState;
 import org.junit.Test;
@@ -25,6 +26,9 @@ public class Pf4bootJpaReloadEndpointTest {
     assertEquals(false, summary.get("planAvailable"));
     assertEquals(false, summary.get("executeAvailable"));
     assertNull(summary.get("lastReloadId"));
+    assertNull(summary.get("recordStoreType"));
+    assertEquals(0, summary.get("recentRecordCount"));
+    assertEquals(0, summary.get("recoverableRecordCount"));
     assertEquals(0L, summary.get("lastDrainDurationMillis"));
     assertEquals(0, summary.get("lastDrainPluginCount"));
     assertEquals(0, summary.get("lastDrainWarningCount"));
@@ -67,6 +71,37 @@ public class Pf4bootJpaReloadEndpointTest {
     assertEquals(1, summary.get("lastDrainWarningCount"));
   }
 
+  @Test
+  public void summaryReturnsRecordStoreCountsWhenRepositoryExists() {
+    JpaDomainReloadRecord latest = record("reload-2", JpaDomainReloadState.SUCCEEDED);
+    JpaDomainReloadRecord recoverable = record("reload-1", JpaDomainReloadState.MANUAL_INTERVENTION_REQUIRED);
+    Pf4bootJpaReloadEndpoint endpoint =
+        new Pf4bootJpaReloadEndpoint(null, null, new TestRecordRepository(latest, recoverable));
+
+    Map<String, Object> summary = endpoint.summary();
+
+    assertEquals("TestRecordRepository", summary.get("recordStoreType"));
+    assertEquals("reload-2", summary.get("lastReloadId"));
+    assertEquals(2, summary.get("recentRecordCount"));
+    assertEquals(1, summary.get("recoverableRecordCount"));
+  }
+
+  private static JpaDomainReloadRecord record(String reloadId, JpaDomainReloadState state) {
+    return new JpaDomainReloadRecord(
+        reloadId,
+        "plan-" + reloadId,
+        "demo",
+        state,
+        100L,
+        130L,
+        null,
+        null,
+        Collections.singletonList(state),
+        null,
+        null,
+        null);
+  }
+
   private static class TestReloadService implements JpaDomainReloadService {
     private final JpaDomainReloadRecord record;
 
@@ -98,6 +133,49 @@ public class Pf4bootJpaReloadEndpointTest {
     @Override
     public JpaDomainReloadRecord getLatestRecord() {
       return record;
+    }
+  }
+
+  private static class TestRecordRepository implements JpaDomainReloadRecordRepository {
+    private final JpaDomainReloadRecord latest;
+    private final JpaDomainReloadRecord recoverable;
+
+    private TestRecordRepository(JpaDomainReloadRecord latest, JpaDomainReloadRecord recoverable) {
+      this.latest = latest;
+      this.recoverable = recoverable;
+    }
+
+    @Override
+    public void save(JpaDomainReloadRecord record) {
+    }
+
+    @Override
+    public JpaDomainReloadRecord findById(String reloadId) {
+      return null;
+    }
+
+    @Override
+    public JpaDomainReloadRecord findByIdempotencyKey(String idempotencyKey) {
+      return null;
+    }
+
+    @Override
+    public void bindIdempotencyKey(String idempotencyKey, String reloadId) {
+    }
+
+    @Override
+    public JpaDomainReloadRecord findLatest() {
+      return latest;
+    }
+
+    @Override
+    public java.util.List<JpaDomainReloadRecord> recent(int limit) {
+      return Arrays.asList(latest, recoverable);
+    }
+
+    @Override
+    public java.util.List<JpaDomainReloadRecord> scanRecoverableRecords() {
+      return Collections.singletonList(recoverable);
     }
   }
 }

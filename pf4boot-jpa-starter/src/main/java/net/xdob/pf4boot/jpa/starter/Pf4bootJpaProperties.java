@@ -209,6 +209,7 @@ public class Pf4bootJpaProperties {
     private int maxRecentRecords = 100;
     private boolean requireDrainer;
     private boolean drainEndOnFailure = true;
+    private RecordStore recordStore = new RecordStore();
 
     public JpaDomainReloadMode getMode() {
       return mode;
@@ -272,6 +273,47 @@ public class Pf4bootJpaProperties {
 
     public void setDrainEndOnFailure(boolean drainEndOnFailure) {
       this.drainEndOnFailure = drainEndOnFailure;
+    }
+
+    public RecordStore getRecordStore() {
+      return recordStore;
+    }
+
+    public void setRecordStore(RecordStore recordStore) {
+      this.recordStore = recordStore == null ? new RecordStore() : recordStore;
+    }
+
+    /**
+     * JPA domain reload 记录仓库配置。
+     */
+    public static class RecordStore {
+      private String type = "memory";
+      private String directory = "work/pf4boot/jpa-reloads";
+      private boolean failClosed = true;
+
+      public String getType() {
+        return type;
+      }
+
+      public void setType(String type) {
+        this.type = type;
+      }
+
+      public String getDirectory() {
+        return directory;
+      }
+
+      public void setDirectory(String directory) {
+        this.directory = directory;
+      }
+
+      public boolean isFailClosed() {
+        return failClosed;
+      }
+
+      public void setFailClosed(boolean failClosed) {
+        this.failClosed = failClosed;
+      }
     }
   }
 }

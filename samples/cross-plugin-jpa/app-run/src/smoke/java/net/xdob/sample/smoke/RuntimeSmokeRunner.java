@@ -55,7 +55,8 @@ public class RuntimeSmokeRunner {
       checkUnrelated();
       checkWorkflow();
       checkManagement();
-      checkJpaReload();
+      String reloadId = checkJpaReload();
+      checkJpaReloadRecordPersistence(reloadId);
       checkJpaReloadDrainTimeoutNoMutation();
       checkJpaProviderIsolation();
       checkActuator();
@@ -103,6 +104,7 @@ public class RuntimeSmokeRunner {
     Files.createDirectories(smokeDir.resolve("logs"));
     Files.createDirectories(smokeDir.resolve("home"));
     Files.createDirectories(smokeDir.resolve("operations"));
+    Files.createDirectories(smokeDir.resolve("jpa-reloads"));
   }
 
   private void assertPluginZips() throws Exception {
@@ -131,6 +133,8 @@ public class RuntimeSmokeRunner {
     command.add("--spring.pf4boot.management.http.operation-store.type=file");
     command.add("--spring.pf4boot.management.http.operation-store.directory=" + smokeDir.resolve("operations"));
     command.add("--pf4boot.plugin.jpa.domain-reload.mode=" + jpaReloadMode);
+    command.add("--pf4boot.plugin.jpa.domain-reload.record-store.type=file");
+    command.add("--pf4boot.plugin.jpa.domain-reload.record-store.directory=" + smokeDir.resolve("jpa-reloads"));
     ProcessBuilder builder = new ProcessBuilder(command);
     builder.directory(runtime.toFile());
     builder.redirectOutput(smokeDir.resolve("logs").resolve("stdout.log").toFile());
@@ -241,7 +245,7 @@ public class RuntimeSmokeRunner {
     addCheck("jpaProviderIsolation", "PASSED", "unrelated plugin alive after provider stop");
   }
 
-  private void checkJpaReload() throws Exception {
+  private String checkJpaReload() throws Exception {
     List<Header> admin = new ArrayList<Header>();
     admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
     HttpResult plan = request("POST", "/pf4boot/admin/jpa/domains/demo/reload/plan", admin, "{}");
@@ -280,6 +284,22 @@ public class RuntimeSmokeRunner {
 
     HttpResult summary = request("GET", "/api/sample/workflow/summary", null, null);
     assertStatus(summary, 200, "workflow summary after JPA reload");
+    return reloadId;
+  }
+
+  private void checkJpaReloadRecordPersistence(String reloadId) throws Exception {
+    stopHost();
+    startHost("STOP_CONSUMERS_AND_REBUILD");
+    waitHostReady();
+    HttpResult jpaReload = request("GET", "/actuator/pf4bootjpareload", null, null);
+    assertStatus(jpaReload, 200, "actuator JPA reload after restart");
+    if (!jpaReload.body.contains(reloadId)
+        || !jpaReload.body.contains("FileJpaDomainReloadRecordRepository")
+        || !jpaReload.body.contains("recentRecordCount")) {
+      throw new IllegalStateException("JPA reload persisted record was not visible after restart: " + jpaReload.body);
+    }
+    System.out.println("SMOKE_JPA_RELOAD_RECORD_PERSISTED reloadId=" + reloadId);
+    addCheck("jpaReloadRecordPersistence", "PASSED", reloadId);
   }
 
   private void checkJpaReloadDrainTimeoutNoMutation() throws Exception {
@@ -328,7 +348,8 @@ public class RuntimeSmokeRunner {
     assertStatus(jpaReload, 200, "actuator JPA reload");
     if (!jpaReload.body.contains("lastDrainFailureCode")
         || !jpaReload.body.contains("DRAIN_TIMEOUT")
-        || !jpaReload.body.contains("lastDrainPluginCount")) {
+        || !jpaReload.body.contains("lastDrainPluginCount")
+        || !jpaReload.body.contains("FileJpaDomainReloadRecordRepository")) {
       throw new IllegalStateException("actuator JPA reload did not expose drain summary: " + jpaReload.body);
     }
     HttpResult metrics = request("GET", "/actuator/metrics/pf4boot.management.request.total", null, null);
@@ -337,7 +358,7 @@ public class RuntimeSmokeRunner {
     System.out.println("SMOKE_ACTUATOR_JPA_RELOAD status=" + jpaReload.status);
     addCheck("actuatorGovernance", "PASSED", "HTTP " + governance.status);
     addCheck("actuatorJpaReload", "PASSED", "HTTP " + jpaReload.status);
-    addCheck("actuatorJpaReloadDrainSummary", "PASSED", "DRAIN_TIMEOUT");
+    addCheck("actuatorJpaReloadDrainSummary", "PASSED", "DRAIN_TIMEOUT/file-store");
   }
 
   private HttpResult request(String method, String path, List<Header> headers, String body) throws Exception {

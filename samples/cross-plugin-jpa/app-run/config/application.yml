@@ -39,6 +39,9 @@ pf4boot:
       domain-id: demo
       domain-reload:
         mode: STOP_CONSUMERS_AND_REBUILD
+        record-store:
+          type: file
+          directory: work/pf4boot/jpa-reloads
       domain:
         id: demo
         entity-packages:

@@ -71,7 +71,15 @@ public class FilePluginDeploymentRecordStore implements PluginDeploymentRecordSt
   public synchronized List<DeploymentRecord> recent(int limit) {
     int max = limit <= 0 ? Integer.MAX_VALUE : limit;
     List<DeploymentRecord> records = new ArrayList<>(byId.values());
-    records.sort(Comparator.comparingLong(DeploymentRecord::getUpdatedAt).reversed());
+    records.sort((left, right) -> {
+      int time = Long.compare(right.getUpdatedAt(), left.getUpdatedAt());
+      if (time != 0) {
+        return time;
+      }
+      String leftId = left.getDeploymentId() == null ? "" : left.getDeploymentId();
+      String rightId = right.getDeploymentId() == null ? "" : right.getDeploymentId();
+      return leftId.compareTo(rightId);
+    });
     if (records.size() <= max) {
       return records;
     }

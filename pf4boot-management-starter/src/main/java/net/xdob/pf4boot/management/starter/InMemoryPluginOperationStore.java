@@ -93,7 +93,7 @@ public class InMemoryPluginOperationStore implements PluginOperationStore {
   public List<PluginOperationRecord> recent(int limit) {
     int size = limit <= 0 ? Integer.MAX_VALUE : limit;
     List<PluginOperationRecord> records = new ArrayList<>(byOperationId.values());
-    records.sort(Comparator.comparingLong(PluginOperationRecord::getUpdatedAt).reversed());
+    records.sort(operationRecordComparator(false));
     if (records.size() <= size) {
       return records;
     }
@@ -110,7 +110,22 @@ public class InMemoryPluginOperationStore implements PluginOperationStore {
         records.add(record);
       }
     }
-    records.sort(Comparator.comparingLong(PluginOperationRecord::getUpdatedAt));
+    records.sort(operationRecordComparator(true));
     return records;
+  }
+
+  private Comparator<PluginOperationRecord> operationRecordComparator(boolean oldestFirst) {
+    return (left, right) -> {
+      int time = Long.compare(left.getUpdatedAt(), right.getUpdatedAt());
+      if (!oldestFirst) {
+        time = -time;
+      }
+      if (time != 0) {
+        return time;
+      }
+      String leftId = left.getOperationId() == null ? "" : left.getOperationId();
+      String rightId = right.getOperationId() == null ? "" : right.getOperationId();
+      return leftId.compareTo(rightId);
+    };
   }
 }

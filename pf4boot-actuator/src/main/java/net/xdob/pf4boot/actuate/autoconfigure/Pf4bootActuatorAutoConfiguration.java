@@ -10,6 +10,7 @@ import net.xdob.pf4boot.actuate.Pf4bootPluginsEndpoint;
 import net.xdob.pf4boot.deployment.PluginDeploymentMetricsProvider;
 import net.xdob.pf4boot.diagnostic.PluginLifecycleDiagnostic;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadPlanService;
+import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecordRepository;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadService;
 import net.xdob.pf4boot.management.PluginManagementMetricsProvider;
 import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
@@ -70,8 +71,12 @@ public class Pf4bootActuatorAutoConfiguration {
   @ConditionalOnBean(JpaDomainReloadPlanService.class)
   public Pf4bootJpaReloadEndpoint pf4bootJpaReloadEndpoint(
       JpaDomainReloadPlanService planService,
-      ObjectProvider<JpaDomainReloadService> reloadService) {
-    return new Pf4bootJpaReloadEndpoint(planService, reloadService.getIfAvailable());
+      ObjectProvider<JpaDomainReloadService> reloadService,
+      ObjectProvider<JpaDomainReloadRecordRepository> recordRepository) {
+    return new Pf4bootJpaReloadEndpoint(
+        planService,
+        reloadService.getIfAvailable(),
+        recordRepository.getIfAvailable());
   }
 
   @Bean

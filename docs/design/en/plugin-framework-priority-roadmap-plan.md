@@ -14,7 +14,7 @@ This plan tracks [plugin-framework-priority-roadmap.md](plugin-framework-priorit
 | Phase | Status | Goal | Main Acceptance |
 | --- | --- | --- | --- |
 | P0 Design and planning | Done | define priorities and boundaries | Chinese/English design, plan, and index are synchronized |
-| P1 Persistent records | Planned | harden management file stores and add JPA reload file records | records survive restart; idempotency replays; latest JPA reload recovers |
+| P1 Persistent records | Done | harden management file stores and add JPA reload file records | records survive restart; idempotency replays; latest JPA reload recovers |
 | P2 providerReplacementPath | Planned | JPA reload supports staged provider package replacement | success, rollback on failure, unrelated isolation |
 | P3 Saga/Outbox sample | Planned | demonstrate cross-domain eventual consistency | success, duplicate delivery, retry smoke |
 | P4 Management console UI | Planned | independent sample UI using HTTP APIs/Actuator | local UI smoke, auth and idempotency display |
@@ -74,6 +74,14 @@ Acceptance:
 | P1-AC4 corrupt records obey failClosed/failOpen | unit tests |
 | P1-AC5 runtime smoke can query records after restart | `:samples:cross-plugin-jpa:app-run:runtimeSmoke` |
 | P1-AC6 docs and translations are synchronized | `git diff --check`; U+FFFD scan |
+
+Implementation notes:
+
+- Hardened stable recent ordering for management operation/deployment records and added corrupt-record skip coverage.
+- Added `FileJpaDomainReloadRecordRepository` with JSON Lines records, `latest.json`, idempotency indexes, fail-open, and fail-closed behavior.
+- Added `pf4boot.plugin.jpa.domain-reload.record-store.*`; default remains `memory`, while `file` enables the persistent repository.
+- Enhanced `/actuator/pf4bootjpareload` with `recordStoreType`, `latestReloadId`, `recentRecordCount`, and `recoverableRecordCount`.
+- Enhanced `samples/cross-plugin-jpa` runtime smoke to verify latest JPA reload visibility after host restart.
 
 ## 4. P2 `providerReplacementPath`
 

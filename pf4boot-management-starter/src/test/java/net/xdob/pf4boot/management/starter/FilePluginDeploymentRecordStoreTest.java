@@ -9,6 +9,7 @@ import org.pf4j.PluginState;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -48,6 +49,32 @@ public class FilePluginDeploymentRecordStoreTest {
         plan("dep-2")));
 
     assertEquals("dep-2", store.recent(1).get(0).getDeploymentId());
+  }
+
+  @Test
+  public void recentUsesDeploymentIdWhenUpdatedAtIsEqual() throws Exception {
+    Path directory = Files.createTempDirectory("pf4boot-deployment-store");
+    FilePluginDeploymentRecordStore store = new FilePluginDeploymentRecordStore(directory);
+    store.save(record("dep-b", DeploymentState.PRECHECKED));
+    store.save(record("dep-a", DeploymentState.PRECHECKED));
+
+    List<DeploymentRecord> records = store.recent(10);
+
+    assertEquals("dep-a", records.get(0).getDeploymentId());
+    assertEquals("dep-b", records.get(1).getDeploymentId());
+  }
+
+  @Test
+  public void skipCorruptedLineWhenReloading() throws Exception {
+    Path directory = Files.createTempDirectory("pf4boot-deployment-store");
+    FilePluginDeploymentRecordStore store = new FilePluginDeploymentRecordStore(directory);
+    store.save(record("dep-1", DeploymentState.SUCCEEDED));
+    Files.write(directory.resolve("deployments-2026-06-12.jsonl"),
+        "not json\n".getBytes("UTF-8"));
+
+    FilePluginDeploymentRecordStore reloaded = new FilePluginDeploymentRecordStore(directory);
+
+    assertEquals(DeploymentState.SUCCEEDED, reloaded.findById("dep-1").getState());
   }
 
   private DeploymentRecord record(String deploymentId, DeploymentState state) {

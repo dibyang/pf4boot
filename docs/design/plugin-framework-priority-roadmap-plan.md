@@ -14,7 +14,7 @@
 | 阶段 | 状态 | 目标 | 主要验收 |
 | --- | --- | --- | --- |
 | P0 设计与规划 | Done | 固化四项优先级和边界 | 中英文设计、规划和索引同步 |
-| P1 持久化记录 | Planned | 加固管理记录 file store，补 JPA reload 文件记录 | 重启后记录可查、幂等可重放、JPA latest 可恢复 |
+| P1 持久化记录 | Done | 加固管理记录 file store，补 JPA reload 文件记录 | 重启后记录可查、幂等可重放、JPA latest 可恢复 |
 | P2 providerReplacementPath | Planned | JPA reload 支持 staged provider 包替换 | 成功替换、失败回滚、unrelated 不受影响 |
 | P3 Saga/Outbox sample | Planned | 演示跨 domain 最终一致性 | 成功、重复投递、失败重试 runtime smoke |
 | P4 管理控制台 UI | Planned | 独立 sample UI 消费 HTTP API/Actuator | 本地 UI smoke、鉴权和幂等展示 |
@@ -75,6 +75,14 @@
 | P1-AC4：损坏记录按 failClosed/failOpen 处理 | 单元测试 |
 | P1-AC5：runtime smoke file-store 重启后可查询记录 | `:samples:cross-plugin-jpa:app-run:runtimeSmoke` |
 | P1-AC6：文档和英文翻译同步 | `git diff --check`、U+FFFD 扫描 |
+
+### 3.4 实施记录
+
+- 已加固 management operation/deployment 记录的 recent 稳定排序，并补充损坏记录跳过测试。
+- 已新增 `FileJpaDomainReloadRecordRepository`，支持 JSON Lines 记录、`latest.json`、幂等索引、fail-open/fail-closed。
+- 已新增 `pf4boot.plugin.jpa.domain-reload.record-store.*` 配置，默认 `memory`，配置为 `file` 时启用文件仓库。
+- 已增强 `/actuator/pf4bootjpareload`，输出 `recordStoreType`、`latestReloadId`、`recentRecordCount`、`recoverableRecordCount`。
+- 已增强 `samples/cross-plugin-jpa` runtime smoke，覆盖 JPA reload 成功后宿主重启仍可读 latest reload。
 
 ## 4. P2 `providerReplacementPath`
 

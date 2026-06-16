@@ -2,10 +2,15 @@ package net.xdob.pf4boot.jpa.starter.reload;
 
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecord;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecordRepository;
+import net.xdob.pf4boot.jpa.reload.JpaDomainReloadState;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -50,11 +55,33 @@ public class InMemoryJpaDomainReloadRecordRepository implements JpaDomainReloadR
 
   @Override
   public synchronized JpaDomainReloadRecord findLatest() {
-    JpaDomainReloadRecord latest = null;
-    for (JpaDomainReloadRecord record : records.values()) {
-      latest = record;
+    List<JpaDomainReloadRecord> recent = recent(1);
+    return recent.isEmpty() ? null : recent.get(0);
+  }
+
+  @Override
+  public synchronized List<JpaDomainReloadRecord> recent(int limit) {
+    if (limit <= 0 || records.isEmpty()) {
+      return Collections.emptyList();
     }
-    return latest;
+    List<JpaDomainReloadRecord> result = new ArrayList<>(records.values());
+    Collections.sort(result, reloadRecordComparator(false));
+    if (result.size() > limit) {
+      result = new ArrayList<>(result.subList(0, limit));
+    }
+    return Collections.unmodifiableList(result);
+  }
+
+  @Override
+  public synchronized List<JpaDomainReloadRecord> scanRecoverableRecords() {
+    List<JpaDomainReloadRecord> result = new ArrayList<>();
+    for (JpaDomainReloadRecord record : records.values()) {
+      if (isRecoverable(record)) {
+        result.add(record);
+      }
+    }
+    Collections.sort(result, reloadRecordComparator(true));
+    return Collections.unmodifiableList(result);
   }
 
   private void trim() {
@@ -72,5 +99,43 @@ public class InMemoryJpaDomainReloadRecordRepository implements JpaDomainReloadR
         }
       }
     }
+  }
+
+  private static boolean isRecoverable(JpaDomainReloadRecord record) {
+    return record != null
+        && JpaDomainReloadState.MANUAL_INTERVENTION_REQUIRED == record.getState();
+  }
+
+  private static Comparator<JpaDomainReloadRecord> reloadRecordComparator(boolean oldestFirst) {
+    return (left, right) -> {
+      long leftTime = timestamp(left);
+      long rightTime = timestamp(right);
+      int timeCompare = Long.compare(leftTime, rightTime);
+      if (!oldestFirst) {
+        timeCompare = -timeCompare;
+      }
+      if (timeCompare != 0) {
+        return timeCompare;
+      }
+      String leftId = left == null ? null : left.getReloadId();
+      String rightId = right == null ? null : right.getReloadId();
+      if (leftId == null && rightId == null) {
+        return 0;
+      }
+      if (leftId == null) {
+        return 1;
+      }
+      if (rightId == null) {
+        return -1;
+      }
+      return leftId.compareTo(rightId);
+    };
+  }
+
+  private static long timestamp(JpaDomainReloadRecord record) {
+    if (record == null) {
+      return 0L;
+    }
+    return record.getFinishedAt() > 0L ? record.getFinishedAt() : record.getStartedAt();
   }
 }

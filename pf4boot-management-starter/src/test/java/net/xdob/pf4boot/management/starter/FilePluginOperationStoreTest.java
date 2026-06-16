@@ -68,6 +68,19 @@ public class FilePluginOperationStoreTest {
     assertEquals("op-2", records.get(1).getOperationId());
   }
 
+  @Test
+  public void recentUsesOperationIdWhenUpdatedAtIsEqual() throws Exception {
+    Path directory = Files.createTempDirectory("pf4boot-operation-store");
+    Files.write(directory.resolve("operations-2026-06-12.jsonl"),
+        (jsonLine("op-b", "SUCCEEDED") + "\n" + jsonLine("op-a", "SUCCEEDED")).getBytes("UTF-8"));
+
+    FilePluginOperationStore store = new FilePluginOperationStore(directory);
+
+    List<PluginOperationRecord> records = store.recent(10);
+    assertEquals("op-a", records.get(0).getOperationId());
+    assertEquals("op-b", records.get(1).getOperationId());
+  }
+
   private PluginOperationRecord record(String operationId, String idempotencyKey, String deploymentId, String state) {
     PluginOperationRecord record = new PluginOperationRecord();
     record.setOperationId(operationId);
