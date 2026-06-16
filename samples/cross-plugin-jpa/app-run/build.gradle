@@ -81,6 +81,7 @@ ospackage {
     from(assembleSampleRuntime.outputs.files.singleFile) {
         into installRoot
         exclude "bin/startup.bat"
+        exclude "bin/startup.sh"
         fileMode 0644
         dirMode  0755
     }
@@ -93,6 +94,9 @@ ospackage {
     from("src/packaging/systemd/pf4boot-cross-plugin-jpa-sample.service") {
         into "/usr/lib/systemd/system"
         fileMode 0644
+        user "root"
+        permissionGroup "root"
+        addParentDirs false
     }
 }
 
@@ -101,6 +105,14 @@ buildRpm {
     arch    = "noarch"
     os      = LINUX
     packageName = packageBaseName
+
+    outputs.upToDateWhen { false }
+    doFirst {
+        File rpmFile = archiveFile.get().asFile
+        if (rpmFile.exists()) {
+            rpmFile.delete()
+        }
+    }
 }
 
 buildDeb {

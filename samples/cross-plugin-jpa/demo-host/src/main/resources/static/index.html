@@ -1,0 +1,743 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PF4Boot Plugin Console</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f6f9;
+      --surface: #ffffff;
+      --surface-2: #f8fafc;
+      --ink: #172033;
+      --muted: #5f6b7a;
+      --line: #d7dee8;
+      --accent: #176b5b;
+      --accent-2: #2558a4;
+      --danger: #b42318;
+      --warn: #a16207;
+      --ok: #157347;
+      --code: #111827;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--line);
+      padding: 14px 22px;
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+    }
+    h1 {
+      margin: 0 0 4px;
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    .subtitle { color: var(--muted); font-size: 13px; }
+    main {
+      width: min(1440px, 100%);
+      margin: 0 auto;
+      padding: 16px 22px 28px;
+    }
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) 170px auto auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(620px, 1.35fr) minmax(360px, .65fr);
+      gap: 14px;
+      align-items: start;
+    }
+    .band {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+    section h2 {
+      margin: 0;
+      padding: 11px 13px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+      font-size: 15px;
+      letter-spacing: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .body { padding: 13px; }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    input, select {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: var(--ink);
+      background: #fff;
+      font: inherit;
+    }
+    button {
+      min-height: 38px;
+      border: 1px solid var(--accent);
+      border-radius: 6px;
+      padding: 8px 12px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    button.secondary { background: #fff; color: var(--accent-2); border-color: var(--accent-2); }
+    button.danger { background: #fff; color: var(--danger); border-color: var(--danger); }
+    button.warn { background: var(--warn); border-color: var(--warn); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .triple {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      align-items: end;
+    }
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      padding: 10px;
+      background: var(--surface);
+      min-height: 74px;
+    }
+    .metric span { display: block; color: var(--muted); font-size: 12px; }
+    .metric strong { display: block; margin-top: 8px; font-size: 23px; line-height: 1; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; background: var(--surface-2); }
+    tr.selected td { background: #eef6f3; }
+    .state {
+      display: inline-block;
+      min-width: 76px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: #eef4ff;
+      color: var(--accent-2);
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .state.started { background: #e8f5ee; color: var(--ok); }
+    .state.failed { background: #fdecec; color: var(--danger); }
+    .state.stopped { background: #f4f4f5; color: #52525b; }
+    .deps {
+      color: var(--muted);
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .mono {
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+    .status-line {
+      color: var(--muted);
+      font-size: 12px;
+      min-height: 18px;
+      margin-top: 8px;
+    }
+    .status-line.ok { color: var(--ok); }
+    .status-line.error { color: var(--danger); }
+    pre {
+      margin: 0;
+      min-height: 310px;
+      max-height: 620px;
+      overflow: auto;
+      background: var(--code);
+      color: #e5edf7;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .tabs {
+      display: flex;
+      gap: 6px;
+      padding: 8px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+    .tab {
+      min-height: 32px;
+      padding: 6px 10px;
+      background: #fff;
+      color: var(--accent-2);
+      border-color: var(--line);
+    }
+    .tab.active {
+      background: var(--accent-2);
+      color: #fff;
+      border-color: var(--accent-2);
+    }
+    .pane { display: none; }
+    .pane.active { display: block; }
+    @media (max-width: 1120px) {
+      header, .topbar, .layout, .band, .grid, .triple {
+        grid-template-columns: 1fr;
+      }
+      main { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>PF4Boot Plugin Console</h1>
+    <div class="subtitle">Cross-Plugin JPA Sample</div>
+  </div>
+  <div class="actions">
+    <button class="secondary" onclick="refreshConsole()">刷新</button>
+    <button class="secondary" onclick="loadDeployments()">部署记录</button>
+    <button class="secondary" onclick="loadActuator()">观测</button>
+  </div>
+</header>
+<main>
+  <div class="topbar">
+    <div>
+      <label for="apiBase">API Base</label>
+      <input id="apiBase" value="">
+    </div>
+    <div>
+      <label for="token">Admin Token</label>
+      <input id="token" value="sample-token">
+    </div>
+    <button onclick="refreshConsole()">连接</button>
+    <button class="secondary" onclick="resetOutput()">清空结果</button>
+  </div>
+
+  <div class="band">
+    <div class="metric"><span>Total</span><strong id="totalCount">-</strong></div>
+    <div class="metric"><span>Started</span><strong id="startedCount">-</strong></div>
+    <div class="metric"><span>Failed</span><strong id="failedCount">-</strong></div>
+    <div class="metric"><span>Users</span><strong id="usersCount">-</strong></div>
+    <div class="metric"><span>Audits</span><strong id="auditsCount">-</strong></div>
+  </div>
+
+  <div class="layout">
+    <div>
+      <section>
+        <h2>
+          <span>插件</span>
+          <span class="actions">
+            <button class="secondary" onclick="loadPlugins()">刷新插件</button>
+            <button onclick="startFailedPlugins()">启动失败项</button>
+          </span>
+        </h2>
+        <div class="body">
+          <table>
+            <thead>
+            <tr>
+              <th>Plugin</th>
+              <th>Version</th>
+              <th>State</th>
+              <th>Dependencies</th>
+              <th>操作</th>
+            </tr>
+            </thead>
+            <tbody id="pluginsBody">
+            <tr><td colspan="5">-</td></tr>
+            </tbody>
+          </table>
+          <div id="consoleStatus" class="status-line"></div>
+        </div>
+      </section>
+
+      <section>
+        <div class="tabs">
+          <button id="tab-detail" class="tab active" onclick="showPane('detail')">详情</button>
+          <button id="tab-deploy" class="tab" onclick="showPane('deploy')">部署</button>
+          <button id="tab-reload" class="tab" onclick="showPane('reload')">JPA Reload</button>
+          <button id="tab-business" class="tab" onclick="showPane('business')">业务验证</button>
+        </div>
+        <div id="pane-detail" class="pane active body">
+          <div class="triple">
+            <div>
+              <label>Plugin ID</label>
+              <input id="selectedPlugin" readonly>
+            </div>
+            <div>
+              <label>State</label>
+              <input id="selectedState" readonly>
+            </div>
+            <div>
+              <label>Start Duration</label>
+              <input id="selectedDuration" readonly>
+            </div>
+          </div>
+          <div class="grid" style="margin-top:10px">
+            <div>
+              <label>Plugin Path</label>
+              <input id="selectedPath" readonly>
+            </div>
+            <div>
+              <label>Error</label>
+              <input id="selectedError" readonly>
+            </div>
+          </div>
+          <div class="actions" style="margin-top:10px">
+            <button onclick="selectedAction('start')">启动</button>
+            <button class="secondary" onclick="selectedAction('restart')">重启</button>
+            <button class="secondary" onclick="selectedAction('reload')">Reload</button>
+            <button class="danger" onclick="selectedAction('stop')">停止</button>
+            <button class="secondary" onclick="selectedAction('enable')">启用</button>
+            <button class="danger" onclick="disableSelected()">禁用</button>
+          </div>
+        </div>
+
+        <div id="pane-deploy" class="pane body">
+          <div class="grid">
+            <div>
+              <label for="deployPlugin">Plugin ID</label>
+              <input id="deployPlugin" value="sample-workflow">
+            </div>
+            <div>
+              <label for="deployPath">Staged Plugin Path</label>
+              <input id="deployPath" value="plugin-workflow-3.0.0-SNAPSHOT.zip">
+            </div>
+          </div>
+          <div class="actions" style="margin-top:10px">
+            <button class="secondary" onclick="deploymentPlan()">预检</button>
+            <button onclick="deploymentReplace()">替换</button>
+            <button class="secondary" onclick="loadDeployments()">记录</button>
+          </div>
+        </div>
+
+        <div id="pane-reload" class="pane body">
+          <div class="grid">
+            <div>
+              <label for="domainId">Domain ID</label>
+              <input id="domainId" value="demo">
+            </div>
+            <div>
+              <label for="providerPath">Provider Replacement Path</label>
+              <input id="providerPath" placeholder="可选">
+            </div>
+          </div>
+          <div class="actions" style="margin-top:10px">
+            <button class="secondary" onclick="jpaPlan()">Plan</button>
+            <button onclick="jpaReload()">执行</button>
+            <button class="secondary" onclick="jpaCurrent()">Current</button>
+          </div>
+        </div>
+
+        <div id="pane-business" class="pane body">
+          <div class="grid">
+            <div>
+              <label for="username">用户名</label>
+              <input id="username" value="alice">
+            </div>
+            <div>
+              <label for="password">密码</label>
+              <input id="password" value="123">
+            </div>
+            <div>
+              <label for="bookName">图书名</label>
+              <input id="bookName" value="book-a">
+            </div>
+            <div>
+              <label for="failureMode">事务路径</label>
+              <select id="failureMode">
+                <option value="false">正常提交</option>
+                <option value="true">强制失败</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions" style="margin-top:10px">
+            <button onclick="placeOrder()">提交业务</button>
+            <button class="warn" onclick="placeRollback()">演示回滚</button>
+            <button class="secondary" onclick="loadAudit()">读取审计</button>
+            <button class="secondary" onclick="loadUnrelated()">无关插件健康</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div>
+      <section>
+        <h2>结果</h2>
+        <div class="body">
+          <pre id="output">{}</pre>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+<script>
+  const byId = id => document.getElementById(id);
+  let plugins = [];
+  let selectedPluginId = '';
+
+  function initBase() {
+    byId('apiBase').value = window.location.origin || 'http://127.0.0.1:7791';
+  }
+
+  function base() {
+    return byId('apiBase').value.replace(/\/$/, '');
+  }
+
+  function token() {
+    return byId('token').value;
+  }
+
+  function idempotencyKey(prefix) {
+    return prefix + '-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+  }
+
+  function setStatus(text, kind) {
+    const element = byId('consoleStatus');
+    element.className = 'status-line ' + (kind || '');
+    element.textContent = text || '';
+  }
+
+  function show(data) {
+    byId('output').textContent = JSON.stringify(data, null, 2);
+  }
+
+  function resetOutput() {
+    show({});
+    setStatus('');
+  }
+
+  async function request(path, options) {
+    const opts = Object.assign({ method: 'GET', admin: false, write: false }, options || {});
+    const headers = Object.assign({}, opts.headers || {});
+    if (opts.admin) headers['X-PF4Boot-Admin-Token'] = token();
+    if (opts.write) headers['X-Idempotency-Key'] = idempotencyKey(opts.idempotencyPrefix || 'sample-ui');
+    if (opts.body) headers['Content-Type'] = 'application/json';
+    const response = await fetch(base() + path, Object.assign({}, opts, { headers }));
+    const text = await response.text();
+    let body = null;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch (error) {
+      body = text;
+    }
+    if (!response.ok) {
+      throw { status: response.status, body: body };
+    }
+    return body;
+  }
+
+  async function run(action, silent) {
+    try {
+      if (!silent) setStatus('请求中...', '');
+      const result = await action();
+      show(result);
+      if (!silent) setStatus('完成', 'ok');
+      return result;
+    } catch (error) {
+      show(error);
+      setStatus(authMessage(error), 'error');
+      throw error;
+    }
+  }
+
+  function authMessage(error) {
+    if (error && error.status === 401) return '认证失败';
+    if (error && error.status === 403) return '无操作权限';
+    return '失败';
+  }
+
+  async function refreshConsole() {
+    await loadPlugins();
+    await loadBusiness(true).catch(() => {});
+    await loadActuator(true).catch(() => {});
+  }
+
+  async function loadPlugins() {
+    return run(async () => {
+      const result = await request('/pf4boot/admin/plugins', { admin: true });
+      plugins = result && result.data ? result.data : [];
+      renderPlugins();
+      selectPlugin(selectedPluginId || (plugins[0] && plugins[0].pluginId));
+      updatePluginMetrics();
+      return result;
+    });
+  }
+
+  function renderPlugins() {
+    const rows = plugins.map(plugin => {
+      const id = plugin.pluginId || plugin.id || '';
+      const state = plugin.state || '';
+      const selected = id === selectedPluginId ? ' class="selected"' : '';
+      return '<tr' + selected + ' onclick="selectPlugin(\'' + escapeAttr(id) + '\')">' +
+          '<td><div class="mono">' + escapeHtml(id) + '</div><div class="deps">' + escapeHtml(plugin.pluginPath || '') + '</div></td>' +
+          '<td>' + escapeHtml(plugin.version || '') + '</td>' +
+          '<td><span class="state ' + stateClass(state) + '">' + escapeHtml(state || '-') + '</span></td>' +
+          '<td class="deps">' + escapeHtml((plugin.dependencies || []).join(', ') || '-') + '</td>' +
+          '<td class="actions">' +
+          '<button onclick="event.stopPropagation(); pluginAction(\'' + escapeAttr(id) + '\', \'start\')">启动</button>' +
+          '<button class="secondary" onclick="event.stopPropagation(); pluginAction(\'' + escapeAttr(id) + '\', \'restart\')">重启</button>' +
+          '<button class="danger" onclick="event.stopPropagation(); pluginAction(\'' + escapeAttr(id) + '\', \'stop\')">停止</button>' +
+          '</td></tr>';
+    }).join('');
+    byId('pluginsBody').innerHTML = rows || '<tr><td colspan="5">无数据</td></tr>';
+  }
+
+  function updatePluginMetrics() {
+    const started = plugins.filter(plugin => String(plugin.state || '').toUpperCase().indexOf('START') >= 0).length;
+    const failed = plugins.filter(plugin => String(plugin.state || '').toUpperCase().indexOf('FAIL') >= 0).length;
+    byId('totalCount').textContent = plugins.length;
+    byId('startedCount').textContent = started;
+    byId('failedCount').textContent = failed;
+  }
+
+  function selectPlugin(pluginId) {
+    selectedPluginId = pluginId || '';
+    const plugin = plugins.find(item => item.pluginId === selectedPluginId) || {};
+    byId('selectedPlugin').value = plugin.pluginId || '';
+    byId('selectedState').value = plugin.state || '';
+    byId('selectedDuration').value = plugin.lastStartDurationMillis == null ? '' : plugin.lastStartDurationMillis + ' ms';
+    byId('selectedPath').value = plugin.pluginPath || '';
+    byId('selectedError').value = plugin.errorMessage || plugin.errorDetail || '';
+    if (plugin.pluginId) byId('deployPlugin').value = plugin.pluginId;
+    renderPlugins();
+  }
+
+  function selectedAction(action) {
+    if (!selectedPluginId) return;
+    return pluginAction(selectedPluginId, action);
+  }
+
+  async function disableSelected() {
+    if (!selectedPluginId) return;
+    return run(async () => {
+      const result = await request('/pf4boot/admin/plugins/' + encodeURIComponent(selectedPluginId) + '/enable', {
+        method: 'DELETE',
+        admin: true,
+        write: true,
+        idempotencyPrefix: 'disable-' + selectedPluginId
+      });
+      await loadPlugins();
+      return result;
+    });
+  }
+
+  async function pluginAction(pluginId, action) {
+    return run(async () => {
+      const result = await request('/pf4boot/admin/plugins/' + encodeURIComponent(pluginId) + '/' + action, {
+        method: 'POST',
+        admin: true,
+        write: true,
+        idempotencyPrefix: action + '-' + pluginId
+      });
+      selectedPluginId = pluginId;
+      await loadPlugins();
+      return result;
+    });
+  }
+
+  async function startFailedPlugins() {
+    const failed = plugins.filter(plugin => String(plugin.state || '').toUpperCase().indexOf('FAIL') >= 0);
+    return run(async () => {
+      const results = [];
+      for (const plugin of failed) {
+        results.push(await request('/pf4boot/admin/plugins/' + encodeURIComponent(plugin.pluginId) + '/start', {
+          method: 'POST',
+          admin: true,
+          write: true,
+          idempotencyPrefix: 'start-failed-' + plugin.pluginId
+        }));
+      }
+      await loadPlugins();
+      return results;
+    });
+  }
+
+  async function deploymentPlan() {
+    return deployment('plan', true);
+  }
+
+  async function deploymentReplace() {
+    return deployment('replace', false);
+  }
+
+  async function deployment(action, dryRun) {
+    return run(() => request('/pf4boot/admin/deployments/' + action, {
+      method: 'POST',
+      admin: true,
+      write: true,
+      idempotencyPrefix: 'deploy-' + action,
+      body: JSON.stringify({
+        pluginId: byId('deployPlugin').value,
+        stagedPluginPath: byId('deployPath').value,
+        dryRun: dryRun
+      })
+    }));
+  }
+
+  async function loadDeployments() {
+    showPane('deploy');
+    return run(() => request('/pf4boot/admin/deployments', { admin: true }));
+  }
+
+  function reloadBody() {
+    const replacementPath = byId('providerPath').value.trim();
+    return replacementPath ? { providerReplacementPath: replacementPath } : {};
+  }
+
+  async function jpaPlan() {
+    return run(() => request('/pf4boot/admin/jpa/domains/' + byId('domainId').value + '/reload/plan', {
+      method: 'POST',
+      admin: true,
+      body: JSON.stringify(reloadBody())
+    }));
+  }
+
+  async function jpaReload() {
+    return run(() => request('/pf4boot/admin/jpa/domains/' + byId('domainId').value + '/reload', {
+      method: 'POST',
+      admin: true,
+      write: true,
+      idempotencyPrefix: 'jpa-reload',
+      body: JSON.stringify(reloadBody())
+    }));
+  }
+
+  async function jpaCurrent() {
+    return run(() => request('/pf4boot/admin/jpa/domains/' + byId('domainId').value + '/reload/current', {
+      admin: true
+    }));
+  }
+
+  async function loadBusiness(silent) {
+    return run(async () => {
+      const result = await request('/api/sample/workflow/summary');
+      const data = result && result.data ? result.data : result;
+      byId('usersCount').textContent = value(data, 'users');
+      byId('auditsCount').textContent = value(data, 'audits');
+      return result;
+    }, silent);
+  }
+
+  async function placeOrder() {
+    return place(byId('failureMode').value);
+  }
+
+  async function placeRollback() {
+    byId('failureMode').value = 'true';
+    return place('true');
+  }
+
+  async function place(fail) {
+    return run(async () => {
+      const query = new URLSearchParams({
+        username: byId('username').value,
+        password: byId('password').value,
+        bookName: byId('bookName').value,
+        failAfterAudit: fail
+      });
+      try {
+        const result = await request('/api/sample/workflow/place?' + query.toString());
+        await loadBusiness(true);
+        return result;
+      } catch (error) {
+        await loadBusiness(true).catch(() => {});
+        throw error;
+      }
+    });
+  }
+
+  async function loadAudit() {
+    return run(async () => {
+      const query = new URLSearchParams({ username: byId('username').value });
+      return request('/api/sample/workflow/audit?' + query.toString());
+    });
+  }
+
+  async function loadUnrelated() {
+    return run(() => request('/api/sample/unrelated/health'));
+  }
+
+  async function loadActuator(silent) {
+    return run(async () => {
+      const governance = await request('/actuator/pf4bootgovernance');
+      const jpaReload = await request('/actuator/pf4bootjpareload');
+      return { governance: governance, jpaReload: jpaReload };
+    }, silent);
+  }
+
+  function showPane(name) {
+    ['detail', 'deploy', 'reload', 'business'].forEach(item => {
+      byId('pane-' + item).classList.toggle('active', item === name);
+      byId('tab-' + item).classList.toggle('active', item === name);
+    });
+  }
+
+  function stateClass(state) {
+    const value = String(state || '').toLowerCase();
+    if (value.indexOf('start') >= 0) return 'started';
+    if (value.indexOf('fail') >= 0) return 'failed';
+    if (value.indexOf('stop') >= 0) return 'stopped';
+    return '';
+  }
+
+  function value(obj, key) {
+    return obj && obj[key] !== undefined && obj[key] !== null ? obj[key] : '-';
+  }
+
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    }[ch]));
+  }
+
+  function escapeAttr(value) {
+    return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  }
+
+  initBase();
+  refreshConsole().catch(() => {});
+</script>
+</body>
+</html>

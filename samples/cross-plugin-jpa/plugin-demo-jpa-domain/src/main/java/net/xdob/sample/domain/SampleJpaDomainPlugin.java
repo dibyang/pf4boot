@@ -24,7 +24,7 @@ public class SampleJpaDomainPlugin extends Pf4bootPlugin {
     setProperty("pf4boot.plugin.jpa.domain.entity-packages[0]", "net.xdob.sample.model.userbook");
     setProperty("pf4boot.plugin.jpa.domain.entity-packages[1]", "net.xdob.sample.model.audit");
     setProperty("pf4boot.plugin.jpa.domain.datasource.url",
-        "jdbc:h2:file:~/h2/pf4boot_sample_cross_plugin_jpa;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1");
+        "jdbc:h2:file:./work/h2/pf4boot_sample_cross_plugin_jpa;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1");
     setProperty("pf4boot.plugin.jpa.domain.datasource.username", "sa");
     setProperty("pf4boot.plugin.jpa.domain.datasource.driver-class-name", "org.h2.Driver");
     setProperty("pf4boot.plugin.jpa.domain.ddl-auto", "update");

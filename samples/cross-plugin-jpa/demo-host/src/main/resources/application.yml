@@ -30,6 +30,7 @@ spring:
         enabled: true
         mode: LOCAL_TOKEN
         token: ${PF4BOOT_ADMIN_TOKEN:sample-token}
+        allow-loopback-only: false
         staging-root: build/sample-plugins
         operation-store:
           type: memory
@@ -40,22 +41,8 @@ spring:
 pf4boot:
   plugin:
     jpa:
-      enabled: true
-      mode: SHARED
-      domain-id: demo
       domain-reload:
         mode: STOP_CONSUMERS_AND_REBUILD
         record-store:
           type: file
           directory: build/pf4boot/jpa-reloads
-      domain:
-        id: demo
-        entity-packages:
-          - net.xdob.sample.model.userbook
-          - net.xdob.sample.model.audit
-        datasource:
-          url: jdbc:h2:file:~/h2/pf4boot_sample_cross_plugin_jpa;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
-          username: sa
-          password:
-          driver-class-name: org.h2.Driver
-        ddl-auto: update

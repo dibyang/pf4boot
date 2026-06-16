@@ -36,17 +36,61 @@
 - `samples/cross-plugin-jpa/app-run/build/runtime`
 - `samples/cross-plugin-jpa/app-run/build/distributions/pf4boot-cross-plugin-jpa-sample-*.zip`
 
+## 运行日志
+
+`app-run` 和 RPM 安装后的服务默认写文件日志：
+
+```text
+logs/pf4boot-cross-plugin-jpa-sample.log
+```
+
+RPM 安装路径下对应：
+
+```text
+/opt/pf4boot/cross-plugin-jpa-sample/logs/pf4boot-cross-plugin-jpa-sample.log
+```
+
+日志仍会输出到控制台，因此 systemd 环境也可以通过 `journalctl -u pf4boot-cross-plugin-jpa-sample -f` 查看。
+可以通过启动前设置 `LOG_DIR` 或 `JAVA_OPTS` 调整日志目录和 JVM 参数。
+
+示例 H2 数据库默认写入运行目录下的 `work/h2/`，不依赖 Linux 用户的 home 目录。
+
 ## HTTP smoke
 
 宿主启动后可访问：
 
 ```text
+GET /
 GET /api/sample/workflow/place?username=alice&password=123&bookName=book-a
 GET /api/sample/workflow/place?username=bob&password=123&bookName=book-b&failAfterAudit=true
 GET /api/sample/workflow/summary
 GET /api/sample/workflow/audit?username=alice
 GET /api/sample/unrelated/health
 ```
+
+## 插件控制台
+
+示例宿主内置一个开箱即用的插件控制台，启动 `demo-host` 或 `app-run` runtime 后访问：
+
+```text
+http://127.0.0.1:7791/
+```
+
+该页面覆盖：
+
+- 插件列表、状态摘要、依赖、插件路径、失败信息和 start/stop/restart/reload/enable/disable 操作。
+- staged 插件部署预检、替换和部署记录查询。
+- JPA reload plan、reload 执行和 current 记录查询。
+- 正常下单、强制失败回滚、审计查询和无关插件健康检查，用于验证管理操作后的业务可用性。
+- Actuator 治理摘要和 JPA reload 摘要。
+
+控制台默认使用 sample 配置中的 `sample-token`，并随 sample host 一起打包。仓库中仍保留独立的
+`samples/plugin-management-console` 静态管理控制台示例；`cross-plugin-jpa` 的内置控制台作为更完整的产品化演示入口。
+
+JPA domain 的实体扫描包不在宿主配置中声明。示例由 `plugin-demo-jpa-domain` 在插件启动初始化阶段声明
+`pf4boot.plugin.jpa.domain.entity-packages[*]`、DataSource 和 ddl 策略，避免宿主替插件维护实体包清单。
+业务插件也在各自插件主类中声明 `pf4boot.plugin.jpa.enabled=true`、`mode=SHARED` 和 `domain-id=demo`；
+宿主只保留 JPA reload 的管理配置，不替插件开启 JPA。
 
 预期行为：
 
@@ -67,6 +111,7 @@ spring:
         enabled: true
         mode: LOCAL_TOKEN
         token: ${PF4BOOT_ADMIN_TOKEN:sample-token}
+        allow-loopback-only: false
         staging-root: build/sample-plugins
 ```
 
@@ -109,6 +154,8 @@ curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" \
 ```
 
 说明：`plan/replace` 会校验 `stagedPluginPath` 必须位于 `staging-root` 下，避免目录穿越。
+
+示例 UI 支持通过服务器 IP 远程访问，因此 sample 配置显式设置 `allow-loopback-only: false`。生产环境不要直接复用该演示配置，应改用受控网络、强 token 或 `REMOTE_DELEGATED` 鉴权。
 
 离线仓库索引示例位于：
 
