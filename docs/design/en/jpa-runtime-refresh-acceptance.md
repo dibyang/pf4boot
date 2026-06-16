@@ -29,7 +29,7 @@ Statuses:
 | R1-AC2: `pf4boot.plugin.jpa.domain-reload.*` binds correctly | Done | `Pf4bootJpaProperties.DomainReload` |
 | R1-AC3: default `DISABLED` mode changes no runtime behavior | Done | `DefaultJpaDomainReloadServiceTest.reloadDoesNotExecuteWhenConfiguredDisabledEvenIfRequestAsksExecuteMode`; runtime smoke `jpaReloadDisabledNoMutation` |
 | R1-AC4: Java 8 compilation passes | Done | `.\gradlew.bat :pf4boot-jpa:compileJava :pf4boot-jpa-starter:compileJava` |
-| R1-AC5: request validation covers empty domain, missing idempotency key, long reason, and unsupported providerReplacementPath | Done | `reloadRejectsInvalidRequestsBeforeExecution`, `reloadRejectsProviderReplacementPathWithoutExecuting` |
+| R1-AC5: request validation covers empty domain, missing idempotency key, and long reason; providerReplacementPath is superseded by P2 deployment-service integration | Superseded | `reloadRejectsInvalidRequestsBeforeExecution`, `reloadRequiresDeploymentServiceForProviderReplacementPath`, `reloadProviderReplacementUsesDeploymentServiceAndRecordsSummary` |
 | R1-AC6: failure/blocker codes are stable enums and do not expose exception class names | Done | `JpaDomainReloadFailureCode`, `JpaDomainReloadBlocker`; management APIs return code/message |
 
 ## 4. R2 PLAN_ONLY
@@ -80,7 +80,7 @@ Statuses:
 | R5-AC7: failure records include state transitions and codes | Done | failure record path; `reloadFailsWhenProviderExportsRemainAfterStop` |
 | R5-AC8: unrelated plugins survive provider or consumer restart failures | Done | runtime smoke `jpaProviderIsolation`, `unrelatedPluginAlive` |
 | R5-AC9: repeated execute requests with the same idempotency key return the same reloadId | Done | runtime smoke `jpaReloadIdempotency` |
-| R5-AC10: non-empty providerReplacementPath returns `UNSUPPORTED_REPLACEMENT_PATH` and does not execute | Done | `reloadRejectsProviderReplacementPathWithoutExecuting` |
+| R5-AC10: non-empty providerReplacementPath returns `UNSUPPORTED_REPLACEMENT_PATH` and does not execute | Superseded | P2 now delegates provider replacement to `PluginDeploymentService`; see `plugin-framework-priority-roadmap-plan.md` |
 | R5-AC11: old descriptor, EMF, TM, and datasource exports are absent after provider stop | Done | `verifyProviderExportsRemoved`; `reloadFailsWhenProviderExportsRemainAfterStop` |
 | R5-AC12: provider start failure retries recovery once and enters manual intervention if recovery fails | Done | `reloadRetriesProviderStartOnce`; failure path returns `MANUAL_INTERVENTION_REQUIRED` |
 

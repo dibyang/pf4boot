@@ -4,6 +4,7 @@ import net.xdob.pf4boot.jpa.reload.JpaDomainReloadFailureCode;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecord;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRequest;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadState;
+import net.xdob.pf4boot.jpa.reload.JpaProviderReplacementSummary;
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -63,6 +64,46 @@ public class FileJpaDomainReloadRecordRepositoryTest {
   }
 
   @Test
+  public void reloadsProviderReplacementSummaryFromFiles() throws Exception {
+    Path directory = Files.createTempDirectory("pf4boot-jpa-reload-store");
+    FileJpaDomainReloadRecordRepository store =
+        new FileJpaDomainReloadRecordRepository(directory, 100, true);
+    JpaDomainReloadRecord record = new JpaDomainReloadRecord(
+        "reload-replace",
+        "plan-replace",
+        "demo",
+        JpaDomainReloadState.SUCCEEDED,
+        1000L,
+        2000L,
+        request("demo", "key-replace"),
+        null,
+        Arrays.asList(JpaDomainReloadState.SUCCEEDED),
+        null,
+        null,
+        null,
+        null,
+        new JpaProviderReplacementSummary(
+            "deployment-1",
+            "provider-demo",
+            "plugins/provider.zip",
+            "1.0.0",
+            "2.0.0",
+            "SUCCEEDED",
+            null,
+            "replacement succeeded"));
+
+    store.save(record);
+
+    FileJpaDomainReloadRecordRepository reloaded =
+        new FileJpaDomainReloadRecordRepository(directory, 100, true);
+
+    assertEquals("deployment-1",
+        reloaded.findById("reload-replace").getProviderReplacementSummary().getDeploymentId());
+    assertEquals("2.0.0",
+        reloaded.findById("reload-replace").getProviderReplacementSummary().getStagedVersion());
+  }
+
+  @Test
   public void skipsCorruptedLineWhenFailOpen() throws Exception {
     Path directory = Files.createTempDirectory("pf4boot-jpa-reload-store");
     FileJpaDomainReloadRecordRepository store =
@@ -106,9 +147,6 @@ public class FileJpaDomainReloadRecordRepositoryTest {
       long startedAt,
       long finishedAt,
       String idempotencyKey) {
-    JpaDomainReloadRequest request = new JpaDomainReloadRequest();
-    request.setDomainId(domainId);
-    request.setIdempotencyKey(idempotencyKey);
     return new JpaDomainReloadRecord(
         reloadId,
         "plan-" + reloadId,
@@ -116,7 +154,7 @@ public class FileJpaDomainReloadRecordRepositoryTest {
         state,
         startedAt,
         finishedAt,
-        request,
+        request(domainId, idempotencyKey),
         null,
         Arrays.asList(state),
         state == JpaDomainReloadState.MANUAL_INTERVENTION_REQUIRED
@@ -124,6 +162,13 @@ public class FileJpaDomainReloadRecordRepositoryTest {
             : null,
         null,
         null);
+  }
+
+  private static JpaDomainReloadRequest request(String domainId, String idempotencyKey) {
+    JpaDomainReloadRequest request = new JpaDomainReloadRequest();
+    request.setDomainId(domainId);
+    request.setIdempotencyKey(idempotencyKey);
+    return request;
   }
 
   private static List<String> ids(List<JpaDomainReloadRecord> records) {

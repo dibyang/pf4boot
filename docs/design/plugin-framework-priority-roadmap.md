@@ -33,7 +33,7 @@
 | 管理操作记录 | 已有 `PluginOperationStore`，含内存和文件实现 | `PluginOperationStore`、`FilePluginOperationStore` |
 | 部署记录 | 已有 `PluginDeploymentRecordStore`，含内存和文件实现 | `PluginDeploymentRecordStore`、`FilePluginDeploymentRecordStore` |
 | JPA reload 记录 | 已有 `JpaDomainReloadRecordRepository`，当前自动配置使用内存实现 | `InMemoryJpaDomainReloadRecordRepository` |
-| provider 替换字段 | `JpaDomainReloadRequest.providerReplacementPath` 已存在，但当前返回 `UNSUPPORTED_REPLACEMENT_PATH` | `jpa-runtime-refresh.md` |
+| provider 替换字段 | `JpaDomainReloadRequest.providerReplacementPath` 已接入 `PluginDeploymentService`，支持 staged provider 包替换 | `plugin-framework-priority-roadmap-plan.md` |
 | Saga/Outbox | 决策文档推荐业务层模式，但未落 sample | `cross-datasource-transaction-decision.md` |
 | 管理 UI | 决策文档明确不进框架模块，可做独立 sample UI | `plugin-management-console-boundary.md` |
 

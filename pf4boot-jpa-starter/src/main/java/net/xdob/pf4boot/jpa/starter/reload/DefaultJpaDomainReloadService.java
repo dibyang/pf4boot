@@ -3,6 +3,10 @@ package net.xdob.pf4boot.jpa.starter.reload;
 import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.annotation.PluginStarter;
+import net.xdob.pf4boot.deployment.DeploymentPlan;
+import net.xdob.pf4boot.deployment.DeploymentRecord;
+import net.xdob.pf4boot.deployment.DeploymentState;
+import net.xdob.pf4boot.deployment.PluginDeploymentService;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
 import net.xdob.pf4boot.jpa.reload.JpaDomainDrainReport;
 import net.xdob.pf4boot.jpa.reload.JpaDomainDrainerResult;
@@ -15,6 +19,7 @@ import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecordRepository;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRequest;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadService;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadState;
+import net.xdob.pf4boot.jpa.reload.JpaProviderReplacementSummary;
 import net.xdob.pf4boot.jpa.starter.Pf4bootJpaProperties;
 import org.pf4j.PluginState;
 import org.pf4j.PluginWrapper;
@@ -27,6 +32,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.nio.file.Paths;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -40,6 +46,7 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
   private final JpaDomainReloadRecordRepository recordRepository;
   private final JpaDomainReloadDrainCoordinator drainCoordinator;
   private final Pf4bootJpaProperties properties;
+  private final PluginDeploymentService deploymentService;
   private final ReentrantLock globalLock = new ReentrantLock();
   private final ConcurrentHashMap<String, ReentrantLock> domainLocks = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, String> currentReloads = new ConcurrentHashMap<>();
@@ -54,6 +61,7 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
         planService,
         recordRepository,
         new JpaDomainReloadDrainCoordinator(Collections.emptyList(), properties),
+        null,
         properties);
   }
 
@@ -63,6 +71,16 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
       JpaDomainReloadRecordRepository recordRepository,
       JpaDomainReloadDrainCoordinator drainCoordinator,
       Pf4bootJpaProperties properties) {
+    this(pluginManager, planService, recordRepository, drainCoordinator, null, properties);
+  }
+
+  public DefaultJpaDomainReloadService(
+      Pf4bootPluginManager pluginManager,
+      DefaultJpaDomainReloadPlanService planService,
+      JpaDomainReloadRecordRepository recordRepository,
+      JpaDomainReloadDrainCoordinator drainCoordinator,
+      PluginDeploymentService deploymentService,
+      Pf4bootJpaProperties properties) {
     this.pluginManager = pluginManager;
     this.planService = planService;
     this.recordRepository = recordRepository;
@@ -70,6 +88,7 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
         ? new JpaDomainReloadDrainCoordinator(Collections.emptyList(), properties)
         : drainCoordinator;
     this.properties = properties == null ? new Pf4bootJpaProperties() : properties;
+    this.deploymentService = deploymentService;
   }
 
   @Override
@@ -80,15 +99,6 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
   @Override
   public JpaDomainReloadRecord reload(JpaDomainReloadRequest request) {
     validateRequest(request);
-    if (StringUtils.hasText(request.getProviderReplacementPath())) {
-      JpaDomainReloadRecord record = failedRecord(
-          request,
-          null,
-          JpaDomainReloadFailureCode.UNSUPPORTED_REPLACEMENT_PATH,
-          "providerReplacementPath is not supported in V1");
-      save(record);
-      return record;
-    }
     JpaDomainReloadRecord replay = recordRepository.findByIdempotencyKey(request.getIdempotencyKey());
     if (replay != null) {
       return replay;
@@ -114,6 +124,11 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
       }
       List<JpaDomainReloadState> states = new ArrayList<>();
       long startedAt = System.currentTimeMillis();
+      if (StringUtils.hasText(request.getProviderReplacementPath())) {
+        JpaDomainReloadRecord record = replaceProvider(request, plan, states, startedAt);
+        save(record);
+        return record;
+      }
       JpaDomainDrainReport drainReport = null;
       boolean drainEnded = false;
       try {
@@ -302,6 +317,126 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
     } catch (ReloadStepException firstFailure) {
       startPlugin(pluginId, JpaDomainReloadFailureCode.PROVIDER_START_FAILED);
     }
+  }
+
+  private JpaDomainReloadRecord replaceProvider(
+      JpaDomainReloadRequest request,
+      JpaDomainReloadPlan plan,
+      List<JpaDomainReloadState> states,
+      long startedAt) {
+    if (deploymentService == null) {
+      states.add(JpaDomainReloadState.FAILED);
+      return new JpaDomainReloadRecord(
+          "jpa-reload-" + UUID.randomUUID().toString(),
+          plan.getPlanId(),
+          request.getDomainId(),
+          JpaDomainReloadState.FAILED,
+          startedAt,
+          System.currentTimeMillis(),
+          request,
+          plan,
+          states,
+          JpaDomainReloadFailureCode.LIFECYCLE_OPERATION_UNAVAILABLE,
+          "PluginDeploymentService is required for providerReplacementPath",
+          null);
+    }
+    states.add(JpaDomainReloadState.PLANNED);
+    states.add(JpaDomainReloadState.STOPPING_PROVIDER);
+    DeploymentRecord deploymentRecord = deploymentService.replace(
+        plan.getProviderPluginId(),
+        Paths.get(request.getProviderReplacementPath()));
+    JpaProviderReplacementSummary replacementSummary = replacementSummary(deploymentRecord);
+    if (deploymentRecord == null || DeploymentState.SUCCEEDED != deploymentRecord.getState()) {
+      JpaDomainReloadState state = deploymentRecord != null
+          && DeploymentState.MANUAL_INTERVENTION == deploymentRecord.getState()
+          ? JpaDomainReloadState.MANUAL_INTERVENTION_REQUIRED
+          : JpaDomainReloadState.FAILED;
+      states.add(state);
+      return new JpaDomainReloadRecord(
+          "jpa-reload-" + UUID.randomUUID().toString(),
+          plan.getPlanId(),
+          request.getDomainId(),
+          state,
+          startedAt,
+          System.currentTimeMillis(),
+          request,
+          plan,
+          states,
+          replacementFailureCode(deploymentRecord),
+          deploymentRecord == null ? "provider replacement did not return deployment record" : deploymentRecord.getMessage(),
+          state == JpaDomainReloadState.MANUAL_INTERVENTION_REQUIRED ? "manual intervention required" : null,
+          null,
+          replacementSummary);
+    }
+    states.add(JpaDomainReloadState.STARTING_PROVIDER);
+    states.add(JpaDomainReloadState.HEALTH_CHECKING);
+    JpaDomainReloadPlan afterStartPlan = planService.plan(request);
+    if (afterStartPlan.getDescriptor() == null || !afterStartPlan.getDescriptor().isReady()) {
+      states.add(JpaDomainReloadState.MANUAL_INTERVENTION_REQUIRED);
+      return new JpaDomainReloadRecord(
+          "jpa-reload-" + UUID.randomUUID().toString(),
+          plan.getPlanId(),
+          request.getDomainId(),
+          JpaDomainReloadState.MANUAL_INTERVENTION_REQUIRED,
+          startedAt,
+          System.currentTimeMillis(),
+          request,
+          plan,
+          states,
+          JpaDomainReloadFailureCode.HEALTH_CHECK_FAILED,
+          "provider descriptor is not ready after replacement",
+          "manual intervention required",
+          null,
+          replacementSummary);
+    }
+    states.add(JpaDomainReloadState.SUCCEEDED);
+    return new JpaDomainReloadRecord(
+        "jpa-reload-" + UUID.randomUUID().toString(),
+        plan.getPlanId(),
+        request.getDomainId(),
+        JpaDomainReloadState.SUCCEEDED,
+        startedAt,
+        System.currentTimeMillis(),
+        request,
+        plan,
+        states,
+        null,
+        null,
+        null,
+        null,
+        replacementSummary);
+  }
+
+  private JpaProviderReplacementSummary replacementSummary(DeploymentRecord record) {
+    if (record == null) {
+      return null;
+    }
+    DeploymentPlan plan = record.getPlan();
+    String rollbackStatus = null;
+    if (DeploymentState.MANUAL_INTERVENTION == record.getState()) {
+      rollbackStatus = "FAILED";
+    } else if (DeploymentState.FAILED == record.getState()) {
+      rollbackStatus = "SUCCEEDED_OR_NOT_REQUIRED";
+    }
+    return new JpaProviderReplacementSummary(
+        record.getDeploymentId(),
+        record.getTargetPluginId(),
+        plan == null ? null : plan.getStagedPluginPath(),
+        plan == null ? null : plan.getCurrentVersion(),
+        plan == null ? null : plan.getStagedVersion(),
+        record.getState() == null ? null : record.getState().name(),
+        rollbackStatus,
+        record.getMessage());
+  }
+
+  private JpaDomainReloadFailureCode replacementFailureCode(DeploymentRecord record) {
+    if (record != null && DeploymentState.MANUAL_INTERVENTION == record.getState()) {
+      return JpaDomainReloadFailureCode.PROVIDER_REPLACEMENT_ROLLBACK_FAILED;
+    }
+    if (record != null && "PRECHECK_FAILED".equals(record.getErrorCode())) {
+      return JpaDomainReloadFailureCode.PROVIDER_REPLACEMENT_VERIFY_FAILED;
+    }
+    return JpaDomainReloadFailureCode.PROVIDER_REPLACEMENT_ACTIVATION_FAILED;
   }
 
   private void verifyProviderExportsRemoved(JpaDomainReloadRequest request, JpaDomainReloadPlan plan) {

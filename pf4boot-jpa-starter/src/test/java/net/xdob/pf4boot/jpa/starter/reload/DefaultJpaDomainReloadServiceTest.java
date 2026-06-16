@@ -1,6 +1,10 @@
 package net.xdob.pf4boot.jpa.starter.reload;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
+import net.xdob.pf4boot.deployment.DeploymentPlan;
+import net.xdob.pf4boot.deployment.DeploymentRecord;
+import net.xdob.pf4boot.deployment.DeploymentState;
+import net.xdob.pf4boot.deployment.PluginDeploymentService;
 import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadMode;
@@ -97,7 +101,7 @@ public class DefaultJpaDomainReloadServiceTest {
   }
 
   @Test
-  public void reloadRejectsProviderReplacementPathWithoutExecuting() {
+  public void reloadRequiresDeploymentServiceForProviderReplacementPath() {
     Fixture fixture = new Fixture();
     try {
       fixture.addPlugin("provider-demo", PluginState.STARTED);
@@ -108,8 +112,31 @@ public class DefaultJpaDomainReloadServiceTest {
       JpaDomainReloadRecord record = fixture.service().reload(request);
 
       assertEquals(JpaDomainReloadState.FAILED, record.getState());
-      assertEquals(JpaDomainReloadFailureCode.UNSUPPORTED_REPLACEMENT_PATH, record.getFailureCode());
+      assertEquals(JpaDomainReloadFailureCode.LIFECYCLE_OPERATION_UNAVAILABLE, record.getFailureCode());
       assertEquals(0, fixture.operations.size());
+    } finally {
+      fixture.close();
+    }
+  }
+
+  @Test
+  public void reloadProviderReplacementUsesDeploymentServiceAndRecordsSummary() {
+    Fixture fixture = new Fixture();
+    try {
+      fixture.addPlugin("provider-demo", PluginState.STARTED);
+      fixture.registerDescriptor("demo", "provider-demo", true);
+      RecordingDeploymentService deploymentService = new RecordingDeploymentService(DeploymentState.SUCCEEDED);
+
+      JpaDomainReloadRequest request = request("demo", "replace-provider-key");
+      request.setProviderReplacementPath("plugins/new-provider.zip");
+      JpaDomainReloadRecord record = fixture.service(deploymentService).reload(request);
+
+      assertEquals(JpaDomainReloadState.SUCCEEDED, record.getState());
+      assertEquals(1, deploymentService.replaceCalls);
+      assertEquals("provider-demo", deploymentService.targetPluginId);
+      assertEquals(Paths.get("plugins/new-provider.zip").toString(), deploymentService.stagedPath.toString());
+      assertEquals("deployment-1", record.getProviderReplacementSummary().getDeploymentId());
+      assertEquals("2.0.0", record.getProviderReplacementSummary().getStagedVersion());
     } finally {
       fixture.close();
     }
@@ -315,6 +342,20 @@ public class DefaultJpaDomainReloadServiceTest {
           properties);
     }
 
+    DefaultJpaDomainReloadService service(PluginDeploymentService deploymentService) {
+      Pf4bootJpaProperties properties = new Pf4bootJpaProperties();
+      properties.getDomainReload().setMode(JpaDomainReloadMode.STOP_CONSUMERS_AND_REBUILD);
+      DefaultJpaDomainReloadPlanService planService =
+          new DefaultJpaDomainReloadPlanService(manager(), registry, properties, deploymentService);
+      return new DefaultJpaDomainReloadService(
+          manager(),
+          planService,
+          new InMemoryJpaDomainReloadRecordRepository(100),
+          new JpaDomainReloadDrainCoordinator(Collections.<PluginTrafficDrainer>emptyList(), properties),
+          deploymentService,
+          properties);
+    }
+
     void addPlugin(String pluginId, PluginState state, String... dependencies) {
       DefaultPluginDescriptor descriptor = new DefaultPluginDescriptor(
           pluginId,
@@ -444,6 +485,59 @@ public class DefaultJpaDomainReloadServiceTest {
     @Override
     public void endDrain(java.util.Collection<String> pluginIds) {
       events.add("end");
+    }
+  }
+
+  private static class RecordingDeploymentService implements PluginDeploymentService {
+    private final DeploymentState state;
+    private int replaceCalls;
+    private String targetPluginId;
+    private java.nio.file.Path stagedPath;
+
+    private RecordingDeploymentService(DeploymentState state) {
+      this.state = state;
+    }
+
+    @Override
+    public DeploymentRecord planReplacement(String targetPluginId, java.nio.file.Path stagedPluginPath) {
+      return record(targetPluginId, stagedPluginPath, DeploymentState.PRECHECKED);
+    }
+
+    @Override
+    public DeploymentRecord replace(String targetPluginId, java.nio.file.Path stagedPluginPath) {
+      replaceCalls++;
+      this.targetPluginId = targetPluginId;
+      this.stagedPath = stagedPluginPath;
+      return record(targetPluginId, stagedPluginPath, state);
+    }
+
+    private DeploymentRecord record(
+        String targetPluginId,
+        java.nio.file.Path stagedPluginPath,
+        DeploymentState state) {
+      long now = System.currentTimeMillis();
+      DeploymentPlan plan = new DeploymentPlan(
+          "deployment-1",
+          targetPluginId,
+          stagedPluginPath.toString(),
+          "plugins/provider-old.zip",
+          "1.0.0",
+          PluginState.STARTED,
+          "2.0.0",
+          "",
+          Collections.<String>emptyList(),
+          Collections.singletonList(targetPluginId),
+          Collections.singletonList(targetPluginId),
+          Collections.emptyList(),
+          null);
+      return new DeploymentRecord(
+          "deployment-1",
+          targetPluginId,
+          state,
+          now,
+          now,
+          state == DeploymentState.SUCCEEDED ? "replacement succeeded" : "replacement failed",
+          plan);
     }
   }
 }

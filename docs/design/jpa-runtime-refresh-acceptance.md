@@ -31,7 +31,7 @@
 | R1-AC2：配置前缀 `pf4boot.plugin.jpa.domain-reload.*` 可绑定 | Done | `Pf4bootJpaProperties.DomainReload` |
 | R1-AC3：默认 `DISABLED` 无行为变化 | Done | `DefaultJpaDomainReloadServiceTest.reloadDoesNotExecuteWhenConfiguredDisabledEvenIfRequestAsksExecuteMode`；runtime smoke `jpaReloadDisabledNoMutation` |
 | R1-AC4：Java 8 编译通过 | Done | `.\gradlew.bat :pf4boot-jpa:compileJava :pf4boot-jpa-starter:compileJava` |
-| R1-AC5：request 校验覆盖空 domain、缺幂等键、超长 reason、V1 不支持 providerReplacementPath | Done | `DefaultJpaDomainReloadServiceTest.reloadRejectsInvalidRequestsBeforeExecution`、`reloadRejectsProviderReplacementPathWithoutExecuting` |
+| R1-AC5：request 校验覆盖空 domain、缺幂等键、超长 reason；providerReplacementPath 已在后续 P2 接入部署服务 | Superseded | `DefaultJpaDomainReloadServiceTest.reloadRejectsInvalidRequestsBeforeExecution`、`reloadRequiresDeploymentServiceForProviderReplacementPath`、`reloadProviderReplacementUsesDeploymentServiceAndRecordsSummary` |
 | R1-AC6：failure code/blocker code 为稳定枚举，不直接暴露异常类名 | Done | `JpaDomainReloadFailureCode`、`JpaDomainReloadBlocker`；管理接口返回 code/message |
 
 ## 4. R2 PLAN_ONLY 影响范围识别
@@ -82,7 +82,7 @@
 | R5-AC7：失败 record 包含 state transitions 和 failure code | Done | `DefaultJpaDomainReloadService` 失败 record；单测 `reloadFailsWhenProviderExportsRemainAfterStop` |
 | R5-AC8：provider 或 consumer 启动失败时 unrelated 插件仍可工作 | Done | runtime smoke `jpaProviderIsolation`、`unrelatedPluginAlive` |
 | R5-AC9：同一幂等键重复 execute 返回同一 reloadId | Done | runtime smoke `jpaReloadIdempotency` |
-| R5-AC10：providerReplacementPath 非空时返回 `UNSUPPORTED_REPLACEMENT_PATH` 且不执行 | Done | 单测 `reloadRejectsProviderReplacementPathWithoutExecuting` |
+| R5-AC10：providerReplacementPath 非空时返回 `UNSUPPORTED_REPLACEMENT_PATH` 且不执行 | Superseded | P2 已改为调用 `PluginDeploymentService`，见 `plugin-framework-priority-roadmap-plan.md` |
 | R5-AC11：provider 停止后旧 descriptor、EMF、TM、DataSource 导出 Bean 不存在 | Done | `verifyProviderExportsRemoved`；单测 `reloadFailsWhenProviderExportsRemainAfterStop` |
 | R5-AC12：provider 启动失败时至少重试恢复一次，恢复失败进入人工介入状态 | Done | 单测 `reloadRetriesProviderStartOnce`；失败路径返回 `MANUAL_INTERVENTION_REQUIRED` |
 

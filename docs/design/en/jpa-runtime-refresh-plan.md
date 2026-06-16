@@ -115,7 +115,7 @@ Tasks:
 - Add in-memory record repository with ring buffer and idempotency mapping.
 - Reuse idempotency handling.
 - Build and validate an executable plan.
-- Reject non-empty `providerReplacementPath` with `UNSUPPORTED_REPLACEMENT_PATH`.
+- In the original V1 phase, reject non-empty `providerReplacementPath` with `UNSUPPORTED_REPLACEMENT_PATH`; P2 now delegates provider replacement to `PluginDeploymentService`, as tracked in `plugin-framework-priority-roadmap-plan.md`.
 - Drain consumers.
 - Stop consumers in dependency-downstream order.
 - Stop the provider.

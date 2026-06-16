@@ -22,6 +22,7 @@ public class JpaDomainReloadRecord {
   private final String failureMessage;
   private final String rollbackSummary;
   private final JpaDomainDrainReport drainReport;
+  private final JpaProviderReplacementSummary providerReplacementSummary;
 
   public JpaDomainReloadRecord(
       String reloadId,
@@ -49,6 +50,7 @@ public class JpaDomainReloadRecord {
         failureCode,
         failureMessage,
         rollbackSummary,
+        null,
         null);
   }
 
@@ -66,6 +68,38 @@ public class JpaDomainReloadRecord {
       String failureMessage,
       String rollbackSummary,
       JpaDomainDrainReport drainReport) {
+    this(
+        reloadId,
+        planId,
+        domainId,
+        state,
+        startedAt,
+        finishedAt,
+        request,
+        plan,
+        stateTransitions,
+        failureCode,
+        failureMessage,
+        rollbackSummary,
+        drainReport,
+        null);
+  }
+
+  public JpaDomainReloadRecord(
+      String reloadId,
+      String planId,
+      String domainId,
+      JpaDomainReloadState state,
+      long startedAt,
+      long finishedAt,
+      JpaDomainReloadRequest request,
+      JpaDomainReloadPlan plan,
+      List<JpaDomainReloadState> stateTransitions,
+      JpaDomainReloadFailureCode failureCode,
+      String failureMessage,
+      String rollbackSummary,
+      JpaDomainDrainReport drainReport,
+      JpaProviderReplacementSummary providerReplacementSummary) {
     this.reloadId = reloadId;
     this.planId = planId;
     this.domainId = domainId;
@@ -81,6 +115,7 @@ public class JpaDomainReloadRecord {
     this.failureMessage = failureMessage;
     this.rollbackSummary = rollbackSummary;
     this.drainReport = drainReport;
+    this.providerReplacementSummary = providerReplacementSummary;
   }
 
   public String getReloadId() {
@@ -133,5 +168,9 @@ public class JpaDomainReloadRecord {
 
   public JpaDomainDrainReport getDrainReport() {
     return drainReport;
+  }
+
+  public JpaProviderReplacementSummary getProviderReplacementSummary() {
+    return providerReplacementSummary;
   }
 }

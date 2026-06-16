@@ -122,7 +122,7 @@ Available modes:
 - `PLAN_ONLY`: produces an impact plan but never mutates plugin lifecycle.
 - `STOP_CONSUMERS_AND_REBUILD`: enables explicit restart-based execution.
 
-Consumers are detected from `JpaPluginBindingRegistry`, which is populated by `PluginJPAStarter` after a shared binding is validated. `JpaDomainReloadAutoConfiguration` exports the same `JpaPluginBindingRegistry` instance to the pf4boot root context, so the host reload service and plugin starters use one shared registry. Plugins inferred only from the PF4J dependency graph make the plan non-executable until their shared domain binding is explicit. V1 does not support provider package replacement, cross-domain atomic transactions, persistent reload records, or zero-downtime production refresh.
+Consumers are detected from `JpaPluginBindingRegistry`, which is populated by `PluginJPAStarter` after a shared binding is validated. `JpaDomainReloadAutoConfiguration` exports the same `JpaPluginBindingRegistry` instance to the pf4boot root context, so the host reload service and plugin starters use one shared registry. Plugins inferred only from the PF4J dependency graph make the plan non-executable until their shared domain binding is explicit. After provider restart or `providerReplacementPath` replacement, the provider must re-export `domain.{domain-id}.descriptor`, EMF, TM, and DataSource. Cross-domain atomic transactions and zero-downtime production refresh remain unsupported.
 
 Before stopping consumers/providers, execute mode calls `JpaDomainReloadDrainCoordinator` and reuses the common `PluginTrafficDrainer` contract:
 

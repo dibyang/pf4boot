@@ -124,7 +124,7 @@ Required V1 blockers:
 | `CONCURRENT_RELOAD` | Another reload is running |
 | `MULTI_DOMAIN_PROVIDER_UNSUPPORTED` | Provider exposes multiple domains |
 | `LIFECYCLE_OPERATION_UNAVAILABLE` | Required lifecycle operation is missing |
-| `UNSUPPORTED_REPLACEMENT_PATH` | V1 does not support provider package replacement |
+| `UNSUPPORTED_REPLACEMENT_PATH` | the original V1 phase did not support provider package replacement; after P2, replacement requests usually use provider replacement failure codes |
 
 Suggested service contract:
 
@@ -188,7 +188,7 @@ Executable V1 must:
 13. Run health checks.
 14. Mark success or enter recovery/manual intervention.
 
-V1 does not support `providerReplacementPath`; non-empty values must return `UNSUPPORTED_REPLACEMENT_PATH`.
+The original V1 phase did not support `providerReplacementPath`; after P2, JPA reload delegates staged provider replacement to `PluginDeploymentService` and records a provider replacement summary.
 
 ### 7.3 Drain SPI Behavior
 

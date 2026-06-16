@@ -15,7 +15,7 @@
 | --- | --- | --- | --- |
 | P0 设计与规划 | Done | 固化四项优先级和边界 | 中英文设计、规划和索引同步 |
 | P1 持久化记录 | Done | 加固管理记录 file store，补 JPA reload 文件记录 | 重启后记录可查、幂等可重放、JPA latest 可恢复 |
-| P2 providerReplacementPath | Planned | JPA reload 支持 staged provider 包替换 | 成功替换、失败回滚、unrelated 不受影响 |
+| P2 providerReplacementPath | Done | JPA reload 支持 staged provider 包替换 | 成功替换、失败回滚、unrelated 不受影响 |
 | P3 Saga/Outbox sample | Planned | 演示跨 domain 最终一致性 | 成功、重复投递、失败重试 runtime smoke |
 | P4 管理控制台 UI | Planned | 独立 sample UI 消费 HTTP API/Actuator | 本地 UI smoke、鉴权和幂等展示 |
 
@@ -106,17 +106,13 @@
    - 包 descriptor pluginId 必须等于当前 provider；
    - 版本、checksum、trust manifest 走现有 verifier；
    - dry-run 输出 replacement 摘要。
-3. 抽取 provider replacement adapter：
-   - 复用 `PluginDeploymentService` 包校验/回滚能力；
+3. 接入 provider replacement adapter：
+   - 复用 `PluginDeploymentService` 包校验、drain、影响链停启和回滚能力；
    - 不让 core 依赖 JPA 类型；
-   - JPA reload service 控制 consumer stop/start 顺序。
+   - JPA reload service 负责将部署结果映射到 reload record，并在替换后校验 JPA descriptor ready。
 4. execute 阶段：
-   - drain；
-   - 停 consumer；
-   - 停 provider；
-   - 激活 staged provider；
-   - 等待 descriptor ready；
-   - 启 consumer；
+   - 委托 `PluginDeploymentService.replace(...)` 完成 drain、停启影响链、激活 staged provider 和回滚；
+   - 等待并校验 descriptor ready；
    - 写入 replacement 摘要。
 5. 失败恢复：
    - staged provider 启动失败时恢复旧 provider；
@@ -144,6 +140,14 @@
 | P2-AC4：替换失败回滚旧 provider | service 测试 |
 | P2-AC5：unrelated 插件不受影响 | runtime smoke |
 | P2-AC6：record 持久化 replacement 摘要 | repository 测试 |
+
+### 4.4 实施记录
+
+- 已新增 provider replacement 失败码和 `JpaProviderReplacementSummary`。
+- 已让 JPA reload plan 在存在 `providerReplacementPath` 时调用 `PluginDeploymentService.planReplacement(...)` 做 staged 包预检。
+- 已让 JPA reload execute 在存在 `providerReplacementPath` 时调用 `PluginDeploymentService.replace(...)`，并把部署结果写入 reload record。
+- 已让管理 HTTP 入口复用 staging-root 路径白名单，避免 JPA reload 绕过部署路径治理。
+- 已增强 `samples/cross-plugin-jpa` runtime smoke，覆盖 `SMOKE_JPA_PROVIDER_REPLACEMENT_PATH`。
 
 ## 5. P3 Saga/Outbox Sample
 

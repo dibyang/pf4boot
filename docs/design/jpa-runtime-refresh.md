@@ -316,7 +316,7 @@ V1 字段约束：
 | `allowInferredConsumers` | 默认 `false`；V1 execute 建议即使为 `true` 也先拒绝 inferred consumer，只保留字段兼容 |
 | `drainTimeoutMillis` | 小于等于 0 时使用默认配置 |
 | `healthCheckTimeoutMillis` | 小于等于 0 时使用默认配置 |
-| `providerReplacementPath` | V1 不实现 provider 包替换，非空时返回 `UNSUPPORTED_REPLACEMENT_PATH` |
+| `providerReplacementPath` | V1 阶段不实现 provider 包替换；后续 P2 已接入 `PluginDeploymentService` 执行 staged provider 替换 |
 
 ### 7.3 计划
 
@@ -360,7 +360,7 @@ V1 必须定义以下 blocker code：
 | `CONCURRENT_RELOAD` | 同一 domain 或全局已有 reload 执行中 |
 | `MULTI_DOMAIN_PROVIDER_UNSUPPORTED` | provider 暴露多个 domain |
 | `LIFECYCLE_OPERATION_UNAVAILABLE` | 缺少必需生命周期操作 |
-| `UNSUPPORTED_REPLACEMENT_PATH` | V1 不支持通过 reload 请求替换 provider 包 |
+| `UNSUPPORTED_REPLACEMENT_PATH` | V1 阶段不支持通过 reload 请求替换 provider 包；P2 之后通常改用 provider replacement 失败码 |
 
 ### 7.4 记录
 

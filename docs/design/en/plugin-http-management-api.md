@@ -152,7 +152,7 @@ These APIs are registered only when the host includes `pf4boot-jpa` and a `JpaDo
 | `GET` | `/pf4boot/admin/jpa/reloads/{reloadId}` | Query a reload record |
 | `GET` | `/pf4boot/admin/jpa/domains/{domainId}/reload/current` | Query the currently running reload for a domain |
 
-The reload request can carry `reason`, timeout fields, and `providerReplacementPath`. V1 rejects `providerReplacementPath` with `UNSUPPORTED_REPLACEMENT_PATH` and does not replace provider packages. Use the `X-Idempotency-Key` header for execute requests when management idempotency is required.
+The reload request can carry `reason`, timeout fields, and `providerReplacementPath`. When `providerReplacementPath` is present, the management entrypoint validates the path under the configured staging root and JPA reload delegates provider package replacement to `PluginDeploymentService`. Use the `X-Idempotency-Key` header for execute requests when management idempotency is required.
 
 ## Authorization Model
 

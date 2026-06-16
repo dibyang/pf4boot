@@ -15,7 +15,7 @@ This plan tracks [plugin-framework-priority-roadmap.md](plugin-framework-priorit
 | --- | --- | --- | --- |
 | P0 Design and planning | Done | define priorities and boundaries | Chinese/English design, plan, and index are synchronized |
 | P1 Persistent records | Done | harden management file stores and add JPA reload file records | records survive restart; idempotency replays; latest JPA reload recovers |
-| P2 providerReplacementPath | Planned | JPA reload supports staged provider package replacement | success, rollback on failure, unrelated isolation |
+| P2 providerReplacementPath | Done | JPA reload supports staged provider package replacement | success, rollback on failure, unrelated isolation |
 | P3 Saga/Outbox sample | Planned | demonstrate cross-domain eventual consistency | success, duplicate delivery, retry smoke |
 | P4 Management console UI | Planned | independent sample UI using HTTP APIs/Actuator | local UI smoke, auth and idempotency display |
 
@@ -105,17 +105,13 @@ Tasks:
    - descriptor pluginId must match current provider;
    - version, checksum, and trust manifest use existing verifiers;
    - dry-run returns replacement summary.
-3. Extract a provider replacement adapter:
-   - reuse `PluginDeploymentService` package verification and rollback capability;
+3. Integrate the provider replacement adapter:
+   - reuse `PluginDeploymentService` package verification, drain, impact-chain stop/start, and rollback capability;
    - keep core free of JPA types;
-   - JPA reload service owns consumer ordering.
+   - JPA reload service maps deployment results into reload records and verifies that the JPA descriptor is ready after replacement.
 4. Execute:
-   - drain;
-   - stop consumers;
-   - stop provider;
-   - activate staged provider;
-   - wait for descriptor;
-   - start consumers;
+   - delegate drain, impact-chain stop/start, staged provider activation, and rollback to `PluginDeploymentService.replace(...)`;
+   - verify that the descriptor is ready;
    - write replacement summary.
 5. Recover:
    - restore old provider when staged provider fails;
@@ -135,6 +131,14 @@ Acceptance:
 | P2-AC4 failed replacement rolls back old provider | service test |
 | P2-AC5 unrelated plugin remains available | runtime smoke |
 | P2-AC6 record persists replacement summary | repository test |
+
+Implementation notes:
+
+- Added provider replacement failure codes and `JpaProviderReplacementSummary`.
+- JPA reload planning now calls `PluginDeploymentService.planReplacement(...)` when `providerReplacementPath` is present.
+- JPA reload execution now calls `PluginDeploymentService.replace(...)` when `providerReplacementPath` is present and records the deployment outcome in the reload record.
+- The management HTTP entrypoint reuses staging-root path validation so JPA reload cannot bypass deployment path governance.
+- `samples/cross-plugin-jpa` runtime smoke now covers `SMOKE_JPA_PROVIDER_REPLACEMENT_PATH`.
 
 ## 5. P3 Saga/Outbox Sample
 

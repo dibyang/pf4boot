@@ -3,6 +3,9 @@ package net.xdob.pf4boot.jpa.starter.reload;
 import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.annotation.PluginStarter;
+import net.xdob.pf4boot.deployment.DeploymentCheckResult;
+import net.xdob.pf4boot.deployment.DeploymentRecord;
+import net.xdob.pf4boot.deployment.PluginDeploymentService;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
 import net.xdob.pf4boot.jpa.reload.JpaDomainConsumer;
 import net.xdob.pf4boot.jpa.reload.JpaDomainConsumerDetection;
@@ -33,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.nio.file.Paths;
 
 /**
  * 默认 JPA domain 刷新计划服务。
@@ -44,14 +48,24 @@ public class DefaultJpaDomainReloadPlanService implements JpaDomainReloadPlanSer
   private final Pf4bootPluginManager pluginManager;
   private final JpaPluginBindingRegistry bindingRegistry;
   private final Pf4bootJpaProperties properties;
+  private final PluginDeploymentService deploymentService;
 
   public DefaultJpaDomainReloadPlanService(
       Pf4bootPluginManager pluginManager,
       JpaPluginBindingRegistry bindingRegistry,
       Pf4bootJpaProperties properties) {
+    this(pluginManager, bindingRegistry, properties, null);
+  }
+
+  public DefaultJpaDomainReloadPlanService(
+      Pf4bootPluginManager pluginManager,
+      JpaPluginBindingRegistry bindingRegistry,
+      Pf4bootJpaProperties properties,
+      PluginDeploymentService deploymentService) {
     this.pluginManager = pluginManager;
     this.bindingRegistry = bindingRegistry;
     this.properties = properties == null ? new Pf4bootJpaProperties() : properties;
+    this.deploymentService = deploymentService;
   }
 
   @Override
@@ -68,11 +82,6 @@ public class DefaultJpaDomainReloadPlanService implements JpaDomainReloadPlanSer
     if (mode == JpaDomainReloadMode.DISABLED) {
       blockers.add(blocker(JpaDomainReloadFailureCode.RELOAD_DISABLED, "JPA domain reload is disabled", domainId));
     }
-    if (StringUtils.hasText(request == null ? null : request.getProviderReplacementPath())) {
-      blockers.add(blocker(JpaDomainReloadFailureCode.UNSUPPORTED_REPLACEMENT_PATH,
-          "providerReplacementPath is not supported in V1", domainId));
-    }
-
     JpaDomainDescriptor descriptor = findDescriptor(domainId);
     if (descriptor == null) {
       blockers.add(blocker(JpaDomainReloadFailureCode.DOMAIN_NOT_FOUND, "JPA domain descriptor not found", domainId));
@@ -89,6 +98,9 @@ public class DefaultJpaDomainReloadPlanService implements JpaDomainReloadPlanSer
     if (provider == null || provider.getPluginState() == null || !provider.getPluginState().isStarted()) {
       blockers.add(blocker(JpaDomainReloadFailureCode.PROVIDER_NOT_RUNNING,
           "JPA domain provider is not running", providerPluginId));
+    }
+    if (StringUtils.hasText(request == null ? null : request.getProviderReplacementPath())) {
+      precheckProviderReplacement(request.getProviderReplacementPath(), providerPluginId, blockers, warnings);
     }
 
     Map<String, JpaDomainConsumer> exactConsumers = exactConsumers(domainId);
@@ -369,5 +381,47 @@ public class DefaultJpaDomainReloadPlanService implements JpaDomainReloadPlanSer
       String message,
       String subject) {
     return new JpaDomainReloadBlocker(code, message, subject);
+  }
+
+  private void precheckProviderReplacement(
+      String providerReplacementPath,
+      String providerPluginId,
+      List<JpaDomainReloadBlocker> blockers,
+      List<String> warnings) {
+    if (deploymentService == null) {
+      blockers.add(blocker(
+          JpaDomainReloadFailureCode.LIFECYCLE_OPERATION_UNAVAILABLE,
+          "PluginDeploymentService is required for providerReplacementPath",
+          providerPluginId));
+      return;
+    }
+    try {
+      DeploymentRecord record = deploymentService.planReplacement(providerPluginId, Paths.get(providerReplacementPath));
+      if (record != null && record.getPlan() != null) {
+        warnings.add("provider replacement precheck: deploymentId=" + record.getDeploymentId()
+            + ", stagedVersion=" + record.getPlan().getStagedVersion());
+        for (DeploymentCheckResult check : record.getPlan().getCheckResults()) {
+          if (check.isError()) {
+            blockers.add(blocker(
+                replacementFailureCode(check),
+                check.getMessage(),
+                providerPluginId));
+          }
+        }
+      }
+    } catch (RuntimeException e) {
+      blockers.add(blocker(
+          JpaDomainReloadFailureCode.PROVIDER_REPLACEMENT_VERIFY_FAILED,
+          e.getMessage(),
+          providerPluginId));
+    }
+  }
+
+  private JpaDomainReloadFailureCode replacementFailureCode(DeploymentCheckResult check) {
+    String message = check == null ? null : check.getMessage();
+    if (message != null && message.contains("does not match")) {
+      return JpaDomainReloadFailureCode.PROVIDER_REPLACEMENT_MISMATCH;
+    }
+    return JpaDomainReloadFailureCode.PROVIDER_REPLACEMENT_VERIFY_FAILED;
   }
 }

@@ -231,7 +231,7 @@ pf4boot:
         mode: STOP_CONSUMERS_AND_REBUILD
 ```
 
-For production rehearsal, start with `PLAN_ONLY` first. The plan API reports provider, exact consumers, inferred consumers, unrelated plugins, stop/start order, blockers, and warnings without mutating lifecycle. Execute mode stops exact consumers, stops the provider, verifies that old DataSource/EMF/TM/descriptor exports are gone, starts the provider, waits for the new descriptor, and then starts consumers. V1 rejects `providerReplacementPath`; provider package replacement is intentionally outside this phase.
+For production rehearsal, start with `PLAN_ONLY` first. The plan API reports provider, exact consumers, inferred consumers, unrelated plugins, stop/start order, blockers, and warnings without mutating lifecycle. Execute mode without `providerReplacementPath` stops exact consumers, stops the provider, verifies that old DataSource/EMF/TM/descriptor exports are gone, starts the provider, waits for the new descriptor, and then starts consumers. Execute mode with `providerReplacementPath` validates the staged provider package through `PluginDeploymentService`, delegates replacement and rollback to the deployment service, and records a provider replacement summary in the reload record.
 
 Execute mode reuses the common `PluginTrafficDrainer` before stopping plugins. If the host has web, scheduled-task, or other drainers, JPA reload first rejects new entrypoints and waits for in-flight work. Drain timeout or rejection records `drainReport`, returns `DRAIN_TIMEOUT` or `DRAIN_REJECTED`, and does not stop consumers or providers. With no drainer, the default is compatibility mode with a warning; set `pf4boot.plugin.jpa.domain-reload.require-drainer=true` when a drainer must be present.
 

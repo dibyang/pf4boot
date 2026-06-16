@@ -1,6 +1,7 @@
 package net.xdob.pf4boot.jpa.starter.reload;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
+import net.xdob.pf4boot.deployment.PluginDeploymentService;
 import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadPlanService;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecordRepository;
@@ -68,11 +69,13 @@ public class JpaDomainReloadAutoConfiguration {
   public DefaultJpaDomainReloadPlanService jpaDomainReloadPlanService(
       ObjectProvider<Pf4bootPluginManager> pluginManager,
       JpaPluginBindingRegistry bindingRegistry,
+      ObjectProvider<PluginDeploymentService> deploymentService,
       Pf4bootJpaProperties properties) {
     return new DefaultJpaDomainReloadPlanService(
         pluginManager.getIfAvailable(),
         bindingRegistry,
-        properties);
+        properties,
+        deploymentService.getIfAvailable());
   }
 
   @Bean
@@ -113,12 +116,14 @@ public class JpaDomainReloadAutoConfiguration {
       DefaultJpaDomainReloadPlanService planService,
       JpaDomainReloadRecordRepository recordRepository,
       JpaDomainReloadDrainCoordinator drainCoordinator,
+      ObjectProvider<PluginDeploymentService> deploymentService,
       Pf4bootJpaProperties properties) {
     return new DefaultJpaDomainReloadService(
         pluginManager.getIfAvailable(),
         planService,
         recordRepository,
         drainCoordinator,
+        deploymentService.getIfAvailable(),
         properties);
   }
 }

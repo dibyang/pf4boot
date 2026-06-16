@@ -172,7 +172,7 @@ rg -n "U\+FFFD" docs/design docs/design/en
 2. 实现内存 `JpaDomainReloadRecordRepository`，支持 ring buffer 和 `idempotencyKey -> reloadId`。
 3. 接入 idempotency gate，同一个幂等键返回同一 record。
 4. 构建 plan 并校验 `executable=true`。
-5. 非空 `providerReplacementPath` 返回 `UNSUPPORTED_REPLACEMENT_PATH`。
+5. 非空 `providerReplacementPath` 在 V1 阶段返回 `UNSUPPORTED_REPLACEMENT_PATH`；后续 P2 已改为接入 `PluginDeploymentService`，见 `plugin-framework-priority-roadmap-plan.md`。
 6. 执行 drain；V1 如果没有 drain SPI，则记录 warning，不阻塞。
 7. 按 stopOrder 停止 consumer 插件。
 8. 停止 provider 插件。

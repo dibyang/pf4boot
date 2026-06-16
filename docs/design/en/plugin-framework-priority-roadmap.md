@@ -33,7 +33,7 @@ This document ties these topics into one implementation line so future work does
 | Management operations | `PluginOperationStore` has memory and file implementations | `PluginOperationStore`, `FilePluginOperationStore` |
 | Deployment records | `PluginDeploymentRecordStore` has memory and file implementations | `PluginDeploymentRecordStore`, `FilePluginDeploymentRecordStore` |
 | JPA reload records | `JpaDomainReloadRecordRepository` exists; auto-config currently uses memory | `InMemoryJpaDomainReloadRecordRepository` |
-| Provider replacement field | `JpaDomainReloadRequest.providerReplacementPath` exists but returns `UNSUPPORTED_REPLACEMENT_PATH` | `jpa-runtime-refresh.md` |
+| Provider replacement field | `JpaDomainReloadRequest.providerReplacementPath` now integrates with `PluginDeploymentService` for staged provider package replacement | `plugin-framework-priority-roadmap-plan.md` |
 | Saga/Outbox | Decision recommends business-layer patterns, but there is no sample | `cross-datasource-transaction-decision.md` |
 | Management UI | Decision keeps UI out of framework modules; an independent sample UI is allowed | `plugin-management-console-boundary.md` |
 

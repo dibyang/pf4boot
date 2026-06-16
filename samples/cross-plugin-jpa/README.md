@@ -162,6 +162,7 @@ samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-sm
 - `SMOKE_JPA_RELOAD_IDEMPOTENCY`：重复 JPA reload 请求返回同一个 reload id。
 - `SMOKE_JPA_RELOAD_DRAIN_SUCCESS`：成功 JPA reload record 包含 accepted drain report。
 - `SMOKE_JPA_RELOAD_RECORD_PERSISTED`：成功 JPA reload 后重启宿主，Actuator 仍能从文件仓库读到 latest reload。
+- `SMOKE_JPA_PROVIDER_REPLACEMENT_PATH`：JPA reload 通过 `providerReplacementPath` 调用 provider staged 包替换，并记录 replacement summary。
 - `SMOKE_JPA_RELOAD_DRAIN_TIMEOUT_NO_MUTATION`：drain timeout 返回失败记录，且 workflow/unrelated 插件仍可访问。
 - `SMOKE_JPA_PROVIDER_ISOLATION`：停止 JPA provider 后，无关插件仍可访问。
 - `SMOKE_FAILURE_CASE`：有效插件包 + 不存在目标插件的部署预检返回失败响应，并可通过部署记录查询。

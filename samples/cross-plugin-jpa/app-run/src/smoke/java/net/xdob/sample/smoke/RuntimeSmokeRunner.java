@@ -57,6 +57,7 @@ public class RuntimeSmokeRunner {
       checkManagement();
       String reloadId = checkJpaReload();
       checkJpaReloadRecordPersistence(reloadId);
+      checkJpaProviderReplacementPath();
       checkJpaReloadDrainTimeoutNoMutation();
       checkJpaProviderIsolation();
       checkActuator();
@@ -300,6 +301,24 @@ public class RuntimeSmokeRunner {
     }
     System.out.println("SMOKE_JPA_RELOAD_RECORD_PERSISTED reloadId=" + reloadId);
     addCheck("jpaReloadRecordPersistence", "PASSED", reloadId);
+  }
+
+  private void checkJpaProviderReplacementPath() throws Exception {
+    List<Header> admin = new ArrayList<Header>();
+    admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    admin.add(new Header("X-Idempotency-Key", "runtime-smoke-jpa-provider-replace-java"));
+    HttpResult reload = request("POST", "/pf4boot/admin/jpa/domains/demo/reload", admin,
+        "{\"providerReplacementPath\":\"plugin-demo-jpa-domain-3.0.0-SNAPSHOT.zip\"}");
+    assertAdminSuccess(reload, "JPA provider replacement reload");
+    if (!reload.body.contains("\"providerReplacementSummary\"")
+        || !reload.body.contains("\"state\":\"SUCCEEDED\"")
+        || !reload.body.contains("\"targetPluginId\":\"sample-demo-jpa-domain\"")) {
+      throw new IllegalStateException("JPA provider replacement summary missing: " + reload.body);
+    }
+    HttpResult summary = request("GET", "/api/sample/workflow/summary", null, null);
+    assertStatus(summary, 200, "workflow summary after JPA provider replacement");
+    System.out.println("SMOKE_JPA_PROVIDER_REPLACEMENT_PATH status=" + reload.status);
+    addCheck("jpaProviderReplacementPath", "PASSED", "sample-demo-jpa-domain");
   }
 
   private void checkJpaReloadDrainTimeoutNoMutation() throws Exception {

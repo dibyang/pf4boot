@@ -175,14 +175,16 @@ public class Pf4bootManagementAutoConfiguration {
       Pf4bootManagementProperties properties,
       PluginManagementAuthorizer authorizer,
       PluginManagementRequestFactory requestFactory,
-      PluginManagementAuditRecorder auditRecorder) {
+      PluginManagementAuditRecorder auditRecorder,
+      PluginManagementPathValidator pathValidator) {
     return new JpaDomainReloadManagementController(
         planService,
         reloadService,
         properties,
         authorizer,
         requestFactory,
-        auditRecorder);
+        auditRecorder,
+        pathValidator);
   }
 
   @Bean

@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import javax.servlet.http.HttpServletRequest;
+import java.nio.file.Path;
 
 /**
  * JPA domain 刷新管理接口。
@@ -40,6 +41,7 @@ public class JpaDomainReloadManagementController {
   private final PluginManagementAuthorizer authorizer;
   private final PluginManagementRequestFactory requestFactory;
   private final PluginManagementAuditRecorder auditRecorder;
+  private final PluginManagementPathValidator pathValidator;
 
   public JpaDomainReloadManagementController(
       JpaDomainReloadPlanService planService,
@@ -48,12 +50,25 @@ public class JpaDomainReloadManagementController {
       PluginManagementAuthorizer authorizer,
       PluginManagementRequestFactory requestFactory,
       PluginManagementAuditRecorder auditRecorder) {
+    this(planService, reloadService, properties, authorizer, requestFactory, auditRecorder,
+        new PluginManagementPathValidator());
+  }
+
+  public JpaDomainReloadManagementController(
+      JpaDomainReloadPlanService planService,
+      ObjectProvider<JpaDomainReloadService> reloadService,
+      Pf4bootManagementProperties properties,
+      PluginManagementAuthorizer authorizer,
+      PluginManagementRequestFactory requestFactory,
+      PluginManagementAuditRecorder auditRecorder,
+      PluginManagementPathValidator pathValidator) {
     this.planService = planService;
     this.reloadService = reloadService;
     this.properties = properties;
     this.authorizer = authorizer;
     this.requestFactory = requestFactory;
     this.auditRecorder = auditRecorder;
+    this.pathValidator = pathValidator == null ? new PluginManagementPathValidator() : pathValidator;
   }
 
   @PostMapping("/domains/{domainId}/reload/plan")
@@ -150,6 +165,12 @@ public class JpaDomainReloadManagementController {
   private JpaDomainReloadRequest requestBody(String domainId, JpaDomainReloadRequest body) {
     JpaDomainReloadRequest request = body == null ? new JpaDomainReloadRequest() : body;
     request.setDomainId(domainId);
+    if (request.getProviderReplacementPath() != null && !request.getProviderReplacementPath().trim().isEmpty()) {
+      Path stagedPath = pathValidator.resolveStagedPath(
+          properties == null ? null : properties.getStagingRoot(),
+          request.getProviderReplacementPath());
+      request.setProviderReplacementPath(stagedPath.toString());
+    }
     return request;
   }
 
