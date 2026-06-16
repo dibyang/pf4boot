@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PF4Boot 管理控制台</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #5c6472;
+      --line: #d9dee8;
+      --panel: #ffffff;
+      --band: #f4f6f9;
+      --accent: #1167b1;
+      --danger: #b42318;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      color: var(--ink);
+      background: var(--band);
+    }
+    header {
+      padding: 18px 24px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    h1 { font-size: 20px; margin: 0; letter-spacing: 0; }
+    main { padding: 20px 24px 32px; max-width: 1280px; margin: 0 auto; }
+    .toolbar {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) minmax(180px, 280px) auto;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 18px;
+    }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      padding: 9px 10px;
+      border-radius: 6px;
+      font: inherit;
+    }
+    textarea { min-height: 84px; resize: vertical; }
+    button {
+      border: 1px solid var(--accent);
+      background: var(--accent);
+      color: #fff;
+      padding: 9px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    button.secondary { background: #fff; color: var(--accent); }
+    button.danger { background: var(--danger); border-color: var(--danger); }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    section h2 {
+      font-size: 15px;
+      margin: 0;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fbfcfe;
+    }
+    .section-body { padding: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; background: #fbfcfe; }
+    pre {
+      margin: 0;
+      min-height: 140px;
+      max-height: 360px;
+      overflow: auto;
+      background: #101828;
+      color: #e6edf7;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    @media (max-width: 760px) {
+      header { align-items: flex-start; flex-direction: column; }
+      main { padding: 14px; }
+      .toolbar, .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>PF4Boot 管理控制台</h1>
+  <div class="actions">
+    <button class="secondary" onclick="loadPlugins()">刷新插件</button>
+    <button class="secondary" onclick="loadActuator()">刷新观测</button>
+  </div>
+</header>
+<main>
+  <div class="toolbar">
+    <div>
+      <label for="apiBase">API Base</label>
+      <input id="apiBase" value="http://127.0.0.1:7791">
+    </div>
+    <div>
+      <label for="token">Admin Token</label>
+      <input id="token" value="sample-token">
+    </div>
+    <button onclick="loadAll()">连接</button>
+  </div>
+
+  <section>
+    <h2>插件</h2>
+    <div class="section-body">
+      <table>
+        <thead><tr><th>Plugin</th><th>Version</th><th>State</th><th>操作</th></tr></thead>
+        <tbody id="plugins"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="grid">
+    <section>
+      <h2>部署预检</h2>
+      <div class="section-body">
+        <label for="deployPlugin">Plugin ID</label>
+        <input id="deployPlugin" value="sample-workflow">
+        <label for="deployPath">Staged Plugin Path</label>
+        <input id="deployPath" value="plugin-workflow-3.0.0-SNAPSHOT.zip">
+        <div class="actions" style="margin-top:10px">
+          <button onclick="deploymentPlan()">生成计划</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>JPA Reload</h2>
+      <div class="section-body">
+        <label for="domainId">Domain ID</label>
+        <input id="domainId" value="demo">
+        <label for="providerPath">Provider Replacement Path</label>
+        <input id="providerPath" placeholder="可选">
+        <div class="actions" style="margin-top:10px">
+          <button class="secondary" onclick="jpaPlan()">Reload Plan</button>
+          <button onclick="jpaReload()">执行 Reload</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section>
+    <h2>观测</h2>
+    <div class="section-body">
+      <div class="actions">
+        <button class="secondary" onclick="loadActuator()">读取 Actuator</button>
+        <button class="secondary" onclick="loadMetrics()">读取 Metrics</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>结果</h2>
+    <div class="section-body"><pre id="output">{}</pre></div>
+  </section>
+</main>
+<script>
+  const byId = id => document.getElementById(id);
+  const apiBase = () => byId('apiBase').value.replace(/\/$/, '');
+  const token = () => byId('token').value;
+  const idempotencyKey = prefix => prefix + '-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+
+  function show(data) {
+    byId('output').textContent = JSON.stringify(data, null, 2);
+  }
+
+  async function api(path, options = {}) {
+    const headers = Object.assign({}, options.headers || {});
+    if (options.admin !== false) headers['X-PF4Boot-Admin-Token'] = token();
+    if (options.write) headers['X-Idempotency-Key'] = idempotencyKey(options.idempotencyPrefix || 'console');
+    if (options.body) headers['Content-Type'] = 'application/json';
+    const response = await fetch(apiBase() + path, Object.assign({}, options, { headers }));
+    const text = await response.text();
+    const body = text ? JSON.parse(text) : null;
+    if (!response.ok) throw body || new Error('HTTP ' + response.status);
+    return body;
+  }
+
+  async function loadPlugins() {
+    const result = await api('/pf4boot/admin/plugins');
+    const rows = (result.data || result.plugins || []).map(plugin => {
+      const id = plugin.pluginId || plugin.id;
+      return `<tr><td>${id || ''}</td><td>${plugin.version || ''}</td><td>${plugin.state || ''}</td><td class="actions"><button class="secondary" onclick="startPlugin('${id}')">启动</button><button class="danger" onclick="stopPlugin('${id}')">停止</button></td></tr>`;
+    }).join('');
+    byId('plugins').innerHTML = rows || '<tr><td colspan="4">无数据</td></tr>';
+    show(result);
+  }
+
+  async function startPlugin(pluginId) {
+    show(await api('/pf4boot/admin/plugins/' + pluginId + '/start', { method: 'POST', write: true, idempotencyPrefix: 'start' }));
+    await loadPlugins();
+  }
+
+  async function stopPlugin(pluginId) {
+    show(await api('/pf4boot/admin/plugins/' + pluginId + '/stop', { method: 'POST', write: true, idempotencyPrefix: 'stop' }));
+    await loadPlugins();
+  }
+
+  async function deploymentPlan() {
+    show(await api('/pf4boot/admin/deployments/plan', {
+      method: 'POST',
+      write: true,
+      idempotencyPrefix: 'deploy-plan',
+      body: JSON.stringify({ pluginId: byId('deployPlugin').value, stagedPluginPath: byId('deployPath').value, dryRun: true })
+    }));
+  }
+
+  async function jpaPlan() {
+    const body = replacementBody();
+    show(await api('/pf4boot/admin/jpa/domains/' + byId('domainId').value + '/reload/plan', {
+      method: 'POST',
+      body: JSON.stringify(body)
+    }));
+  }
+
+  async function jpaReload() {
+    show(await api('/pf4boot/admin/jpa/domains/' + byId('domainId').value + '/reload', {
+      method: 'POST',
+      write: true,
+      idempotencyPrefix: 'jpa-reload',
+      body: JSON.stringify(replacementBody())
+    }));
+  }
+
+  function replacementBody() {
+    const path = byId('providerPath').value.trim();
+    return path ? { providerReplacementPath: path } : {};
+  }
+
+  async function loadActuator() {
+    const governance = await api('/actuator/pf4bootgovernance', { admin: false });
+    const jpa = await api('/actuator/pf4bootjpareload', { admin: false });
+    show({ governance, jpa });
+  }
+
+  async function loadMetrics() {
+    show(await api('/actuator/metrics/pf4boot.management.request.total', { admin: false }));
+  }
+
+  async function loadAll() {
+    await loadPlugins();
+    await loadActuator();
+  }
+</script>
+</body>
+</html>

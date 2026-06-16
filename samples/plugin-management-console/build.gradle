@@ -1,0 +1,3 @@
+jar {
+    archiveBaseName = "pf4boot-plugin-management-console"
+}

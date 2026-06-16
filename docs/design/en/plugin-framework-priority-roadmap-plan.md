@@ -17,7 +17,7 @@ This plan tracks [plugin-framework-priority-roadmap.md](plugin-framework-priorit
 | P1 Persistent records | Done | harden management file stores and add JPA reload file records | records survive restart; idempotency replays; latest JPA reload recovers |
 | P2 providerReplacementPath | Done | JPA reload supports staged provider package replacement | success, rollback on failure, unrelated isolation |
 | P3 Saga/Outbox sample | Done (V1) | demonstrate cross-boundary eventual consistency | success, duplicate delivery, retry smoke |
-| P4 Management console UI | Planned | independent sample UI using HTTP APIs/Actuator | local UI smoke, auth and idempotency display |
+| P4 Management console UI | Done (V1) | independent sample UI using HTTP APIs/Actuator | local UI contract test, auth and idempotency display |
 
 ## 3. P1 Persistent Records
 
@@ -185,7 +185,7 @@ Implementation notes:
 
 Affected modules:
 
-- `samples/plugin-management-console/*`
+- `samples/plugin-management-console`
 - `samples/cross-plugin-jpa`
 - `docs/design`
 
@@ -209,6 +209,13 @@ Acceptance:
 | P4-AC3 writes include token and idempotency key | UI test |
 | P4-AC4 plan blockers/warnings are visible | UI test |
 | P4-AC5 local sample smoke runs | Browser/Playwright or equivalent smoke |
+
+Implementation notes:
+
+- Added the static `samples/plugin-management-console` sample.
+- The UI defaults to `http://127.0.0.1:7791` and supports plugin list, start/stop, deployment plan, JPA reload plan/reload, Actuator, and metrics reads.
+- Write operations include `X-PF4Boot-Admin-Token` and `X-Idempotency-Key`.
+- Added a contract test to verify that the UI depends only on HTTP APIs/Actuator and includes auth/idempotency headers.
 
 ## 7. Documentation Requirements
 

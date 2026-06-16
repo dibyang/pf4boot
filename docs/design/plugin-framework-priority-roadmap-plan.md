@@ -17,7 +17,7 @@
 | P1 持久化记录 | Done | 加固管理记录 file store，补 JPA reload 文件记录 | 重启后记录可查、幂等可重放、JPA latest 可恢复 |
 | P2 providerReplacementPath | Done | JPA reload 支持 staged provider 包替换 | 成功替换、失败回滚、unrelated 不受影响 |
 | P3 Saga/Outbox sample | Done (V1) | 演示跨边界最终一致性 | 成功、重复投递、失败重试 runtime smoke |
-| P4 管理控制台 UI | Planned | 独立 sample UI 消费 HTTP API/Actuator | 本地 UI smoke、鉴权和幂等展示 |
+| P4 管理控制台 UI | Done (V1) | 独立 sample UI 消费 HTTP API/Actuator | 本地 UI 契约测试、鉴权和幂等展示 |
 
 ## 3. P1 持久化记录
 
@@ -212,7 +212,7 @@
 
 ### 6.1 影响模块
 
-- `samples/plugin-management-console/*`
+- `samples/plugin-management-console`
 - `samples/cross-plugin-jpa`
 - `docs/design`
 
@@ -256,6 +256,13 @@
 | P4-AC3：写操作携带 token 和 idempotency key | UI 测试 |
 | P4-AC4：plan blockers/warnings 可见 | UI 测试 |
 | P4-AC5：本地 sample smoke 可运行 | Browser/Playwright 或等价 smoke |
+
+### 6.4 实施记录
+
+- 已新增 `samples/plugin-management-console` 静态控制台 sample。
+- UI 默认连接 `http://127.0.0.1:7791`，支持插件列表、启停、deployment plan、JPA reload plan/reload、Actuator/metrics 读取。
+- 写操作统一携带 `X-PF4Boot-Admin-Token` 和 `X-Idempotency-Key`。
+- 已新增契约测试，校验 UI 只依赖 HTTP API/Actuator 且包含鉴权/幂等 Header。
 
 ## 7. 文档要求
 

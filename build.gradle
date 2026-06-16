@@ -82,7 +82,8 @@ subprojects {
             'plugin-demo-jpa-domain',
             'plugin-user-book-service',
             'plugin-workflow',
-            'plugin-unrelated-service'
+            'plugin-unrelated-service',
+            'plugin-management-console'
     ].contains(project.name)
 
     apply plugin: 'java'
