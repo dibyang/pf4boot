@@ -1,0 +1,74 @@
+import org.gradle.api.tasks.bundling.Zip
+
+dependencies {
+    runtimeOnly project(":samples:saga-outbox:demo-host")
+}
+
+jar {
+    enabled = false
+}
+
+def runtimeDir = layout.buildDirectory.dir("runtime")
+
+task assembleSampleRuntime(type: Copy) {
+    group = "distribution"
+    description = "Assembles a runnable saga/outbox sample layout."
+    dependsOn(":samples:saga-outbox:demo-host:jar")
+
+    into runtimeDir
+
+    from(configurations.runtimeClasspath) {
+        into "lib"
+        exclude "*-sources.jar", "*-javadoc.jar", "spring-boot-devtools*.jar"
+    }
+    from("config") {
+        into "config"
+    }
+    from("bin") {
+        into "bin"
+        fileMode = 0755
+    }
+}
+
+task sampleDistZip(type: Zip) {
+    group = "distribution"
+    description = "Builds a zip distribution for the saga/outbox sample."
+    dependsOn assembleSampleRuntime
+    archiveBaseName = "pf4boot-saga-outbox-sample"
+    destinationDirectory = layout.buildDirectory.dir("distributions")
+    from(runtimeDir) {
+        into "pf4boot-saga-outbox-sample"
+    }
+}
+
+sourceSets {
+    smoke {
+        java {
+            srcDir "src/smoke/java"
+        }
+    }
+}
+
+configurations.smokeImplementation.extendsFrom configurations.implementation
+configurations.smokeRuntimeOnly.extendsFrom configurations.runtimeOnly
+
+task runtimeSmoke(type: JavaExec) {
+    group = "verification"
+    description = "Runs the saga/outbox runtime smoke."
+    dependsOn assembleSampleRuntime, compileSmokeJava
+
+    def smokePort = project.findProperty("pf4bootSagaSmokePort") ?: "7792"
+    def reportPath = layout.buildDirectory.file("reports/runtime-smoke/result.json").get().asFile
+
+    doFirst {
+        reportPath.parentFile.mkdirs()
+    }
+
+    classpath = sourceSets.smoke.runtimeClasspath
+    main = "net.xdob.sample.saga.smoke.SagaOutboxSmokeRunner"
+    args "--runtime", runtimeDir.get().asFile.absolutePath,
+            "--port", smokePort.toString(),
+            "--result", reportPath.absolutePath
+}
+
+assemble.dependsOn sampleDistZip

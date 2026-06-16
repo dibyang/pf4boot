@@ -1,0 +1,11 @@
+dependencies {
+    api("net.xdob.springframework.boot:spring-boot-starter-web:${spring_boot_version}") {
+        exclude group: 'org.slf4j'
+    }
+    api("net.xdob.springframework.boot:spring-boot-starter-jdbc:${spring_boot_version}") {
+        exclude group: 'org.slf4j'
+    }
+    api("com.h2database:h2:2.2.224")
+    api("org.slf4j:slf4j-api:${slf4j_version}")
+    api("ch.qos.logback:logback-classic:1.2.13")
+}

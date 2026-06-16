@@ -16,7 +16,7 @@
 | P0 设计与规划 | Done | 固化四项优先级和边界 | 中英文设计、规划和索引同步 |
 | P1 持久化记录 | Done | 加固管理记录 file store，补 JPA reload 文件记录 | 重启后记录可查、幂等可重放、JPA latest 可恢复 |
 | P2 providerReplacementPath | Done | JPA reload 支持 staged provider 包替换 | 成功替换、失败回滚、unrelated 不受影响 |
-| P3 Saga/Outbox sample | Planned | 演示跨 domain 最终一致性 | 成功、重复投递、失败重试 runtime smoke |
+| P3 Saga/Outbox sample | Done (V1) | 演示跨边界最终一致性 | 成功、重复投递、失败重试 runtime smoke |
 | P4 管理控制台 UI | Planned | 独立 sample UI 消费 HTTP API/Actuator | 本地 UI smoke、鉴权和幂等展示 |
 
 ## 3. P1 持久化记录
@@ -153,26 +153,20 @@
 
 ### 5.1 影响模块
 
-- `samples/saga-outbox/*`
+- `samples/saga-outbox/demo-host`
+- `samples/saga-outbox/app-run`
 - `settings.gradle`
 - `docs/design`
 
 ### 5.2 任务
 
-1. 新增独立 multi-module sample：
+1. 新增独立 multi-module sample V1：
    - `demo-host`；
-   - `app-run`；
-   - `model-order`；
-   - `model-billing`；
-   - `plugin-order-domain`；
-   - `plugin-billing-domain`；
-   - `plugin-order-service`；
-   - `plugin-billing-service`；
-   - `plugin-outbox-dispatcher`。
-2. 设计两套 JPA domain：
-   - `order` domain；
-   - `billing` domain。
-3. 实体分组：
+   - `app-run`。
+2. 设计两套逻辑边界：
+   - `order`；
+   - `billing`。
+3. 表结构分组：
    - order：`OrderRecord`、`OutboxEvent`；
    - billing：`BillingAccount`、`InboxEvent`。
 4. 业务接口：
@@ -206,6 +200,13 @@
 | P3-AC3：重复投递不重复扣款 | runtime smoke |
 | P3-AC4：失败后可重试成功 | runtime smoke |
 | P3-AC5：文档明确非原子事务 | README + 设计文档 |
+
+### 5.4 实施记录
+
+- 已新增 `samples/saga-outbox` 独立样例，包含 `demo-host` 和 `app-run`。
+- 已用 JDBC/H2 演示订单 outbox、billing inbox 幂等和 dispatcher tick。
+- 已新增 runtime smoke，覆盖 `SAGA_ORDER_PAID`、`SAGA_INBOX_IDEMPOTENT`、`SAGA_RETRY_SUCCESS`。
+- 多插件拆分版不放入 P3 V1，避免把 Saga/Outbox 行为验收和插件矩阵建模耦合；可作为后续样例增强。
 
 ## 6. P4 管理控制台 UI
 

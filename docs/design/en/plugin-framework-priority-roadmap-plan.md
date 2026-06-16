@@ -16,7 +16,7 @@ This plan tracks [plugin-framework-priority-roadmap.md](plugin-framework-priorit
 | P0 Design and planning | Done | define priorities and boundaries | Chinese/English design, plan, and index are synchronized |
 | P1 Persistent records | Done | harden management file stores and add JPA reload file records | records survive restart; idempotency replays; latest JPA reload recovers |
 | P2 providerReplacementPath | Done | JPA reload supports staged provider package replacement | success, rollback on failure, unrelated isolation |
-| P3 Saga/Outbox sample | Planned | demonstrate cross-domain eventual consistency | success, duplicate delivery, retry smoke |
+| P3 Saga/Outbox sample | Done (V1) | demonstrate cross-boundary eventual consistency | success, duplicate delivery, retry smoke |
 | P4 Management console UI | Planned | independent sample UI using HTTP APIs/Actuator | local UI smoke, auth and idempotency display |
 
 ## 3. P1 Persistent Records
@@ -144,24 +144,18 @@ Implementation notes:
 
 Affected modules:
 
-- `samples/saga-outbox/*`
+- `samples/saga-outbox/demo-host`
+- `samples/saga-outbox/app-run`
 - `settings.gradle`
 - `docs/design`
 
 Tasks:
 
-1. Add independent multi-module sample:
+1. Add independent multi-module sample V1:
    - `demo-host`;
-   - `app-run`;
-   - `model-order`;
-   - `model-billing`;
-   - `plugin-order-domain`;
-   - `plugin-billing-domain`;
-   - `plugin-order-service`;
-   - `plugin-billing-service`;
-   - `plugin-outbox-dispatcher`.
-2. Define two JPA domains: `order` and `billing`.
-3. Group entities:
+   - `app-run`.
+2. Define two logical boundaries: `order` and `billing`.
+3. Group tables:
    - order: `OrderRecord`, `OutboxEvent`;
    - billing: `BillingAccount`, `InboxEvent`.
 4. Add business APIs for create order, query status, dispatcher tick, and failure injection.
@@ -179,6 +173,13 @@ Acceptance:
 | P3-AC3 duplicate delivery does not charge twice | runtime smoke |
 | P3-AC4 failed delivery can retry successfully | runtime smoke |
 | P3-AC5 docs state non-atomic transaction boundary | README + design docs |
+
+Implementation notes:
+
+- Added the independent `samples/saga-outbox` sample with `demo-host` and `app-run`.
+- Used JDBC/H2 to make order outbox, billing inbox idempotency, and dispatcher tick behavior explicit.
+- Added runtime smoke covering `SAGA_ORDER_PAID`, `SAGA_INBOX_IDEMPOTENT`, and `SAGA_RETRY_SUCCESS`.
+- The multi-plugin split is intentionally left out of P3 V1 so Saga/Outbox behavior acceptance does not depend on another plugin matrix; it can be added as a later sample enhancement.
 
 ## 6. P4 Management Console UI
 

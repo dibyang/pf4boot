@@ -1,0 +1,8 @@
+server:
+  port: 7792
+spring:
+  datasource:
+    url: jdbc:h2:file:~/h2/pf4boot_sample_saga_outbox_runtime;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
