@@ -1,5 +1,7 @@
 import org.gradle.api.tasks.bundling.Zip
 
+apply plugin: "com.netflix.nebula.ospackage"
+
 dependencies {
     runtimeOnly project(":samples:cross-plugin-jpa:demo-host")
 }
@@ -24,7 +26,7 @@ task assembleSampleRuntime(type: Copy) {
         into "lib"
         exclude "*-sources.jar", "*-javadoc.jar", "spring-boot-devtools*.jar"
     }
-    from("${project(':samples:cross-plugin-jpa:demo-host').buildDir}/sample-plugins") {
+    from("${project(":samples:cross-plugin-jpa:demo-host").buildDir}/sample-plugins") {
         into "plugins"
         include "*.zip"
     }
@@ -47,6 +49,67 @@ task sampleDistZip(type: Zip) {
         into "pf4boot-cross-plugin-jpa-sample"
     }
 }
+
+// ---- RPM / DEB packaging ----------------------------------------------------
+def packageBaseName = "pf4boot-cross-plugin-jpa-sample"
+def installRoot = "/opt/pf4boot/cross-plugin-jpa-sample"
+def serviceUser  = "pf4boot"
+def serviceGroup = "pf4boot"
+
+ospackage {
+    packageName    = packageBaseName
+    version        = project.version.toString().replace("-SNAPSHOT", "")
+    release        = "1"
+    os             = LINUX
+    packager       = "pf4boot"
+    vendor         = "pf4boot"
+    url            = "https://github.com/xdob/pf4boot"
+    summary        = "Cross-plugin JPA sample application for pf4boot"
+    packageDescription = "pf4boot cross-plugin JPA sample.\nDemonstrates plugin-to-plugin JPA domain sharing,\ntransaction management, and hot-replacement deployment."
+    license        = "Apache-2.0"
+
+    user           = serviceUser
+    permissionGroup = serviceGroup
+
+    requires("java-1.8.0-openjdk")
+
+    preInstall     file("src/packaging/scripts/preinst.sh")
+    postInstall    file("src/packaging/scripts/postinst.sh")
+    preUninstall   file("src/packaging/scripts/prerm.sh")
+    postUninstall  file("src/packaging/scripts/postrm.sh")
+
+    from(assembleSampleRuntime.outputs.files.singleFile) {
+        into installRoot
+        exclude "bin/startup.bat"
+        fileMode 0644
+        dirMode  0755
+    }
+
+    from("bin/startup.sh") {
+        into "${installRoot}/bin"
+        fileMode 0755
+    }
+
+    from("src/packaging/systemd/pf4boot-cross-plugin-jpa-sample.service") {
+        into "/usr/lib/systemd/system"
+        fileMode 0644
+    }
+}
+
+buildRpm {
+    dependsOn assembleSampleRuntime
+    arch    = "noarch"
+    os      = LINUX
+    packageName = packageBaseName
+}
+
+buildDeb {
+    dependsOn assembleSampleRuntime
+    arch    = "all"
+    packageName = packageBaseName
+}
+
+assemble.dependsOn buildRpm, buildDeb, sampleDistZip
 
 sourceSets {
     smoke {
@@ -84,5 +147,3 @@ task runtimeSmoke(type: JavaExec) {
         args "--keep-work-dir"
     }
 }
-
-assemble.dependsOn sampleDistZip

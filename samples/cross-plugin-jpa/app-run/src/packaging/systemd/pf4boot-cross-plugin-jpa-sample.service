@@ -1,0 +1,21 @@
+﻿[Unit]
+Description=pf4boot Cross-Plugin JPA Sample
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pf4boot
+Group=pf4boot
+ExecStart=/opt/pf4boot/cross-plugin-jpa-sample/bin/startup.sh
+ExecStop=/bin/kill -TERM ${MAINPID}
+WorkingDirectory=/opt/pf4boot/cross-plugin-jpa-sample
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pf4boot-cross-plugin-jpa-sample
+
+[Install]
+WantedBy=multi-user.target
