@@ -3,7 +3,7 @@
 ## Scope
 
 This document tracks implementation evidence for:
-- [plugin-http-management-api.md](plugin-http-management-api.md)
+- [plugin-http-management-api.md](../plugin-http-management-api.md)
 - [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)
 - [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md)
 

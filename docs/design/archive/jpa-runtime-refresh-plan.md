@@ -2,7 +2,7 @@
 
 ## 1. 范围
 
-本文跟踪 [jpa-runtime-refresh.md](jpa-runtime-refresh.md) 的实施任务。目标是分阶段交付 JPA domain 的运行时刷新能力：先可观测、再可规划、最后在显式配置下执行重启式刷新。
+本文跟踪 [jpa-runtime-refresh.md](../jpa-runtime-refresh.md) 的实施任务。目标是分阶段交付 JPA domain 的运行时刷新能力：先可观测、再可规划、最后在显式配置下执行重启式刷新。
 
 ## 2. 阶段总览
 
@@ -219,9 +219,9 @@ rg -n "U\+FFFD" docs/design docs/design/en
 
 ### 任务
 
-1. 更新 [plugin-developer-guide.md](plugin-developer-guide.md) 的 JPA 章节。
-2. 更新 [jpa-integration.md](jpa-integration.md) 的 shared domain 运行时刷新边界。
-3. 更新 [plugin-http-management-api.md](plugin-http-management-api.md) 和实施指南中的 JPA reload 接口。
+1. 更新 [plugin-developer-guide.md](../plugin-developer-guide.md) 的 JPA 章节。
+2. 更新 [jpa-integration.md](../jpa-integration.md) 的 shared domain 运行时刷新边界。
+3. 更新 [plugin-http-management-api.md](../plugin-http-management-api.md) 和实施指南中的 JPA reload 接口。
 4. 同步英文翻译。
 5. 根据实际测试结果更新 [jpa-runtime-refresh-acceptance.md](jpa-runtime-refresh-acceptance.md)。
 6. 明确剩余后续方向：跨数据源事务、持久化 reload 记录、provider 内部热重建。

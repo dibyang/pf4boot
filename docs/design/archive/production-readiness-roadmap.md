@@ -139,7 +139,7 @@
 
 HTTP 管理接口作为独立生产化专题追踪，详见：
 
-- [plugin-http-management-api.md](plugin-http-management-api.md)
+- [plugin-http-management-api.md](../plugin-http-management-api.md)
 - [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)
 - [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md)
 - [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md)

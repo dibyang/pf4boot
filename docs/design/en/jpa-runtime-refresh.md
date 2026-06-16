@@ -4,7 +4,7 @@
 
 The current cross-plugin JPA design uses `pf4boot-jpa-domain-starter` to export a shared `DataSource`, `EntityManagerFactory`, `PlatformTransactionManager`, and `JpaDomainDescriptor`. Consumer plugins use `pf4boot-jpa-starter` in `SHARED` mode to join the same domain and transaction environment.
 
-The earlier decision is documented in [jpa-runtime-refresh-decision.md](jpa-runtime-refresh-decision.md): already-created Hibernate metamodels must not be mutated online. Runtime refresh must stop affected consumers, rebuild the domain JPA environment, and then start consumers again.
+The earlier decision is documented in [decisions/jpa-runtime-refresh-decision.md](decisions/jpa-runtime-refresh-decision.md): already-created Hibernate metamodels must not be mutated online. Runtime refresh must stop affected consumers, rebuild the domain JPA environment, and then start consumers again.
 
 ## 2. Goals
 

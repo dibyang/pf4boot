@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-This plan tracks the implementation of [jpa-runtime-refresh.md](jpa-runtime-refresh.md). Delivery is phased: visibility first, planning second, and explicit executable refresh last.
+This plan tracks the implementation of [jpa-runtime-refresh.md](../jpa-runtime-refresh.md). Delivery is phased: visibility first, planning second, and explicit executable refresh last.
 
 ## 2. Phases
 

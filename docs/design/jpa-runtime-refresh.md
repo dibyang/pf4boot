@@ -4,7 +4,7 @@
 
 当前跨插件 JPA 方案通过 `pf4boot-jpa-domain-starter` 提供共享数据源、`EntityManagerFactory`、`PlatformTransactionManager` 和 `JpaDomainDescriptor`，消费插件通过 `pf4boot-jpa-starter` 的 `SHARED` 模式绑定同一个 domain，从而进入同一个事务环境。
 
-已有决策见 [jpa-runtime-refresh-decision.md](jpa-runtime-refresh-decision.md)：不支持直接修改已经创建的 Hibernate metamodel；JPA 运行时刷新必须通过停止受影响消费插件、重建 domain JPA 环境、再启动消费插件完成。本文把该决策细化到可以直接实施的模块边界、接口、状态机、配置和验证路径。
+已有决策见 [decisions/jpa-runtime-refresh-decision.md](decisions/jpa-runtime-refresh-decision.md)：不支持直接修改已经创建的 Hibernate metamodel；JPA 运行时刷新必须通过停止受影响消费插件、重建 domain JPA 环境、再启动消费插件完成。本文把该决策细化到可以直接实施的模块边界、接口、状态机、配置和验证路径。
 
 ## 2. 目标
 

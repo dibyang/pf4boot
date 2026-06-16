@@ -139,7 +139,7 @@ The next phase should move the framework from "functionally usable" to "producti
 
 HTTP management APIs are tracked as a dedicated production-readiness topic:
 
-- [plugin-http-management-api.md](plugin-http-management-api.md)
+- [plugin-http-management-api.md](../plugin-http-management-api.md)
 - [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)
 - [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md)
 - [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md)

@@ -276,11 +276,11 @@ public void updateReport() {}
 
 见验收文档：
 
-- [cross-plugin-jpa-transaction-capability-acceptance.md](cross-plugin-jpa-transaction-capability-acceptance.md)
+- [archive/cross-plugin-jpa-transaction-capability-acceptance.md](archive/cross-plugin-jpa-transaction-capability-acceptance.md)
 
 ## 11. 规划（单独文档）
 
-- [cross-plugin-jpa-transaction-capability-plan.md](cross-plugin-jpa-transaction-capability-plan.md)
+- [archive/cross-plugin-jpa-transaction-capability-plan.md](archive/cross-plugin-jpa-transaction-capability-plan.md)
 
 ## 12. 风险与对策
 

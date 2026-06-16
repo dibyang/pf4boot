@@ -2,7 +2,7 @@
 
 ## 1. 范围
 
-本文跟踪 [jpa-runtime-refresh-drain-spi.md](jpa-runtime-refresh-drain-spi.md) 的实施任务。目标是在 JPA domain 重启式刷新执行模式中接入通用 `PluginTrafficDrainer`，让 `DRAINING` 阶段真正摘流、等待在途工作归零，并把结果写入 reload record。
+本文跟踪 [jpa-runtime-refresh-drain-spi.md](../jpa-runtime-refresh-drain-spi.md) 的实施任务。目标是在 JPA domain 重启式刷新执行模式中接入通用 `PluginTrafficDrainer`，让 `DRAINING` 阶段真正摘流、等待在途工作归零，并把结果写入 reload record。
 
 ## 2. 阶段总览
 
@@ -193,9 +193,9 @@
 
 ### 任务
 
-1. 更新 [jpa-runtime-refresh.md](jpa-runtime-refresh.md) 中 V1 drain 从 warning 改为真实 drainer。
-2. 更新 [jpa-integration.md](jpa-integration.md) 的 refresh 边界。
-3. 更新 [plugin-developer-guide.md](plugin-developer-guide.md) 的 JPA refresh drain 使用说明。
+1. 更新 [jpa-runtime-refresh.md](../jpa-runtime-refresh.md) 中 V1 drain 从 warning 改为真实 drainer。
+2. 更新 [jpa-integration.md](../jpa-integration.md) 的 refresh 边界。
+3. 更新 [plugin-developer-guide.md](../plugin-developer-guide.md) 的 JPA refresh drain 使用说明。
 4. 更新本规划和验收清单状态。
 5. 同步英文翻译。
 

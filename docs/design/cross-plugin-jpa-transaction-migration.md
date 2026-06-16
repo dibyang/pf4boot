@@ -2,7 +2,7 @@
 
 本文说明如何把已有插件从本地 JPA 模式迁移到共享领域事务模式。设计背景见
 [cross-plugin-jpa-transaction-capability.md](cross-plugin-jpa-transaction-capability.md)，实施追踪见
-[cross-plugin-jpa-transaction-capability-plan.md](cross-plugin-jpa-transaction-capability-plan.md)。
+[archive/cross-plugin-jpa-transaction-capability-plan.md](archive/cross-plugin-jpa-transaction-capability-plan.md)。
 
 ## 1. 适用范围
 

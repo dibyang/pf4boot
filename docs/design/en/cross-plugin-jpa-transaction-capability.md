@@ -274,11 +274,11 @@ Logging requirements:
 
 See acceptance checklist:
 
-- [cross-plugin-jpa-transaction-capability-acceptance.md](cross-plugin-jpa-transaction-capability-acceptance.md)
+- [archive/cross-plugin-jpa-transaction-capability-acceptance.md](archive/cross-plugin-jpa-transaction-capability-acceptance.md)
 
 ## 11. Planning (separate doc)
 
-- [cross-plugin-jpa-transaction-capability-plan.md](cross-plugin-jpa-transaction-capability-plan.md)
+- [archive/cross-plugin-jpa-transaction-capability-plan.md](archive/cross-plugin-jpa-transaction-capability-plan.md)
 
 ## 12. Risks and Mitigations
 

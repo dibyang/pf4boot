@@ -2,7 +2,7 @@
 
 ## Tracking Rules
 
-- Design: [plugin-http-management-api.md](plugin-http-management-api.md).
+- Design: [plugin-http-management-api.md](../plugin-http-management-api.md).
 - Implementation guide: [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md).
 - This document tracks implementation tasks only.
 - Status values: `Not Started`, `In Progress`, `Done`, `Blocked`.

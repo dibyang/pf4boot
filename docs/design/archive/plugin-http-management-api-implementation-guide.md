@@ -4,10 +4,10 @@
 
 本文面向实施模型或开发者，目标是减少自由推断。实现前先阅读：
 
-- [plugin-http-management-api.md](plugin-http-management-api.md)
+- [plugin-http-management-api.md](../plugin-http-management-api.md)
 - [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)
 - [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md)
-- [../constraints/README.md](../constraints/README.md)
+- [../../constraints/README.md](../../constraints/README.md)
 
 本文的类名、包名、文件路径和测试名是建议落地形态。除非实现时发现与现有代码冲突，否则不要改名。
 

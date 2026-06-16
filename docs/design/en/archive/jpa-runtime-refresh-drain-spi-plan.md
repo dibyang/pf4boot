@@ -2,7 +2,7 @@
 
 ## 1. Scope
 
-This plan tracks [jpa-runtime-refresh-drain-spi.md](jpa-runtime-refresh-drain-spi.md). The goal is to connect JPA domain restart-based refresh to the common `PluginTrafficDrainer`, so the `DRAINING` phase really rejects new work, waits for in-flight work, and records the result in reload records.
+This plan tracks [jpa-runtime-refresh-drain-spi.md](../jpa-runtime-refresh-drain-spi.md). The goal is to connect JPA domain restart-based refresh to the common `PluginTrafficDrainer`, so the `DRAINING` phase really rejects new work, waits for in-flight work, and records the result in reload records.
 
 ## 2. Phases
 

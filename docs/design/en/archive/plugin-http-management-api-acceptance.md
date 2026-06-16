@@ -2,7 +2,7 @@
 
 ## Scope
 
-This document tracks implementation evidence for [plugin-http-management-api.md](plugin-http-management-api.md) and [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md).
+This document tracks implementation evidence for [plugin-http-management-api.md](../plugin-http-management-api.md) and [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md).
 As of this pass, core implementation is wired, compile checks pass, and security hardening for local and remote-style write-path checks is covered by unit tests. Full runtime smoke coverage is still pending.
 
 Implementation should also follow [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md). Evidence should keep module paths, class names, and test names aligned with the guide where possible.

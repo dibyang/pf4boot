@@ -2,7 +2,7 @@
 
 This document explains how to migrate an existing plugin from local JPA mode to shared-domain transaction mode.
 See [cross-plugin-jpa-transaction-capability.md](cross-plugin-jpa-transaction-capability.md) for the design and
-[cross-plugin-jpa-transaction-capability-plan.md](cross-plugin-jpa-transaction-capability-plan.md) for tracking.
+[archive/cross-plugin-jpa-transaction-capability-plan.md](archive/cross-plugin-jpa-transaction-capability-plan.md) for tracking.
 
 ## 1. Scope
 

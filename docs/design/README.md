@@ -1,110 +1,61 @@
 # 设计文档
 
-此目录用于保存非平凡变更编码前的设计说明。根目录下的设计文档以中文为准，英文翻译版放在 [en/](en/)。
+此目录保存当前仍然有效的设计说明。中文文档为准，英文翻译版放在 [en/](en/)。
 
-## 现有设计
+历史计划、验收记录和阶段性路线图已经移入 [archive/](archive/)，仅用于追溯，不作为当前实现依据。长期架构决策放在 [decisions/](decisions/)。
 
-- [architecture.md](architecture.md)：模块布局和运行时架构。
-- [plugin-lifecycle.md](plugin-lifecycle.md)：插件加载、启动、停止、重载和清理流程。
-- [context-and-bean-sharing.md](context-and-bean-sharing.md)：Spring 上下文层级、导出 Bean、扩展点和事件。
+## 阅读入口
+
+新参与开发时，建议按以下顺序阅读：
+
+1. [architecture.md](architecture.md)：模块布局和运行时架构。
+2. [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md)：插件仓库、加载器、Gradle 插件打包和应用装配。
+3. [plugin-lifecycle.md](plugin-lifecycle.md)：插件加载、启动、停止、重载和清理流程。
+4. [context-and-bean-sharing.md](context-and-bean-sharing.md)：Spring 上下文层级、导出 Bean、扩展点和事件。
+5. [plugin-developer-guide.md](plugin-developer-guide.md)：插件开发、依赖作用域、包校验、观测、JPA 和升级回滚指南。
+
+## 按主题阅读
+
+### 基础框架
+
+- [architecture.md](architecture.md)：整体架构。
+- [plugin-lifecycle.md](plugin-lifecycle.md)：生命周期和清理边界。
+- [context-and-bean-sharing.md](context-and-bean-sharing.md)：上下文和 Bean 共享。
+- [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md)：加载、仓库和打包。
+- [starter-boundary-split.md](starter-boundary-split.md)：starter 边界拆分。
+
+### Web 与管理接口
+
 - [web-integration.md](web-integration.md)：动态 MVC 映射、拦截器和插件静态资源。
+- [plugin-http-management-api.md](plugin-http-management-api.md)：插件 HTTP 管理接口。
+- [plugin-http-management-api-hardening.md](plugin-http-management-api-hardening.md)：管理接口加固。
+- [decisions/plugin-management-console-boundary.md](decisions/plugin-management-console-boundary.md)：管理控制台与后端接口边界。
+
+### JPA 与事务
+
 - [jpa-integration.md](jpa-integration.md)：插件 JPA starter 行为和实体扫描规则。
-- [cross-plugin-jpa-transaction-capability.md](cross-plugin-jpa-transaction-capability.md)：跨插件 JPA 事务能力设计与落地计划。
-- [cross-plugin-jpa-transaction-capability-plan.md](cross-plugin-jpa-transaction-capability-plan.md)：跨插件 JPA 事务能力实施计划（追踪版）。
-- [cross-plugin-jpa-transaction-capability-acceptance.md](cross-plugin-jpa-transaction-capability-acceptance.md)：跨插件 JPA 事务能力验收清单（追踪版）。
-- [cross-plugin-jpa-transaction-migration.md](cross-plugin-jpa-transaction-migration.md)：跨插件 JPA 事务迁移指南和配置示例。
-- [cross-plugin-jpa-transaction-complex-sample.md](cross-plugin-jpa-transaction-complex-sample.md)：跨插件 JPA 复杂示例拆分方案。
-- [cross-plugin-jpa-transaction-complex-sample-plan.md](cross-plugin-jpa-transaction-complex-sample-plan.md)：跨插件 JPA 复杂示例实施规划。
-- [cross-plugin-jpa-transaction-complex-sample-acceptance.md](cross-plugin-jpa-transaction-complex-sample-acceptance.md)：跨插件 JPA 复杂示例验收记录。
-- [cross-plugin-jpa-transaction-improvement.md](cross-plugin-jpa-transaction-improvement.md)：跨插件 JPA 事务现状改进方案。
-- [cross-plugin-jpa-transaction-improvement-plan.md](cross-plugin-jpa-transaction-improvement-plan.md)：跨插件 JPA 事务改进实施规划。
-- [plugin-hot-replacement-deployment-improvement.md](plugin-hot-replacement-deployment-improvement.md)：插件热替换部署现状改进方案。
-- [plugin-hot-replacement-deployment-improvement-plan.md](plugin-hot-replacement-deployment-improvement-plan.md)：插件热替换部署改进实施规划。
-- [plugin-hot-replacement-deployment-acceptance.md](plugin-hot-replacement-deployment-acceptance.md)：插件热替换部署验收记录。
-- [plugin-http-management-api.md](plugin-http-management-api.md)：插件 HTTP 管理接口完整支持方案。
-- [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)：插件 HTTP 管理接口实施规划。
-- [plugin-http-management-api-implementation-guide.md](plugin-http-management-api-implementation-guide.md)：插件 HTTP 管理接口实施指南。
-- [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md)：插件 HTTP 管理接口验收清单。
-- [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md)：插件仓库、加载器、Gradle 插件打包和应用装配。
-- [code-quality-fixes.md](code-quality-fixes.md)：本轮代码质量检查发现的问题和修复方案。
-- [lifecycle-cleanup-fix.md](lifecycle-cleanup-fix.md)：插件停止和上下文清理职责边界修复方案。
-- [scheduler-sharingbeans-fix.md](scheduler-sharingbeans-fix.md)：自动启动调度幂等和共享 Bean 记录 key 修复方案。
-- [autoexport-jpa-boundary.md](autoexport-jpa-boundary.md)：AutoExport 分组和 JPA 动态元数据能力边界。
-- [production-readiness-roadmap.md](production-readiness-roadmap.md)：验证闭环、观测诊断、JPA 边界、插件治理和文档体验的生产化完善路线图。
-- [plugin-framework-production-hardening.md](plugin-framework-production-hardening.md)：插件框架生产级完善设计，覆盖签名信任链、持久化记录、生命周期验证、能力声明和观测闭环。
-- [plugin-framework-production-hardening-plan.md](plugin-framework-production-hardening-plan.md)：插件框架生产级完善实施规划。
-- [plugin-framework-production-hardening-acceptance.md](plugin-framework-production-hardening-acceptance.md)：插件框架生产级完善验收追踪。
-- [plugin-framework-next-stage-hardening.md](plugin-framework-next-stage-hardening.md)：插件框架下一阶段生产化增强设计，覆盖离线仓库、版本范围严格预检和 runtime smoke Gradle/CI 化。
-- [plugin-framework-next-stage-hardening-plan.md](plugin-framework-next-stage-hardening-plan.md)：插件框架下一阶段生产化增强实施规划。
-- [plugin-framework-next-stage-hardening-acceptance.md](plugin-framework-next-stage-hardening-acceptance.md)：插件框架下一阶段生产化增强验收追踪。
-- [plugin-framework-follow-up-hardening.md](plugin-framework-follow-up-hardening.md)：插件框架后续增强设计，覆盖仓库真实 replace、跨平台 smoke 和 no-jpa 隔离示例。
-- [plugin-framework-follow-up-hardening-plan.md](plugin-framework-follow-up-hardening-plan.md)：插件框架后续增强实施规划。
-- [plugin-framework-follow-up-hardening-acceptance.md](plugin-framework-follow-up-hardening-acceptance.md)：插件框架后续增强验收追踪。
-- [jpa-runtime-refresh-decision.md](jpa-runtime-refresh-decision.md)：JPA 运行时刷新/EntityManagerFactory 重建决策。
-- [jpa-runtime-refresh.md](jpa-runtime-refresh.md)：JPA 运行时刷新设计，覆盖 PLAN_ONLY、影响范围识别、provider 重启式刷新和管理接口。
-- [jpa-runtime-refresh-plan.md](jpa-runtime-refresh-plan.md)：JPA 运行时刷新实施规划。
-- [jpa-runtime-refresh-acceptance.md](jpa-runtime-refresh-acceptance.md)：JPA 运行时刷新验收清单。
-- [jpa-runtime-refresh-drain-spi.md](jpa-runtime-refresh-drain-spi.md)：JPA 运行时刷新 drain SPI 设计，复用热替换通用摘流扩展点。
-- [jpa-runtime-refresh-drain-spi-plan.md](jpa-runtime-refresh-drain-spi-plan.md)：JPA 运行时刷新 drain SPI 实施规划。
-- [jpa-runtime-refresh-drain-spi-acceptance.md](jpa-runtime-refresh-drain-spi-acceptance.md)：JPA 运行时刷新 drain SPI 验收清单。
-- [plugin-framework-priority-roadmap.md](plugin-framework-priority-roadmap.md)：插件框架下一优先级增强设计，覆盖持久化记录、providerReplacementPath、Saga/Outbox sample 和管理控制台 UI。
-- [plugin-framework-priority-roadmap-plan.md](plugin-framework-priority-roadmap-plan.md)：插件框架下一优先级增强实施规划。
-- [cross-datasource-transaction-decision.md](cross-datasource-transaction-decision.md)：跨数据源事务边界、Saga/Outbox 和 XA 可选模块决策。
-- [plugin-repository-governance-decision.md](plugin-repository-governance-decision.md)：插件离线仓库、签名发布、灰度和回滚治理决策。
-- [plugin-management-console-boundary.md](plugin-management-console-boundary.md)：插件管理控制台 UI 与 HTTP API/Actuator 边界决策。
-- [plugin-developer-guide.md](plugin-developer-guide.md)：插件开发、依赖作用域、包校验、只读观测、JPA 和升级回滚指南。
+- [autoexport-jpa-boundary.md](autoexport-jpa-boundary.md)：AutoExport 分组和 JPA 动态元数据边界。
+- [cross-plugin-jpa-transaction-capability.md](cross-plugin-jpa-transaction-capability.md)：跨插件 JPA 事务能力。
+- [cross-plugin-jpa-transaction-improvement.md](cross-plugin-jpa-transaction-improvement.md)：跨插件 JPA 事务改进。
+- [cross-plugin-jpa-transaction-complex-sample.md](cross-plugin-jpa-transaction-complex-sample.md)：复杂示例拆分。
+- [cross-plugin-jpa-transaction-migration.md](cross-plugin-jpa-transaction-migration.md)：迁移指南和配置示例。
+- [jpa-runtime-refresh.md](jpa-runtime-refresh.md)：JPA 运行时刷新。
+- [jpa-runtime-refresh-drain-spi.md](jpa-runtime-refresh-drain-spi.md)：JPA 刷新的 drain SPI。
+- [decisions/cross-datasource-transaction-decision.md](decisions/cross-datasource-transaction-decision.md)：跨数据源事务边界决策。
+- [decisions/jpa-runtime-refresh-decision.md](decisions/jpa-runtime-refresh-decision.md)：JPA runtime refresh 决策。
 
-英文翻译版：
+### 生产化与运维
 
-- [en/architecture.md](en/architecture.md)
-- [en/plugin-lifecycle.md](en/plugin-lifecycle.md)
-- [en/context-and-bean-sharing.md](en/context-and-bean-sharing.md)
-- [en/web-integration.md](en/web-integration.md)
-- [en/jpa-integration.md](en/jpa-integration.md)
-- [en/cross-plugin-jpa-transaction-capability.md](en/cross-plugin-jpa-transaction-capability.md)
-- [en/cross-plugin-jpa-transaction-capability-plan.md](en/cross-plugin-jpa-transaction-capability-plan.md)
-- [en/cross-plugin-jpa-transaction-capability-acceptance.md](en/cross-plugin-jpa-transaction-capability-acceptance.md)
-- [en/cross-plugin-jpa-transaction-migration.md](en/cross-plugin-jpa-transaction-migration.md)
-- [en/cross-plugin-jpa-transaction-complex-sample.md](en/cross-plugin-jpa-transaction-complex-sample.md)
-- [en/cross-plugin-jpa-transaction-complex-sample-plan.md](en/cross-plugin-jpa-transaction-complex-sample-plan.md)
-- [en/cross-plugin-jpa-transaction-complex-sample-acceptance.md](en/cross-plugin-jpa-transaction-complex-sample-acceptance.md)
-- [en/cross-plugin-jpa-transaction-improvement.md](en/cross-plugin-jpa-transaction-improvement.md)
-- [en/cross-plugin-jpa-transaction-improvement-plan.md](en/cross-plugin-jpa-transaction-improvement-plan.md)
-- [en/plugin-hot-replacement-deployment-improvement.md](en/plugin-hot-replacement-deployment-improvement.md)
-- [en/plugin-hot-replacement-deployment-improvement-plan.md](en/plugin-hot-replacement-deployment-improvement-plan.md)
-- [en/plugin-hot-replacement-deployment-acceptance.md](en/plugin-hot-replacement-deployment-acceptance.md)
-- [en/plugin-http-management-api.md](en/plugin-http-management-api.md)
-- [en/plugin-http-management-api-plan.md](en/plugin-http-management-api-plan.md)
-- [en/plugin-http-management-api-implementation-guide.md](en/plugin-http-management-api-implementation-guide.md)
-- [en/plugin-http-management-api-acceptance.md](en/plugin-http-management-api-acceptance.md)
-- [en/plugin-loading-and-packaging.md](en/plugin-loading-and-packaging.md)
-- [en/code-quality-fixes.md](en/code-quality-fixes.md)
-- [en/lifecycle-cleanup-fix.md](en/lifecycle-cleanup-fix.md)
-- [en/scheduler-sharingbeans-fix.md](en/scheduler-sharingbeans-fix.md)
-- [en/autoexport-jpa-boundary.md](en/autoexport-jpa-boundary.md)
-- [en/production-readiness-roadmap.md](en/production-readiness-roadmap.md)
-- [en/plugin-framework-production-hardening.md](en/plugin-framework-production-hardening.md)
-- [en/plugin-framework-production-hardening-plan.md](en/plugin-framework-production-hardening-plan.md)
-- [en/plugin-framework-production-hardening-acceptance.md](en/plugin-framework-production-hardening-acceptance.md)
-- [en/plugin-framework-next-stage-hardening.md](en/plugin-framework-next-stage-hardening.md)
-- [en/plugin-framework-next-stage-hardening-plan.md](en/plugin-framework-next-stage-hardening-plan.md)
-- [en/plugin-framework-next-stage-hardening-acceptance.md](en/plugin-framework-next-stage-hardening-acceptance.md)
-- [en/plugin-framework-follow-up-hardening.md](en/plugin-framework-follow-up-hardening.md)
-- [en/plugin-framework-follow-up-hardening-plan.md](en/plugin-framework-follow-up-hardening-plan.md)
-- [en/plugin-framework-follow-up-hardening-acceptance.md](en/plugin-framework-follow-up-hardening-acceptance.md)
-- [en/jpa-runtime-refresh-decision.md](en/jpa-runtime-refresh-decision.md)
-- [en/jpa-runtime-refresh.md](en/jpa-runtime-refresh.md)
-- [en/jpa-runtime-refresh-plan.md](en/jpa-runtime-refresh-plan.md)
-- [en/jpa-runtime-refresh-acceptance.md](en/jpa-runtime-refresh-acceptance.md)
-- [en/jpa-runtime-refresh-drain-spi.md](en/jpa-runtime-refresh-drain-spi.md)
-- [en/jpa-runtime-refresh-drain-spi-plan.md](en/jpa-runtime-refresh-drain-spi-plan.md)
-- [en/jpa-runtime-refresh-drain-spi-acceptance.md](en/jpa-runtime-refresh-drain-spi-acceptance.md)
-- [en/plugin-framework-priority-roadmap.md](en/plugin-framework-priority-roadmap.md)
-- [en/plugin-framework-priority-roadmap-plan.md](en/plugin-framework-priority-roadmap-plan.md)
-- [en/cross-datasource-transaction-decision.md](en/cross-datasource-transaction-decision.md)
-- [en/plugin-repository-governance-decision.md](en/plugin-repository-governance-decision.md)
-- [en/plugin-management-console-boundary.md](en/plugin-management-console-boundary.md)
-- [en/plugin-developer-guide.md](en/plugin-developer-guide.md)
+- [plugin-hot-replacement-deployment-improvement.md](plugin-hot-replacement-deployment-improvement.md)：插件热替换部署改进。
+- [runtime-safety-phase3.md](runtime-safety-phase3.md)：运行时安全增强。
+- [verification-foundation.md](verification-foundation.md)：验证基础设施。
+- [decisions/plugin-repository-governance-decision.md](decisions/plugin-repository-governance-decision.md)：插件仓库治理决策。
+
+## 文档治理
+
+- [document-governance.md](document-governance.md)：设计文档分层、归档和新增规则。
+- [archive/README.md](archive/README.md)：历史文档索引。
+- [decisions/README.md](decisions/README.md)：长期决策索引。
 
 ## 何时新增或更新设计文档
 

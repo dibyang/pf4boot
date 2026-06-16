@@ -6,10 +6,10 @@ This guide is written for implementation agents and developers. It reduces guess
 
 Read these first:
 
-- [plugin-http-management-api.md](plugin-http-management-api.md)
+- [plugin-http-management-api.md](../plugin-http-management-api.md)
 - [plugin-http-management-api-plan.md](plugin-http-management-api-plan.md)
 - [plugin-http-management-api-acceptance.md](plugin-http-management-api-acceptance.md)
-- [../../constraints/README.md](../../constraints/README.md)
+- [../../../constraints/README.md](../../../constraints/README.md)
 
 Unless an implementation conflict is found, keep the names in this guide.
 
