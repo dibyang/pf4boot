@@ -8,12 +8,15 @@
 
 - `pf4boot-api`：公共契约、注解、Spring 上下文辅助类、插件 wrapper、生命周期事件、共享模型和工具接口。
 - `pf4boot-core`：PF4J manager 实现、插件仓库和加载器、插件类加载器、生命周期编排、共享 Bean 管理、自动导出管理和定时任务管理。
-- `pf4boot-starter`：Spring Boot 自动配置、插件管理器 Bean 创建、管理接口、MVC patch 配置和默认资源。
+- `pf4boot-starter`：Spring Boot 自动配置、插件管理器 Bean 创建和默认资源。
 - `pf4boot-web-support`：插件模块编译期使用的共享 Web 支持 API。
 - `pf4boot-web-starter`：动态 Spring MVC controller、interceptor 和资源集成。
 - `pf4boot-jpa`：为 Hibernate 管理包提供 JPA provider 支持。
 - `pf4boot-jpa-starter`：插件侧 JPA 自动配置。
 - `pf4boot-jpa-domain-starter`：共享 JPA domain 能力插件 starter。
+- `pf4boot-management-starter`：基础插件管理 HTTP 接口和部署编排接口，不依赖 JPA。
+- `pf4boot-jpa-management-starter`：可选 JPA reload HTTP 接口和 `pf4bootjpareload` Actuator 端点。
+- `pf4boot-actuator`：基础插件快照、治理和 metrics 观测端点，不依赖 JPA。
 - `samples/cross-plugin-jpa`：跨插件 JPA 复杂示例，包含 demo host、model 模块、示例插件和 `app-run` 运行时打包项目。
 
 ## 运行时组件
@@ -55,7 +58,7 @@ flowchart TD
 - 默认使用 parent-first 类加载，避免同一个 API 类型被多个 classloader 加载后破坏 Spring 按类型注入。
 - 插件资源可以优先从插件本地加载，使插件静态资源和 plugin-only 资源能按预期覆盖宿主默认资源。
 - 公共扩展点放在 `pf4boot-api`；运行时行为放在 `pf4boot-core`。
-- Web 和 JPA 集成是可选的 starter 层，不是每个插件的硬依赖。
+- Web、JPA、基础管理和 JPA 管理都是可选的 starter 层，不是每个插件或宿主的硬依赖。
 
 ## 兼容性
 

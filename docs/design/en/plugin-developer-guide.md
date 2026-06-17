@@ -233,7 +233,7 @@ Missing definitions fail with `PJF-009`; empty entity packages fail with `PJF-00
 If one consumer plugin needs multiple shared domains, declare the primary domain with `shared("order")`, add others
 with `additionalDomain("audit")`, and declare separate `@EnableJpaRepositories` blocks for each repository package.
 
-Shared JPA domain runtime refresh is optional and disabled by default. A host or sample that wants the V1 restart-based flow must enable host governance explicitly:
+Shared JPA domain runtime refresh is optional and disabled by default. The HTTP management endpoints and `pf4bootjpareload` Actuator endpoint are not part of the base management modules; a host must add `pf4boot-jpa-management-starter` explicitly before using them. A host or sample that wants the V1 restart-based flow must enable host governance explicitly:
 
 ```yaml
 spring:
@@ -256,6 +256,7 @@ Hosts can use `upgradePlugin(pluginId, newPluginPath, rollbackPluginPath)` for u
 ```powershell
 .\gradlew.bat :pf4boot-core:test
 .\gradlew.bat :pf4boot-actuator:test
+.\gradlew.bat :pf4boot-jpa-management-starter:test
 .\gradlew.bat :pf4boot-jpa-starter:test
 .\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke
 ```

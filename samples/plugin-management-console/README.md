@@ -9,7 +9,6 @@
 示例覆盖：
 
 - 插件列表和 Actuator 摘要读取。
-- 插件 start/stop。
+- 插件 start/stop/restart/reload/enable/disable。
 - deployment plan。
-- JPA reload plan/reload。
 - 写操作自动携带 token 和 `X-Idempotency-Key`。

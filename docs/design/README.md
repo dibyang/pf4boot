@@ -42,6 +42,7 @@
 - [cross-plugin-jpa-transaction-migration.md](cross-plugin-jpa-transaction-migration.md)：迁移指南和配置示例。
 - [jpa-runtime-refresh.md](jpa-runtime-refresh.md)：JPA 运行时刷新。
 - [jpa-runtime-refresh-drain-spi.md](jpa-runtime-refresh-drain-spi.md)：JPA 刷新的 drain SPI。
+- [jpa-management-starter-boundary.md](jpa-management-starter-boundary.md)：JPA 管理 starter 可选边界。
 - [decisions/cross-datasource-transaction-decision.md](decisions/cross-datasource-transaction-decision.md)：跨数据源事务边界决策。
 - [decisions/jpa-runtime-refresh-decision.md](decisions/jpa-runtime-refresh-decision.md)：JPA runtime refresh 决策。
 

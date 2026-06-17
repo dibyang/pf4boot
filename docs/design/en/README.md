@@ -42,6 +42,7 @@ For new development work, read these first:
 - [cross-plugin-jpa-transaction-migration.md](cross-plugin-jpa-transaction-migration.md): migration guide and configuration examples.
 - [jpa-runtime-refresh.md](jpa-runtime-refresh.md): JPA runtime refresh.
 - [jpa-runtime-refresh-drain-spi.md](jpa-runtime-refresh-drain-spi.md): drain SPI for JPA refresh.
+- [jpa-management-starter-boundary.md](jpa-management-starter-boundary.md): optional JPA management starter boundary.
 - [decisions/cross-datasource-transaction-decision.md](decisions/cross-datasource-transaction-decision.md): cross-datasource transaction boundary decision.
 - [decisions/jpa-runtime-refresh-decision.md](decisions/jpa-runtime-refresh-decision.md): JPA runtime refresh decision.
 

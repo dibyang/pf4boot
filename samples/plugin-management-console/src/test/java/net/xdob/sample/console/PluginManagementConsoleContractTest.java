@@ -17,9 +17,7 @@ public class PluginManagementConsoleContractTest {
 
     assertTrue(html.contains("/pf4boot/admin/plugins"));
     assertTrue(html.contains("/pf4boot/admin/deployments/plan"));
-    assertTrue(html.contains("/pf4boot/admin/jpa/domains/"));
     assertTrue(html.contains("/actuator/pf4bootgovernance"));
-    assertTrue(html.contains("/actuator/pf4bootjpareload"));
     assertTrue(html.contains("X-PF4Boot-Admin-Token"));
     assertTrue(html.contains("X-Idempotency-Key"));
   }

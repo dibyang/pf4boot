@@ -2,6 +2,7 @@ dependencies {
     api project(":pf4boot-starter")
     api project(":pf4boot-actuator")
     api project(":pf4boot-management-starter")
+    api project(":pf4boot-jpa-management-starter")
     api project(":pf4boot-web-starter")
     api project(":pf4boot-jpa-domain-starter")
     api project(":pf4boot-jpa-starter")

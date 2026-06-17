@@ -12,6 +12,7 @@ This document is the English companion of `docs/design/plugin-management-http-ap
 - Disabled by default: `enabled=false` and `mode=DISABLED`
 - All endpoints require `PluginManagementAuthorizer`, including read endpoints
 - Time fields are Unix epoch milliseconds
+- This contract covers only base plugin management and deployment APIs. JPA reload is available only when `pf4boot-jpa-management-starter` is added explicitly.
 
 When HTTP management is enabled, `mode=DISABLED` is invalid and startup validation fails.
 
@@ -96,12 +97,8 @@ Failures use the same envelope. Global exception-handler responses usually have 
 | `POST` | `/deployments/replace` | `pf4boot:deployment:replace` | Yes | Replace or dry-run replace |
 | `POST` | `/deployments/{deploymentId}/confirm` | `pf4boot:deployment:confirm` | Yes | Execute prechecked plan |
 | `POST` | `/deployments/{deploymentId}/rollback` | `pf4boot:deployment:rollback` | Yes | Roll back by deployment plan |
-| `POST` | `/jpa/domains/{domainId}/reload/plan` | `pf4boot:plugin:read` | No | Plan JPA domain reload |
-| `POST` | `/jpa/domains/{domainId}/reload` | `pf4boot:plugin:reload` | Recommended | Execute JPA domain reload |
-| `GET` | `/jpa/reloads/{reloadId}` | `pf4boot:plugin:read` | No | Get JPA reload record |
-| `GET` | `/jpa/domains/{domainId}/reload/current` | `pf4boot:plugin:read` | No | Get current JPA reload |
 
-Management lifecycle and deployment write endpoints use the management idempotency service, rate limiter, origin policy, and audit recorder. JPA management endpoints reuse authorization and audit; JPA reload execution relies on `JpaDomainReloadService` for idempotency.
+Management lifecycle and deployment write endpoints use the management idempotency service, rate limiter, origin policy, and audit recorder.
 
 ## 5. Core Models
 
@@ -153,25 +150,6 @@ Management lifecycle and deployment write endpoints use the management idempoten
 }
 ```
 
-### `JpaDomainReloadRequest`
-
-```json
-{
-  "domainId": "demo",
-  "mode": "STOP_CONSUMERS_AND_REBUILD",
-  "dryRun": false,
-  "idempotencyKey": "jpa-reload-001",
-  "requestedBy": "operator",
-  "reason": "release",
-  "allowInferredConsumers": false,
-  "drainTimeoutMillis": 5000,
-  "healthCheckTimeoutMillis": 5000,
-  "providerReplacementPath": null
-}
-```
-
-`mode` values are `DISABLED`, `PLAN_ONLY`, and `STOP_CONSUMERS_AND_REBUILD`. For `POST /jpa/domains/{domainId}/reload`, the controller fills `idempotencyKey` from `X-Idempotency-Key` when the body does not contain one.
-
 ## 6. Error Codes
 
 | Code | Meaning | HTTP | Common scenario |
@@ -179,12 +157,11 @@ Management lifecycle and deployment write endpoints use the management idempoten
 | `PFM-001` | `INVALID_REQUEST` | 400 | Missing parameter, invalid enum, missing idempotency key |
 | `PFM-002` | `UNAUTHENTICATED` | 401 | Missing or invalid token, non-loopback local token request |
 | `PFM-003` | `FORBIDDEN` | 403 | Permission denied, CSRF/origin rejection |
-| `PFM-004` | `NOT_FOUND` | 404 | Plugin, deployment record, or JPA reload record not found |
+| `PFM-004` | `NOT_FOUND` | 404 | Plugin or deployment record not found |
 | `PFM-005` | `CONFLICT` | 409 | Idempotency key reused with a different request |
 | `PFM-006` | `RATE_LIMITED` | 429 | Write rate limit exceeded |
 | `PFM-007` | `PRECHECK_FAILED` | 409/422 | Precheck failed, missing rollback snapshot, invalid confirm state |
 | `PFM-008` | `OPERATION_FAILED` | 500 or response-body failure | Lifecycle, deployment, or rollback failure |
-| `PFM-009` | `UNAVAILABLE` | 200 | JPA reload service is not available; response has `success=false` |
 
 ## 7. Request Examples
 
@@ -226,29 +203,9 @@ curl -X POST 'http://localhost:8080/pf4boot/admin/deployments/replace' \
   -d '{"pluginId":"sample-workflow","stagedPluginPath":"sample-workflow-1.2.3.zip","dryRun":false}'
 ```
 
-### Plan JPA Reload
-
-```bash
-curl -X POST 'http://localhost:8080/pf4boot/admin/jpa/domains/demo/reload/plan' \
-  -H 'Content-Type: application/json' \
-  -H 'X-PF4Boot-Admin-Token: ${TOKEN}' \
-  -d '{"mode":"PLAN_ONLY","allowInferredConsumers":false}'
-```
-
-### Execute JPA Reload
-
-```bash
-curl -X POST 'http://localhost:8080/pf4boot/admin/jpa/domains/demo/reload' \
-  -H 'Content-Type: application/json' \
-  -H 'X-Request-Id: req-jpa-reload-001' \
-  -H 'X-Idempotency-Key: jpa-reload-001' \
-  -H 'X-PF4Boot-Admin-Token: ${TOKEN}' \
-  -d '{"mode":"STOP_CONSUMERS_AND_REBUILD","dryRun":false,"reason":"release"}'
-```
-
 ## 8. CLI Notes
 
-Frontend and CLI clients should check both HTTP status and response `success/code`. HTTP 200 can still represent a business failure, for example `PFM-009`.
+Frontend and CLI clients should check both HTTP status and response `success/code`.
 
 For retryable writes, reuse the same `X-Idempotency-Key` only with the exact same logical request. If the body or target changes, create a new key.
 

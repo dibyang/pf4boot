@@ -1,0 +1,2 @@
+org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
+net.xdob.pf4boot.management.starter.Pf4bootJpaManagementAutoConfiguration

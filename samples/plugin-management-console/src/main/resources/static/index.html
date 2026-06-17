@@ -146,20 +146,6 @@
         </div>
       </div>
     </section>
-
-    <section>
-      <h2>JPA Reload</h2>
-      <div class="section-body">
-        <label for="domainId">Domain ID</label>
-        <input id="domainId" value="demo">
-        <label for="providerPath">Provider Replacement Path</label>
-        <input id="providerPath" placeholder="可选">
-        <div class="actions" style="margin-top:10px">
-          <button class="secondary" onclick="jpaPlan()">Reload Plan</button>
-          <button onclick="jpaReload()">执行 Reload</button>
-        </div>
-      </div>
-    </section>
   </div>
 
   <section>
@@ -203,7 +189,7 @@
     const result = await api('/pf4boot/admin/plugins');
     const rows = (result.data || result.plugins || []).map(plugin => {
       const id = plugin.pluginId || plugin.id;
-      return `<tr><td>${id || ''}</td><td>${plugin.version || ''}</td><td>${plugin.state || ''}</td><td class="actions"><button class="secondary" onclick="startPlugin('${id}')">启动</button><button class="danger" onclick="stopPlugin('${id}')">停止</button></td></tr>`;
+      return `<tr><td>${id || ''}</td><td>${plugin.version || ''}</td><td>${plugin.state || ''}</td><td class="actions"><button class="secondary" onclick="startPlugin('${id}')">启动</button><button class="danger" onclick="stopPlugin('${id}')">停止</button><button class="secondary" onclick="restartPlugin('${id}')">重启</button><button class="secondary" onclick="reloadPlugin('${id}')">Reload</button><button class="secondary" onclick="enablePlugin('${id}')">启用</button><button class="secondary" onclick="disablePlugin('${id}')">禁用</button></td></tr>`;
     }).join('');
     byId('plugins').innerHTML = rows || '<tr><td colspan="4">无数据</td></tr>';
     show(result);
@@ -219,6 +205,26 @@
     await loadPlugins();
   }
 
+  async function restartPlugin(pluginId) {
+    show(await api('/pf4boot/admin/plugins/' + pluginId + '/restart', { method: 'POST', write: true, idempotencyPrefix: 'restart' }));
+    await loadPlugins();
+  }
+
+  async function reloadPlugin(pluginId) {
+    show(await api('/pf4boot/admin/plugins/' + pluginId + '/reload', { method: 'POST', write: true, idempotencyPrefix: 'reload' }));
+    await loadPlugins();
+  }
+
+  async function enablePlugin(pluginId) {
+    show(await api('/pf4boot/admin/plugins/' + pluginId + '/enable', { method: 'POST', write: true, idempotencyPrefix: 'enable' }));
+    await loadPlugins();
+  }
+
+  async function disablePlugin(pluginId) {
+    show(await api('/pf4boot/admin/plugins/' + pluginId + '/enable', { method: 'DELETE', write: true, idempotencyPrefix: 'disable' }));
+    await loadPlugins();
+  }
+
   async function deploymentPlan() {
     show(await api('/pf4boot/admin/deployments/plan', {
       method: 'POST',
@@ -228,32 +234,9 @@
     }));
   }
 
-  async function jpaPlan() {
-    const body = replacementBody();
-    show(await api('/pf4boot/admin/jpa/domains/' + byId('domainId').value + '/reload/plan', {
-      method: 'POST',
-      body: JSON.stringify(body)
-    }));
-  }
-
-  async function jpaReload() {
-    show(await api('/pf4boot/admin/jpa/domains/' + byId('domainId').value + '/reload', {
-      method: 'POST',
-      write: true,
-      idempotencyPrefix: 'jpa-reload',
-      body: JSON.stringify(replacementBody())
-    }));
-  }
-
-  function replacementBody() {
-    const path = byId('providerPath').value.trim();
-    return path ? { providerReplacementPath: path } : {};
-  }
-
   async function loadActuator() {
     const governance = await api('/actuator/pf4bootgovernance', { admin: false });
-    const jpa = await api('/actuator/pf4bootjpareload', { admin: false });
-    show({ governance, jpa });
+    show({ governance });
   }
 
   async function loadMetrics() {

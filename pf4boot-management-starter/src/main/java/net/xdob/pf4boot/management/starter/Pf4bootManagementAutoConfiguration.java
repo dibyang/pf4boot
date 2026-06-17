@@ -2,8 +2,6 @@ package net.xdob.pf4boot.management.starter;
 
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.deployment.PluginDeploymentService;
-import net.xdob.pf4boot.jpa.reload.JpaDomainReloadPlanService;
-import net.xdob.pf4boot.jpa.reload.JpaDomainReloadService;
 import net.xdob.pf4boot.management.PluginManagementAuthorizer;
 import net.xdob.pf4boot.management.PluginOperationStore;
 import org.springframework.beans.factory.ObjectProvider;
@@ -164,27 +162,6 @@ public class Pf4bootManagementAutoConfiguration {
         operationStore,
         writeSecurityPolicy,
         managementMetricsRecorder);
-  }
-
-  @Bean
-  @ConditionalOnMissingBean(JpaDomainReloadManagementController.class)
-  @ConditionalOnClass(JpaDomainReloadPlanService.class)
-  public JpaDomainReloadManagementController jpaDomainReloadManagementController(
-      JpaDomainReloadPlanService planService,
-      ObjectProvider<JpaDomainReloadService> reloadService,
-      Pf4bootManagementProperties properties,
-      PluginManagementAuthorizer authorizer,
-      PluginManagementRequestFactory requestFactory,
-      PluginManagementAuditRecorder auditRecorder,
-      PluginManagementPathValidator pathValidator) {
-    return new JpaDomainReloadManagementController(
-        planService,
-        reloadService,
-        properties,
-        authorizer,
-        requestFactory,
-        auditRecorder,
-        pathValidator);
   }
 
   @Bean

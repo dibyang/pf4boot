@@ -232,7 +232,7 @@ public class DemoJpaDomainPlugin extends Pf4bootPlugin implements JpaDomainDefin
 如果一个 consumer 插件需要访问多个共享 domain，主 domain 使用 `shared("order")`，其它 domain
 通过 `additionalDomain("audit")` 声明，并按 Repository 包分别声明 `@EnableJpaRepositories`。
 
-JPA domain 运行时刷新 V1 是重启式刷新。默认 `spring.pf4boot.jpa.reload.mode=DISABLED`，不会启停插件。需要先使用管理接口生成计划：
+JPA domain 运行时刷新 V1 是重启式刷新。默认 `spring.pf4boot.jpa.reload.mode=DISABLED`，不会启停插件。HTTP 管理接口和 `pf4bootjpareload` Actuator 端点不在基础管理模块中，宿主必须显式引入 `pf4boot-jpa-management-starter` 后才能使用。需要先使用管理接口生成计划：
 
 ```http
 POST /pf4boot/admin/jpa/domains/demo/reload/plan
@@ -251,6 +251,7 @@ POST /pf4boot/admin/jpa/domains/demo/reload/plan
 ```powershell
 .\gradlew.bat :pf4boot-core:test
 .\gradlew.bat :pf4boot-actuator:test
+.\gradlew.bat :pf4boot-jpa-management-starter:test
 .\gradlew.bat :pf4boot-jpa-starter:test
 .\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke
 ```

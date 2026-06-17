@@ -82,8 +82,9 @@ Execution is allowed only when all consumers are exact, or when the request expl
 - `pf4boot-jpa-starter`: shared consumer binding registry, consumer resolver, and plan service.
 - `pf4boot-jpa-domain-starter`: provider-side descriptor and exported bean verification.
 - `pf4boot-core`: generic lifecycle orchestration only; no JPA dependency.
-- `pf4boot-management-starter`: optional HTTP endpoints registered only when `JpaDomainReloadService` exists.
-- `pf4boot-actuator`: read-only summaries.
+- `pf4boot-management-starter`: base plugin management only; no JPA dependency and no JPA reload controller.
+- `pf4boot-jpa-management-starter`: optional JPA reload HTTP APIs and the `pf4bootjpareload` Actuator endpoint.
+- `pf4boot-actuator`: base read-only plugin summaries and metrics only; no JPA dependency.
 - `samples/cross-plugin-jpa`: runtime smoke for plan, success, failure isolation, and reports.
 
 ## 7. Public API Draft

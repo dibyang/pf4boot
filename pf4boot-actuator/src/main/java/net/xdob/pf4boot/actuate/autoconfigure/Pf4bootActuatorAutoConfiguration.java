@@ -4,14 +4,10 @@ import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.PluginRuntimeInspector;
 import net.xdob.pf4boot.actuate.DefaultPluginRuntimeInspector;
 import net.xdob.pf4boot.actuate.Pf4bootGovernanceEndpoint;
-import net.xdob.pf4boot.actuate.Pf4bootJpaReloadEndpoint;
 import net.xdob.pf4boot.actuate.Pf4bootMetrics;
 import net.xdob.pf4boot.actuate.Pf4bootPluginsEndpoint;
 import net.xdob.pf4boot.deployment.PluginDeploymentMetricsProvider;
 import net.xdob.pf4boot.diagnostic.PluginLifecycleDiagnostic;
-import net.xdob.pf4boot.jpa.reload.JpaDomainReloadPlanService;
-import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecordRepository;
-import net.xdob.pf4boot.jpa.reload.JpaDomainReloadService;
 import net.xdob.pf4boot.management.PluginManagementMetricsProvider;
 import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -32,8 +28,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConditionalOnClass(Endpoint.class)
 @AutoConfigureAfter(name = {
-    "net.xdob.pf4boot.spring.boot.Pf4bootAutoConfiguration",
-    "net.xdob.pf4boot.jpa.starter.reload.JpaDomainReloadAutoConfiguration"
+    "net.xdob.pf4boot.spring.boot.Pf4bootAutoConfiguration"
 })
 public class Pf4bootActuatorAutoConfiguration {
 
@@ -64,19 +59,6 @@ public class Pf4bootActuatorAutoConfiguration {
         deploymentMetricsProvider.getIfAvailable(),
         lifecycleDiagnostic.getIfAvailable(),
         properties.getIfAvailable());
-  }
-
-  @Bean
-  @ConditionalOnMissingBean
-  @ConditionalOnBean(JpaDomainReloadPlanService.class)
-  public Pf4bootJpaReloadEndpoint pf4bootJpaReloadEndpoint(
-      JpaDomainReloadPlanService planService,
-      ObjectProvider<JpaDomainReloadService> reloadService,
-      ObjectProvider<JpaDomainReloadRecordRepository> recordRepository) {
-    return new Pf4bootJpaReloadEndpoint(
-        planService,
-        reloadService.getIfAvailable(),
-        recordRepository.getIfAvailable());
   }
 
   @Bean

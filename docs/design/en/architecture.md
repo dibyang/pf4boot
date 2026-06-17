@@ -8,12 +8,15 @@
 
 - `pf4boot-api`: public contracts, annotations, Spring context helpers, plugin wrapper, lifecycle events, sharing models, and utility interfaces.
 - `pf4boot-core`: PF4J manager implementation, plugin repositories/loaders, plugin class loader, lifecycle orchestration, shared bean manager, auto-export manager, and scheduled task manager.
-- `pf4boot-starter`: Spring Boot auto-configuration, plugin manager bean creation, admin controller, MVC patch configuration, and default resources.
+- `pf4boot-starter`: Spring Boot auto-configuration, plugin manager bean creation, and default resources.
 - `pf4boot-web-support`: shared compile-time web support surface for plugin modules.
 - `pf4boot-web-starter`: dynamic Spring MVC controller, interceptor, and resource integration.
 - `pf4boot-jpa`: JPA provider support for managed packages.
 - `pf4boot-jpa-starter`: plugin-side JPA auto-configuration.
 - `pf4boot-jpa-domain-starter`: starter for shared JPA domain capability plugins.
+- `pf4boot-management-starter`: base plugin management HTTP APIs and deployment orchestration APIs, without a JPA dependency.
+- `pf4boot-jpa-management-starter`: optional JPA reload HTTP APIs and the `pf4bootjpareload` Actuator endpoint.
+- `pf4boot-actuator`: base plugin snapshot, governance, and metrics endpoints, without a JPA dependency.
 - `samples/cross-plugin-jpa`: complex cross-plugin JPA sample with demo host, model modules, sample plugins, and the `app-run` runtime packaging project.
 
 ## Runtime Components
@@ -55,7 +58,7 @@ The implementation primarily shares bean factories, not a full event-listener ch
 - Parent-first class loading is used by default to avoid the same API type being loaded by multiple class loaders and breaking Spring autowiring.
 - Plugin resources can be loaded locally first so plugin static resources and plugin-only resources can override host defaults where intended.
 - Public extension points live in `pf4boot-api`; runtime behavior stays in `pf4boot-core`.
-- Web and JPA integrations are optional starter-style layers rather than hard requirements for every plugin.
+- Web, JPA, base management, and JPA management are optional starter-style layers rather than hard requirements for every plugin or host.
 
 ## Compatibility
 

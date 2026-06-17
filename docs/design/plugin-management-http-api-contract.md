@@ -10,6 +10,7 @@
 - 默认关闭：`enabled=false` 且 `mode=DISABLED`
 - 所有接口均需要通过 `PluginManagementAuthorizer` 鉴权，包括查询接口
 - 时间字段均为 Unix epoch milliseconds
+- 本合同只覆盖基础插件管理与部署接口，不包含 JPA reload。JPA reload 仅在额外引入 `pf4boot-jpa-management-starter` 时可用。
 
 > 启用 HTTP 管理接口时，`mode` 不能继续保持 `DISABLED`，否则启动校验会失败。
 
@@ -86,7 +87,7 @@ spring:
 
 | 请求头 | 是否必需 | 说明 |
 | --- | --- | --- |
-| `Content-Type: application/json` | 有 body 时必需 | `POST /deployments/*` 与 JPA reload 请求使用 JSON body |
+| `Content-Type: application/json` | 有 body 时必需 | `POST /deployments/*` 请求使用 JSON body |
 | `X-PF4Boot-Admin-Token` | `LOCAL_TOKEN` 默认必需 | 实际名称由 `token-header` 配置决定 |
 | `X-Request-Id` | 可选 | 不传时服务端生成 `req-{uuid}` |
 | `X-Idempotency-Key` | 管理写接口默认必需 | 实际名称由 `idempotency-header` 配置决定；`require-idempotency-key=false` 时可不传 |
@@ -122,9 +123,9 @@ spring:
 
 | 操作枚举 | 权限字符串 | 典型接口 |
 | --- | --- | --- |
-| `PLUGIN_READ` | `pf4boot:plugin:read` | 查询插件、JPA 计划/记录查询 |
+| `PLUGIN_READ` | `pf4boot:plugin:read` | 查询插件 |
 | `PLUGIN_START`/`PLUGIN_STOP`/`PLUGIN_RESTART`/`PLUGIN_ENABLE`/`PLUGIN_DISABLE` | `pf4boot:plugin:lifecycle` | 插件生命周期接口 |
-| `PLUGIN_RELOAD` | `pf4boot:plugin:reload` | 插件 reload、JPA reload |
+| `PLUGIN_RELOAD` | `pf4boot:plugin:reload` | 插件 reload |
 | `DEPLOYMENT_QUERY` | `pf4boot:deployment:query` | 查询部署记录 |
 | `DEPLOYMENT_PLAN` | `pf4boot:deployment:plan` | 部署计划 |
 | `DEPLOYMENT_REPLACE` | `pf4boot:deployment:replace` | 部署替换 |
@@ -141,8 +142,6 @@ spring:
 - 同一 `principal + operation + pluginId + idempotencyKey` 下请求 hash 一致：返回第一次操作的结果摘要
 - 同一 key 被不同请求复用：返回 `409` + `PFM-005`
 
-JPA reload 执行接口会把请求头 `X-Idempotency-Key` 填入 `JpaDomainReloadRequest.idempotencyKey`，具体幂等由 `JpaDomainReloadService` 和 `JpaDomainReloadRecordRepository` 执行。
-
 ### 3.5 写请求安全策略
 
 插件生命周期接口和部署写接口会执行：
@@ -150,8 +149,6 @@ JPA reload 执行接口会把请求头 `X-Idempotency-Key` 填入 `JpaDomainRelo
 - 固定窗口限流：按 `remoteAddr` 统计，默认 30 次/分钟
 - CSRF/Origin 校验：由 `csrf.enabled` 控制
 - 审计记录：成功和失败均记录
-
-当前 JPA 管理接口复用鉴权和审计；JPA reload 执行依赖 JPA reload 服务自身的幂等校验，不经过管理层 `PluginManagementWriteSecurityPolicy`。
 
 ## 4. 接口一览
 
@@ -171,10 +168,6 @@ JPA reload 执行接口会把请求头 `X-Idempotency-Key` 填入 `JpaDomainRelo
 | `POST` | `/deployments/replace` | `pf4boot:deployment:replace` | 是 | 执行或 dry-run 替换 |
 | `POST` | `/deployments/{deploymentId}/confirm` | `pf4boot:deployment:confirm` | 是 | 执行已预检计划 |
 | `POST` | `/deployments/{deploymentId}/rollback` | `pf4boot:deployment:rollback` | 是 | 按部署计划回滚 |
-| `POST` | `/jpa/domains/{domainId}/reload/plan` | `pf4boot:plugin:read` | 否 | 生成 JPA domain reload 计划 |
-| `POST` | `/jpa/domains/{domainId}/reload` | `pf4boot:plugin:reload` | 建议必传 | 执行 JPA domain reload |
-| `GET` | `/jpa/reloads/{reloadId}` | `pf4boot:plugin:read` | 否 | 查询 JPA reload 记录 |
-| `GET` | `/jpa/domains/{domainId}/reload/current` | `pf4boot:plugin:read` | 否 | 查询当前 JPA reload 记录 |
 
 ## 5. 数据模型
 
@@ -267,90 +260,6 @@ JPA reload 执行接口会把请求头 `X-Idempotency-Key` 填入 `JpaDomainRelo
 
 `executable` 是 Java getter `isExecutable()` 的 JSON 属性，表示 `checkResults` 中没有 error 级别结果。
 
-### 5.5 `JpaDomainReloadRequest`
-
-```json
-{
-  "domainId": "demo",
-  "mode": "STOP_CONSUMERS_AND_REBUILD",
-  "dryRun": false,
-  "idempotencyKey": "jpa-reload-001",
-  "requestedBy": "operator",
-  "reason": "release",
-  "allowInferredConsumers": false,
-  "drainTimeoutMillis": 5000,
-  "healthCheckTimeoutMillis": 5000,
-  "providerReplacementPath": null
-}
-```
-
-`mode` 可选值：
-
-- `DISABLED`
-- `PLAN_ONLY`
-- `STOP_CONSUMERS_AND_REBUILD`
-
-`POST /jpa/domains/{domainId}/reload` 中如果 body 未设置 `idempotencyKey`，控制器会使用请求头 `X-Idempotency-Key` 补齐。
-
-### 5.6 `JpaDomainReloadPlan`
-
-```json
-{
-  "planId": "jpa-plan-001",
-  "domainId": "demo",
-  "providerPluginId": "plugin-demo-jpa-domain",
-  "descriptor": {
-    "domainId": "demo",
-    "providerPluginId": "plugin-demo-jpa-domain",
-    "ready": true
-  },
-  "consumers": [],
-  "inferredConsumers": [],
-  "unaffectedPlugins": [],
-  "stopOrder": [],
-  "startOrder": [],
-  "warnings": [],
-  "blockers": [],
-  "createdAt": 1718570200000,
-  "executable": true
-}
-```
-
-### 5.7 `JpaDomainReloadRecord`
-
-```json
-{
-  "reloadId": "jpa-reload-001",
-  "planId": "jpa-plan-001",
-  "domainId": "demo",
-  "state": "SUCCEEDED",
-  "startedAt": 1718570200000,
-  "finishedAt": 1718570203000,
-  "request": {},
-  "plan": {},
-  "stateTransitions": ["PLANNED", "DRAINING", "SUCCEEDED"],
-  "failureCode": null,
-  "failureMessage": null,
-  "rollbackSummary": null,
-  "drainReport": null,
-  "providerReplacementSummary": null
-}
-```
-
-JPA reload 状态常见值包括：
-
-- `PLANNED`
-- `DRAINING`
-- `STOPPING_CONSUMERS`
-- `STOPPING_PROVIDER`
-- `STARTING_PROVIDER`
-- `STARTING_CONSUMERS`
-- `HEALTH_CHECKING`
-- `SUCCEEDED`
-- `FAILED`
-- `ROLLED_BACK`
-- `MANUAL_INTERVENTION_REQUIRED`
-
 ## 6. 错误码
 
 | code | 含义 | HTTP | 常见场景 |
@@ -358,7 +267,7 @@ JPA reload 状态常见值包括：
 | `PFM-001` | `INVALID_REQUEST` | 400 | 参数缺失、非法枚举、缺少幂等键 |
 | `PFM-002` | `UNAUTHENTICATED` | 401 | token 缺失/无效、非 loopback 请求 |
 | `PFM-003` | `FORBIDDEN` | 403 | 权限不足、CSRF/Origin 校验失败 |
-| `PFM-004` | `NOT_FOUND` | 404 | 插件、部署记录或 JPA reload 记录不存在 |
+| `PFM-004` | `NOT_FOUND` | 404 | 插件或部署记录不存在 |
 | `PFM-005` | `CONFLICT` | 409 | 同一幂等 key 被不同请求复用 |
 | `PFM-006` | `RATE_LIMITED` | 429 | 写请求超过限流阈值 |
 | `PFM-007` | `PRECHECK_FAILED` | 409/422 | 部署预检失败、回滚快照缺失、确认状态不正确 |
@@ -777,210 +686,9 @@ curl -X POST 'http://localhost:8080/pf4boot/admin/deployments/deploy-002/rollbac
 }
 ```
 
-## 10. JPA Domain Reload 接口
+## 10. CLI 开发建议
 
-JPA 接口只有在 classpath 中存在 `JpaDomainReloadPlanService` 时注册。
-
-### 10.1 生成 reload 计划
-
-`POST /jpa/domains/{domainId}/reload/plan`
-
-该接口强制将请求体 `domainId` 覆盖为路径中的 `{domainId}`，并将 `dryRun` 设置为 `true`。
-
-**Request**
-
-```bash
-curl -X POST 'http://localhost:8080/pf4boot/admin/jpa/domains/demo/reload/plan' \
-  -H 'Content-Type: application/json' \
-  -H 'X-PF4Boot-Admin-Token: ${TOKEN}' \
-  -d '{"mode":"PLAN_ONLY","allowInferredConsumers":false}'
-```
-
-**Response**
-
-```json
-{
-  "success": true,
-  "requestId": "req-jpa-plan-001",
-  "operationId": "op-jpa-plan-001",
-  "code": "OK",
-  "message": "JPA domain reload plan generated",
-  "data": {
-    "planId": "jpa-plan-001",
-    "domainId": "demo",
-    "providerPluginId": "plugin-demo-jpa-domain",
-    "descriptor": {
-      "domainId": "demo",
-      "providerPluginId": "plugin-demo-jpa-domain",
-      "ready": true
-    },
-    "consumers": [],
-    "inferredConsumers": [],
-    "unaffectedPlugins": [],
-    "stopOrder": [],
-    "startOrder": [],
-    "warnings": [],
-    "blockers": [],
-    "createdAt": 1718570200000,
-    "executable": true
-  },
-  "warnings": []
-}
-```
-
-### 10.2 执行 reload
-
-`POST /jpa/domains/{domainId}/reload`
-
-**Request**
-
-```bash
-curl -X POST 'http://localhost:8080/pf4boot/admin/jpa/domains/demo/reload' \
-  -H 'Content-Type: application/json' \
-  -H 'X-Request-Id: req-jpa-reload-001' \
-  -H 'X-Idempotency-Key: jpa-reload-001' \
-  -H 'X-PF4Boot-Admin-Token: ${TOKEN}' \
-  -d '{"mode":"STOP_CONSUMERS_AND_REBUILD","dryRun":false,"reason":"release"}'
-```
-
-**Response**
-
-```json
-{
-  "success": true,
-  "requestId": "req-jpa-reload-001",
-  "operationId": "op-jpa-reload-001",
-  "code": "OK",
-  "message": "JPA domain reload requested",
-  "data": {
-    "reloadId": "jpa-reload-001",
-    "planId": "jpa-plan-001",
-    "domainId": "demo",
-    "state": "SUCCEEDED",
-    "startedAt": 1718570200000,
-    "finishedAt": 1718570203000,
-    "request": {
-      "domainId": "demo",
-      "mode": "STOP_CONSUMERS_AND_REBUILD",
-      "dryRun": false,
-      "idempotencyKey": "jpa-reload-001",
-      "requestedBy": null,
-      "reason": "release",
-      "allowInferredConsumers": false,
-      "drainTimeoutMillis": 0,
-      "healthCheckTimeoutMillis": 0,
-      "providerReplacementPath": null
-    },
-    "plan": {
-      "planId": "jpa-plan-001",
-      "domainId": "demo",
-      "providerPluginId": "plugin-demo-jpa-domain",
-      "descriptor": null,
-      "consumers": [],
-      "inferredConsumers": [],
-      "unaffectedPlugins": [],
-      "stopOrder": [],
-      "startOrder": [],
-      "warnings": [],
-      "blockers": [],
-      "createdAt": 1718570200000,
-      "executable": true
-    },
-    "stateTransitions": ["PLANNED", "DRAINING", "SUCCEEDED"],
-    "failureCode": null,
-    "failureMessage": null,
-    "rollbackSummary": null,
-    "drainReport": null,
-    "providerReplacementSummary": null
-  },
-  "warnings": []
-}
-```
-
-### 10.3 查询 reload 记录
-
-`GET /jpa/reloads/{reloadId}`
-
-**Request**
-
-```bash
-curl -X GET 'http://localhost:8080/pf4boot/admin/jpa/reloads/jpa-reload-001' \
-  -H 'X-PF4Boot-Admin-Token: ${TOKEN}'
-```
-
-**Response**
-
-```json
-{
-  "success": true,
-  "requestId": "req-jpa-record-001",
-  "operationId": "op-jpa-record-001",
-  "code": "OK",
-  "message": "JPA domain reload record found",
-  "data": {
-    "reloadId": "jpa-reload-001",
-    "planId": "jpa-plan-001",
-    "domainId": "demo",
-    "state": "SUCCEEDED",
-    "startedAt": 1718570200000,
-    "finishedAt": 1718570203000,
-    "request": null,
-    "plan": null,
-    "stateTransitions": ["PLANNED", "DRAINING", "SUCCEEDED"],
-    "failureCode": null,
-    "failureMessage": null,
-    "rollbackSummary": null,
-    "drainReport": null,
-    "providerReplacementSummary": null
-  },
-  "warnings": []
-}
-```
-
-### 10.4 查询当前 reload
-
-`GET /jpa/domains/{domainId}/reload/current`
-
-**Request**
-
-```bash
-curl -X GET 'http://localhost:8080/pf4boot/admin/jpa/domains/demo/reload/current' \
-  -H 'X-PF4Boot-Admin-Token: ${TOKEN}'
-```
-
-**Response**
-
-```json
-{
-  "success": true,
-  "requestId": "req-jpa-current-001",
-  "operationId": "op-jpa-current-001",
-  "code": "OK",
-  "message": "JPA domain current reload fetched",
-  "data": null,
-  "warnings": []
-}
-```
-
-### 10.5 reload 服务不可用
-
-当 `JpaDomainReloadService` 未注入时，执行接口返回 HTTP 200，但响应体失败：
-
-```json
-{
-  "success": false,
-  "requestId": "req-jpa-reload-001",
-  "operationId": "op-jpa-reload-001",
-  "code": "PFM-009",
-  "message": "JPA domain reload execution is unavailable",
-  "data": null,
-  "warnings": []
-}
-```
-
-## 11. CLI 开发建议
-
-### 11.1 Bash
+### 10.1 Bash
 
 ```bash
 BASE='http://localhost:8080/pf4boot/admin'
@@ -994,7 +702,7 @@ curl -sS -X POST "$BASE/deployments/plan" \
   -d '{"pluginId":"sample-workflow","stagedPluginPath":"sample-workflow.zip","dryRun":true}'
 ```
 
-### 11.2 Python
+### 10.2 Python
 
 ```python
 import requests
@@ -1024,7 +732,7 @@ if resp.status_code >= 400 or not payload.get("success"):
 print(payload["data"])
 ```
 
-## 12. 对接注意事项
+## 11. 对接注意事项
 
 - 前端应以 `success` 和 `code` 判断业务结果，不应只看 HTTP 2xx。
 - CLI 对写接口应固定生成可重放的 `X-Idempotency-Key`，重试时保持请求体一致。

@@ -4,6 +4,15 @@
 
 ## Unreleased
 
+### Added
+
+- 新增 `pf4boot-jpa-management-starter` 可选模块，用于显式启用 JPA reload HTTP 接口和 `pf4bootjpareload` Actuator 端点。
+
+### Changed
+
+- `pf4boot-management-starter` 和 `pf4boot-actuator` 不再强依赖 `pf4boot-jpa`；基础管理仅保留 plugin list/start/stop/restart/reload/enable/disable 与 plugin-deploy。
+- 插件管理 HTTP 合同收敛为基础接口，CLI 默认不应生成 `plugin-jpa-reload` 命令。
+
 ### Removed
 
 - 移除 `pf4boot-web-starter` 中旧的 `PluginManagerController` 管理接口，只保留 `pf4boot-management-starter` 提供的 `/pf4boot/admin/**` 新插件管理接口。
