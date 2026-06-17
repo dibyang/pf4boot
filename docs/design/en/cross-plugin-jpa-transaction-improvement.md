@@ -1,5 +1,12 @@
 # Cross-Plugin JPA Transaction Improvement Design
 
+> Status note: the `pf4boot.plugin.jpa.mode/domain-id`, `plugins.*`, and `entity-packages`
+> priority described here belongs to the early compatibility design. The current plan is
+> [jpa-plugin-owned-configuration-plan.md](jpa-plugin-owned-configuration-plan.md):
+> new plugins declare structural JPA contracts through
+> `JpaDomainDefinitionProvider` / `JpaConsumerBindingProvider`; old configuration is only a `3.x`
+> compatibility fallback.
+
 ## 1. Background
 
 The first phase of cross-plugin JPA transactions has already landed:
@@ -213,7 +220,7 @@ Acceptance should cover:
 
 ## 6. Compatibility
 
-- Existing `pf4boot.plugin.jpa.mode/domain-id` remains valid.
+- Existing `pf4boot.plugin.jpa.mode/domain-id` remains valid as a `3.x` compatibility fallback and emits migration guidance.
 - Default `LOCAL` behavior remains unchanged.
 - Descriptor and plugin-level bindings are enhancements and should not affect non-JPA plugins.
 - New error codes improve diagnostics without changing success paths.

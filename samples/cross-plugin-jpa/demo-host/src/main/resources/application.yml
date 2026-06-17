@@ -34,15 +34,13 @@ spring:
         staging-root: build/sample-plugins
         operation-store:
           type: memory
-  jpa:
-    open-in-view: false
-    show_sql: true
-    format_sql: true
-pf4boot:
-  plugin:
     jpa:
-      domain-reload:
+      reload:
         mode: STOP_CONSUMERS_AND_REBUILD
         record-store:
           type: file
           directory: build/pf4boot/jpa-reloads
+  jpa:
+    open-in-view: false
+    show_sql: true
+    format_sql: true

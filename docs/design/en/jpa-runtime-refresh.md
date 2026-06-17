@@ -1,5 +1,9 @@
 # JPA Runtime Refresh Design
 
+> Status note: JPA reload is host governance. The recommended configuration prefix is now
+> `spring.pf4boot.jpa.reload.*`. Any `pf4boot.plugin.jpa.domain-reload.*` examples in this document
+> describe the early prefix, which remains readable during the `3.x` compatibility window and emits migration guidance.
+
 ## 1. Background
 
 The current cross-plugin JPA design uses `pf4boot-jpa-domain-starter` to export a shared `DataSource`, `EntityManagerFactory`, `PlatformTransactionManager`, and `JpaDomainDescriptor`. Consumer plugins use `pf4boot-jpa-starter` in `SHARED` mode to join the same domain and transaction environment.

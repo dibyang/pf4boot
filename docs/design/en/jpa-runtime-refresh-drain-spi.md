@@ -125,7 +125,8 @@ Rules:
 Effective timeout:
 
 1. use `JpaDomainReloadRequest.drainTimeoutMillis` when it is greater than 0;
-2. otherwise use `pf4boot.plugin.jpa.domain-reload.default-drain-timeout`;
+2. otherwise use `spring.pf4boot.jpa.reload.default-drain-timeout`; the old
+   `pf4boot.plugin.jpa.domain-reload.default-drain-timeout` key is only a compatibility fallback;
 3. if still less than or equal to 0, do not wait; only perform a begin/await check.
 
 All drainers share the same total budget. A configured `30s` means the whole drain phase gets at most 30 seconds.

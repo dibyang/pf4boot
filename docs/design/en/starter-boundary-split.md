@@ -18,7 +18,7 @@ Remove the `api` dependencies from `pf4boot-starter` to `pf4boot-web-starter` an
 
 `pf4boot-web-starter` gets its own `META-INF/spring.factories` entry for `Pf4bootMvcPatchAutoConfiguration`. That auto-configuration creates `WebPf4BootPluginSupport`, `PluginPathResourceResolver`, the `PluginRequestMappingHandlerMapping` patch, the plugin resource chain customizer, and the REST admin controller. These Web MVC integrations enter the host context only when the application depends on the Web starter.
 
-JPA remains plugin-side opt-in. The core starter does not depend on `pf4boot-jpa` or `pf4boot-jpa-starter`. A plugin that needs JPA keeps enabling it through `@PluginStarter({..., PluginJPAStarter.class})` and plugin-local `pf4boot.plugin.jpa.enabled=true`, bundling the needed starter according to plugin packaging rules.
+JPA remains plugin-side opt-in. The core starter does not depend on `pf4boot-jpa` or `pf4boot-jpa-starter`. A plugin that needs JPA enables it explicitly through `@PluginStarter({..., PluginJPAStarter.class})`, bundles the needed starter according to plugin packaging rules, and declares shared JPA bindings through `JpaConsumerBindingProvider`.
 
 ## Compatibility
 

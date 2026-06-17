@@ -42,28 +42,41 @@ dependencies {
 }
 ```
 
-## 4. 配置共享事务域
+## 4. 声明共享事务域
 
-在宿主配置或插件可见配置中声明 provider 和 consumer 共用的域：
+Provider 插件通过 `JpaDomainDefinitionProvider` 声明共享事务域。实体包、DataSource 和 DDL 策略属于插件契约，
+不再放到宿主 `application.yml` 中：
 
-```yaml
-pf4boot:
-  plugin:
-    jpa:
-      enabled: true
-      mode: SHARED
-      domain-id: demo
-      domain:
-        id: demo
-        entity-packages:
-          - net.xdob.demo.plugin1.dao.entity
-          - net.xdob.demo.dao
-        datasource:
-          url: jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;NON_KEYWORDS=user
-          username: sa
-          password: ysyhljt2020*
-          driver-class-name: org.h2.Driver
-        ddl-auto: update
+```java
+@PluginStarter(Pf4bootJpaDomainStarter.class)
+public class DemoJpaDomainPlugin extends Pf4bootPlugin implements JpaDomainDefinitionProvider {
+  @Override
+  public JpaDomainDefinition jpaDomainDefinition() {
+    return JpaDomainDefinition.builder("demo")
+        .entityPackage("net.xdob.demo.plugin1.dao.entity")
+        .entityPackage("net.xdob.demo.dao")
+        .dataSource(JpaDataSourceDefinition
+            .builder("jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;NON_KEYWORDS=user")
+            .username("sa")
+            .password("******")
+            .driverClassName("org.h2.Driver")
+            .build())
+        .ddlAuto("update")
+        .build();
+  }
+}
+```
+
+Consumer 插件通过 `JpaConsumerBindingProvider` 绑定共享域：
+
+```java
+@PluginStarter({Plugin1Starter.class, PluginJPAStarter.class})
+public class Plugin1 extends Pf4bootPlugin implements JpaConsumerBindingProvider {
+  @Override
+  public JpaConsumerBinding jpaConsumerBinding() {
+    return JpaConsumerBinding.shared("demo").build();
+  }
+}
 ```
 
 默认导出名称：
@@ -144,7 +157,7 @@ public class ReportJpaConfig {
 
 ## 7. 回滚方式
 
-- 快速回滚：业务插件改回 `pf4boot.plugin.jpa.mode=LOCAL`，并恢复本地 datasource/EMF 配置。
+- 快速回滚：业务插件移除 `JpaConsumerBindingProvider` 的 `SHARED` 绑定，改回本地 JPA starter/本地 datasource/EMF 配置。
 - 依赖回滚：移除业务插件的 `plugin.dependencies` 中的领域能力插件。
 - 代码回滚：将 entity 从领域能力插件迁回业务插件，并恢复原 Repository 扫描范围。
 

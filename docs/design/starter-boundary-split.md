@@ -18,7 +18,7 @@
 
 `pf4boot-web-starter` 增加自己的 `META-INF/spring.factories`，注册 `Pf4bootMvcPatchAutoConfiguration`。该自动配置创建 `WebPf4BootPluginSupport`、`PluginPathResourceResolver`、`PluginRequestMappingHandlerMapping` patch、插件资源链 customizer 和 REST 管理接口。只有应用显式依赖 Web starter 时，这些 Web MVC 集成才进入宿主上下文。
 
-JPA 保持插件侧 opt-in：核心 starter 不依赖 `pf4boot-jpa` 或 `pf4boot-jpa-starter`。插件如果需要 JPA starter，继续通过 `@PluginStarter({..., PluginJPAStarter.class})` 和插件本地配置 `pf4boot.plugin.jpa.enabled=true` 启用，并按插件打包规则 bundle 必要 starter。
+JPA 保持插件侧 opt-in：核心 starter 不依赖 `pf4boot-jpa` 或 `pf4boot-jpa-starter`。插件如果需要 JPA starter，通过 `@PluginStarter({..., PluginJPAStarter.class})` 显式启用，并按插件打包规则 bundle 必要 starter；共享 JPA 绑定由插件实现 `JpaConsumerBindingProvider` 声明。
 
 ## 兼容性
 

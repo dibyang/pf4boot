@@ -2,12 +2,16 @@ package net.xdob.pf4boot.jpa.domain.starter;
 
 import net.xdob.pf4boot.annotation.SpringBootPlugin;
 import net.xdob.pf4boot.jpa.Pf4bootJpaPersistenceProvider;
+import net.xdob.pf4boot.jpa.domain.JpaDataSourceDefinition;
+import net.xdob.pf4boot.jpa.domain.JpaDomainDefinition;
 import org.hibernate.engine.spi.SessionImplementor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.BeanFactory;
+import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties;
@@ -48,12 +52,6 @@ import java.util.function.Supplier;
     EntityManager.class,
     SessionImplementor.class
 })
-@ConditionalOnProperty(
-    prefix = "pf4boot.plugin.jpa.domain",
-    name = "enabled",
-    havingValue = "true",
-    matchIfMissing = true
-)
 @EnableConfigurationProperties({
     JpaProperties.class,
     HibernateProperties.class,
@@ -65,7 +63,7 @@ import java.util.function.Supplier;
     HibernateJpaAutoConfiguration.class,
     JpaRepositoriesAutoConfiguration.class
 })
-public class Pf4bootJpaDomainStarter implements ResourceLoaderAware {
+public class Pf4bootJpaDomainStarter implements ResourceLoaderAware, BeanFactoryAware {
 
   static final Logger LOG = LoggerFactory.getLogger(Pf4bootJpaDomainStarter.class);
 
@@ -76,6 +74,10 @@ public class Pf4bootJpaDomainStarter implements ResourceLoaderAware {
   private final List<HibernatePropertiesCustomizer> hibernatePropertiesCustomizers;
 
   private final Pf4bootJpaDomainProperties domainProperties;
+
+  private BeanFactory beanFactory;
+
+  private JpaDomainDefinition domainDefinition;
 
   private ResourceLoader resourceLoader = new DefaultResourceLoader();
 
@@ -92,8 +94,14 @@ public class Pf4bootJpaDomainStarter implements ResourceLoaderAware {
 
   @Bean
   public DataSource domainDataSource() {
-    String domainId = this.domainProperties.requireDomainId();
-    DataSourceProperties datasource = this.domainProperties.getDatasource();
+    JpaDomainDefinition definition = domainDefinition();
+    String domainId = definition.requireDomainId();
+    JpaDataSourceDefinition dataSourceDefinition = definition.requireDataSource();
+    DataSourceProperties datasource = new DataSourceProperties();
+    datasource.setUrl(dataSourceDefinition.getUrl());
+    datasource.setUsername(dataSourceDefinition.getUsername());
+    datasource.setPassword(dataSourceDefinition.getPassword());
+    datasource.setDriverClassName(dataSourceDefinition.getDriverClassName());
     try {
       String url = datasource.determineUrl();
       if (!StringUtils.hasText(url)) {
@@ -112,8 +120,9 @@ public class Pf4bootJpaDomainStarter implements ResourceLoaderAware {
   @Bean
   public LocalContainerEntityManagerFactoryBean domainEntityManagerFactory(
       @Qualifier("domainDataSource") DataSource dataSource) {
-    String domainId = this.domainProperties.requireDomainId();
-    String[] packagesToScan = this.domainProperties.resolveEntityPackages();
+    JpaDomainDefinition definition = domainDefinition();
+    String domainId = definition.requireDomainId();
+    String[] packagesToScan = definition.resolveEntityPackages();
     new JpaDomainEntityPackageValidator(this.resourceLoader).validate(domainId, packagesToScan);
 
     LocalContainerEntityManagerFactoryBean factoryBean = new LocalContainerEntityManagerFactoryBean();
@@ -134,6 +143,11 @@ public class Pf4bootJpaDomainStarter implements ResourceLoaderAware {
     this.resourceLoader = resourceLoader != null ? resourceLoader : new DefaultResourceLoader();
   }
 
+  @Override
+  public void setBeanFactory(BeanFactory beanFactory) throws BeansException {
+    this.beanFactory = beanFactory;
+  }
+
   @Bean
   public PlatformTransactionManager domainTransactionManager(
       @Qualifier("domainEntityManagerFactory") EntityManagerFactory entityManagerFactory) {
@@ -146,11 +160,11 @@ public class Pf4bootJpaDomainStarter implements ResourceLoaderAware {
       @Qualifier("domainEntityManagerFactory") EntityManagerFactory entityManagerFactory,
       @Qualifier("domainTransactionManager") PlatformTransactionManager transactionManager) {
     return new DomainJpaPlatformExporter(
-        this.domainProperties, dataSource, entityManagerFactory, transactionManager);
+        domainDefinition(), dataSource, entityManagerFactory, transactionManager);
   }
 
   protected Map<String, Object> getVendorProperties() {
-    Supplier<String> ddlAuto = this.domainProperties::resolveDdlAuto;
+    Supplier<String> ddlAuto = () -> domainDefinition().resolveDdlAuto();
     return new LinkedHashMap<>(this.hibernateProperties.determineHibernateProperties(
         this.jpaProperties.getProperties(),
         new HibernateSettings()
@@ -166,5 +180,12 @@ public class Pf4bootJpaDomainStarter implements ResourceLoaderAware {
       adapter.setDatabasePlatform(this.jpaProperties.getDatabasePlatform());
     }
     return adapter;
+  }
+
+  private JpaDomainDefinition domainDefinition() {
+    if (this.domainDefinition == null) {
+      this.domainDefinition = JpaDomainDefinitionResolver.resolve(this.beanFactory, this.domainProperties);
+    }
+    return this.domainDefinition;
   }
 }

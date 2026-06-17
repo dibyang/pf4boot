@@ -1,5 +1,11 @@
 # 跨插件 JPA 事务能力设计（可落地执行）
 
+> 状态说明：本文记录的是跨插件 JPA 事务能力的早期落地设计，其中 provider/consumer 使用
+> `pf4boot.plugin.jpa.*` 结构配置的示例已经进入兼容期。当前插件自治边界以
+> [jpa-plugin-owned-configuration-plan.md](jpa-plugin-owned-configuration-plan.md) 为准：
+> provider 使用 `JpaDomainDefinitionProvider`，consumer 使用 `JpaConsumerBindingProvider`，
+> 宿主只保留 `spring.pf4boot.jpa.reload.*` 等治理配置。
+
 ## 1. 目标与非目标
 
 ### 1.1 目标
@@ -291,7 +297,7 @@ public void updateReport() {}
 ## 13. 决策结论（锁定）
 
 - 领域能力插件负责创建并导出 `DataSource/EMF/TM`（当前建议）；
-- 不引入统一 `@EnablePf4bootJpaSharedDomain` 注解，配置驱动为主；
+- 不引入统一 `@EnablePf4bootJpaSharedDomain` 注解；当前已从配置驱动收敛到插件自治定义；
 - 首轮不做跨域原子事务，只做同域共享事务；
 - 共享域 entity 由领域能力插件或领域共享库提供，业务插件只在本阶段绑定 Repository；
 - 与现有 `DynamicMetadata.sync()` 行为保持一致，不支持运行时扩展同步。

@@ -106,6 +106,13 @@ public class Pf4bootJpaDomainProperties {
     this.descriptorName = descriptorName;
   }
 
+  public boolean hasLegacyDomainDefinition() {
+    return StringUtils.hasText(this.id)
+        || (this.entityPackages != null && !this.entityPackages.isEmpty())
+        || StringUtils.hasText(this.datasource.getUrl())
+        || StringUtils.hasText(this.datasource.getName());
+  }
+
   public String requireDomainId() {
     if (!StringUtils.hasText(this.id)) {
       throw new IllegalStateException(

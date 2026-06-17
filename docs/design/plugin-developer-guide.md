@@ -173,23 +173,23 @@ management:
 
 ## JPA 插件
 
-插件 JPA 必须显式启用：
+插件 JPA 由插件显式引入 starter 启用，不再依赖宿主或插件环境中的
+`pf4boot.plugin.jpa.enabled=true`。如果 consumer 需要共享 domain，插件主类实现
+`JpaConsumerBindingProvider`：
 
-```yaml
-pf4boot:
-  plugin:
-    jpa:
-      enabled: true
-      plugins:
-        sample-workflow:
-          mode: SHARED
-          domain-id: demo
+```java
+@PluginStarter({WorkflowStarter.class, PluginJPAStarter.class})
+public class WorkflowPlugin extends Pf4bootPlugin implements JpaConsumerBindingProvider {
+  @Override
+  public JpaConsumerBinding jpaConsumerBinding() {
+    return JpaConsumerBinding.shared("demo").build();
+  }
+}
 ```
 
-`enabled=true` 用于激活 `PluginJPAStarter`。共享 domain consumer 推荐使用
-`pf4boot.plugin.jpa.plugins.{pluginId}.mode/domain-id`；旧的 `pf4boot.plugin.jpa.mode/domain-id`
-只作为兼容回退。使用 Java `initiate()` 写属性时也要同时设置 `pf4boot.plugin.jpa.enabled=true`，否则
-`PluginJPAStarter` 条件不会生效，JPA reload plan 只能把该插件识别为 inferred consumer。
+旧的 `pf4boot.plugin.jpa.plugins.{pluginId}.mode/domain-id` 和
+`pf4boot.plugin.jpa.mode/domain-id` 只作为 `3.x` 兼容回退，启动时会输出 deprecation warning。
+新插件不要再通过 `initiate()` 写这些结构性 JPA 绑定配置。
 
 插件侧默认 `ddl-auto=none`。schema 迁移由宿主或插件显式接入迁移工具，框架不强制绑定 Flyway 或 Liquibase。
 
@@ -207,23 +207,32 @@ pf4boot:
 - 领域能力插件只创建并导出 DataSource、EntityManagerFactory、TransactionManager 和 descriptor，不定义业务 Repository、Controller 或 service。
 - consumer 插件定义自己的 Repository 和业务 service，Repository 的 entity 来自 model 模块，并通过 `@EnableJpaRepositories` 显式绑定共享 EMF/TM。
 
-领域能力插件的 `pf4boot.plugin.jpa.domain.entity-packages` 必须指向 provider 可见的 model 包；配置为空按 `PJF-005` 失败，包不可见或扫描失败按 `PJF-008` 失败，包可见但暂未发现 `@Entity` 时第一阶段输出 `PJF-008` warning。
+领域能力插件通过 `JpaDomainDefinitionProvider` 声明 domain。实体包、DataSource 和 DDL 策略属于
+provider 插件契约，不应由宿主配置维护：
 
-如果一个 consumer 插件需要访问多个共享 domain，主 domain 使用 `domain-id`，其它 domain 放入 `additional-domains`，并按 Repository 包分别声明 `@EnableJpaRepositories`：
-
-```yaml
-pf4boot:
-  plugin:
-    jpa:
-      plugins:
-        sample-workflow:
-          mode: SHARED
-          domain-id: order
-          additional-domains:
-            - domain-id: audit
+```java
+@PluginStarter(Pf4bootJpaDomainStarter.class)
+public class DemoJpaDomainPlugin extends Pf4bootPlugin implements JpaDomainDefinitionProvider {
+  @Override
+  public JpaDomainDefinition jpaDomainDefinition() {
+    return JpaDomainDefinition.builder("demo")
+        .entityPackage("net.xdob.demo.model")
+        .dataSource(JpaDataSourceDefinition.builder("jdbc:h2:file:./work/demo")
+            .username("sa")
+            .driverClassName("org.h2.Driver")
+            .build())
+        .ddlAuto("update")
+        .build();
+  }
+}
 ```
 
-JPA domain 运行时刷新 V1 是重启式刷新。默认 `pf4boot.plugin.jpa.domain-reload.mode=DISABLED`，不会启停插件。需要先使用管理接口生成计划：
+定义缺失按 `PJF-009` 失败；实体包为空按 `PJF-005` 失败，包不可见或扫描失败按 `PJF-008` 失败。
+
+如果一个 consumer 插件需要访问多个共享 domain，主 domain 使用 `shared("order")`，其它 domain
+通过 `additionalDomain("audit")` 声明，并按 Repository 包分别声明 `@EnableJpaRepositories`。
+
+JPA domain 运行时刷新 V1 是重启式刷新。默认 `spring.pf4boot.jpa.reload.mode=DISABLED`，不会启停插件。需要先使用管理接口生成计划：
 
 ```http
 POST /pf4boot/admin/jpa/domains/demo/reload/plan
@@ -231,7 +240,7 @@ POST /pf4boot/admin/jpa/domains/demo/reload/plan
 
 只有显式配置 `STOP_CONSUMERS_AND_REBUILD` 且请求提供 `X-Idempotency-Key` 时，框架才会停止绑定该 domain 的 shared consumer，重启 provider 重建 EMF/TM，再按依赖顺序启动 consumer。该能力适合维护窗口，不承诺生产无停顿；跨数据源事务和多个 domain 原子刷新暂不支持。
 
-执行模式会在停止插件前复用通用 `PluginTrafficDrainer`。宿主已有 Web、定时任务等 drainer 时，JPA reload 会先拒绝新入口并等待在途工作归零；drain timeout 或 rejected 会写入 `drainReport`，返回 `DRAIN_TIMEOUT` 或 `DRAIN_REJECTED`，并且不会停止 consumer/provider。没有 drainer 时默认兼容继续并记录 warning；需要强约束时可设置 `pf4boot.plugin.jpa.domain-reload.require-drainer=true`。
+执行模式会在停止插件前复用通用 `PluginTrafficDrainer`。宿主已有 Web、定时任务等 drainer 时，JPA reload 会先拒绝新入口并等待在途工作归零；drain timeout 或 rejected 会写入 `drainReport`，返回 `DRAIN_TIMEOUT` 或 `DRAIN_REJECTED`，并且不会停止 consumer/provider。没有 drainer 时默认兼容继续并记录 warning；需要强约束时可设置 `spring.pf4boot.jpa.reload.require-drainer=true`。旧的 `pf4boot.plugin.jpa.domain-reload.*` 在兼容期仍可读取，但只作为 deprecated fallback。
 
 ## 升级回滚
 

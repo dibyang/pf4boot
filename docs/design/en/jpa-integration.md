@@ -4,6 +4,12 @@
 
 Some plugins need JPA repositories and entities, but non-JPA plugins should not pay for or accidentally initialize an `EntityManagerFactory`. Plugin JPA support is opt-in and plugin-local.
 
+The current implementation is centered on plugin-owned definitions: providers declare domains through
+`JpaDomainDefinitionProvider`, and consumers declare shared bindings through `JpaConsumerBindingProvider`.
+Structural configuration such as `pf4boot.plugin.jpa.domain.*`, `pf4boot.plugin.jpa.mode/domain-id`, and
+`pf4boot.plugin.jpa.plugins.*` remains only as a `3.x` compatibility fallback. See
+[JPA Plugin-Owned Configuration Remediation Plan](jpa-plugin-owned-configuration-plan.md).
+
 ## Modules
 
 - `pf4boot-jpa`: provides `Pf4bootJpaPersistenceProvider`, which merges managed class names and managed packages for Hibernate.
@@ -13,20 +19,24 @@ Some plugins need JPA repositories and entities, but non-JPA plugins should not 
 
 ## Plugin Starter Behavior
 
-`PluginJPAStarter` is annotated with `@SpringBootPlugin` and guarded by:
+`PluginJPAStarter` is annotated with `@SpringBootPlugin` and guarded by classpath conditions:
 
 - `LocalContainerEntityManagerFactoryBean`;
 - `EntityManager`;
-- Hibernate `SessionImplementor`;
-- `pf4boot.plugin.jpa.enabled=true`.
+- Hibernate `SessionImplementor`.
 
-This means JPA is not enabled for every plugin by default. A plugin must include the starter in `@PluginStarter` and set the plugin-local property to enable JPA.
+This means JPA is not enabled for every plugin by default. A plugin explicitly enables JPA by including the starter in
+`@PluginStarter`; `pf4boot.plugin.jpa.enabled=true` is no longer required.
 
 Shared JPA consumer example:
 
 ```java
 @PluginStarter({UserBookServiceStarter.class, PluginJPAStarter.class})
-public class UserBookServicePlugin extends Pf4bootPlugin {
+public class UserBookServicePlugin extends Pf4bootPlugin implements JpaConsumerBindingProvider {
+  @Override
+  public JpaConsumerBinding jpaConsumerBinding() {
+    return JpaConsumerBinding.shared("demo").build();
+  }
 }
 ```
 
@@ -52,8 +62,8 @@ The data source, `JpaProperties`, `HibernateProperties`, and `HibernatePropertie
 ## Shared Domain Starter
 
 `pf4boot-jpa-domain-starter` is used by datasource capability plugins. Once a capability plugin includes
-`Pf4bootJpaDomainStarter` in `@PluginStarter`, the starter creates local domain beans from
-`pf4boot.plugin.jpa.domain.*` configuration:
+`Pf4bootJpaDomainStarter` in `@PluginStarter`, the starter creates local domain beans from a
+`JpaDomainDefinition` supplied by the plugin main class or plugin context:
 
 - `domainDataSource`
 - `domainEntityManagerFactory`
@@ -67,10 +77,10 @@ Then `DomainJpaPlatformExporter` exports them into the platform context for the 
 - `domain.{domain-id}.descriptor`
 
 Export happens after singleton initialization of the domain plugin context; beans are unregistered in reverse when
-that context closes. If platform export conflicts or configuration is invalid, the domain plugin fails startup with
-`PJF-004/PJF-005/PJF-008` and rolls back already-exported beans.
+that context closes. If platform export conflicts or the definition is invalid, the domain plugin fails startup with
+`PJF-004/PJF-005/PJF-008/PJF-009` and rolls back already-exported beans.
 
-Before creating the `EntityManagerFactory`, the domain plugin validates `entity-packages`:
+Before creating the `EntityManagerFactory`, the domain plugin validates the entity packages in `JpaDomainDefinition`:
 
 - empty configuration fails fast with `PJF-005`;
 - packages that are invisible from the current plugin classpath, or fail during scanning, fail fast with `PJF-008`;
@@ -79,26 +89,16 @@ Before creating the `EntityManagerFactory`, the domain plugin validates `entity-
 In shared JPA scenarios, the datasource capability plugin should stay narrowly focused and should not define business entities, repositories, controllers, or business services in its own source. Entities should live in independent model modules, either bundled by the domain plugin or provided by the host on a visible classpath. Consumer repositories reference those model entities and explicitly bind the shared `EntityManagerFactory` and `TransactionManager`.
 
 The domain starter excludes Spring Boot DataSource/JPA Repository auto-configuration to avoid creating unrelated
-default EMFs or repositories. Business plugins bind these platform beans through `PluginJPAStarter` with `mode=SHARED`
+default EMFs or repositories. Business plugins bind these platform beans through `JpaConsumerBinding.shared("demo")`
 and explicit `@EnableJpaRepositories` settings for repository packages, `entityManagerFactoryRef`, and
-`transactionManagerRef`.
+`transactionManagerRef`. The legacy `pf4boot.plugin.jpa.mode/domain-id` and
+`pf4boot.plugin.jpa.plugins.{pluginId}.*` settings remain as compatibility fallbacks, but new plugins and complex
+samples should use the plugin-owned API.
 
-Consumer plugins must explicitly enable plugin-side JPA. Prefer plugin-level binding configuration so multiple plugins do not overwrite each other through the legacy global `mode/domain-id` keys:
-
-```yaml
-pf4boot:
-  plugin:
-    jpa:
-      enabled: true
-      plugins:
-        sample-user-book-service:
-          mode: SHARED
-          domain-id: demo
-```
-
-The legacy `pf4boot.plugin.jpa.mode/domain-id` settings remain as a compatibility fallback, but new plugins and complex samples should prefer `pf4boot.plugin.jpa.plugins.{pluginId}.*`.
-
-When one consumer plugin needs multiple shared domains, configure the primary domain with `domain-id` and other domains with `additional-domains`. The starter registers local EMF/TM BeanDefinitions and validates descriptor readiness for both the primary and additional domains. Repositories must still be split by package and explicitly bound to their own EMF/TM. Cross-domain atomic transactions remain unsupported.
+When one consumer plugin needs multiple shared domains, declare the primary domain with
+`JpaConsumerBinding.shared("order")` and add others with `additionalDomain("audit")`. The starter registers local
+EMF/TM BeanDefinitions and validates descriptor readiness for both the primary and additional domains. Repositories must
+still be split by package and explicitly bound to their own EMF/TM. Cross-domain atomic transactions remain unsupported.
 
 Note: Spring Data JPA recursively scans parent BeanFactories for `EntityManagerFactory` beans and then looks up matching BeanDefinitions. Therefore, when JPA domain beans are exported to root/platform/application shared contexts, dynamic shared beans cannot be singleton-only. `Pf4bootPluginManagerImpl` also registers a BeanDefinition pointing to the same instance so Spring Data JPA post-processors can recognize it.
 
@@ -106,13 +106,13 @@ Note: Spring Data JPA recursively scans parent BeanFactories for `EntityManagerF
 
 `pf4boot-jpa` exposes `net.xdob.pf4boot.jpa.reload.*` models and SPI for shared JPA domain runtime refresh. `pf4boot-jpa-starter` provides the default in-memory implementation. V1 is restart-based refresh: it does not rebuild an existing `EntityManagerFactory` in place. Instead, it identifies the provider and exact shared consumers, stops consumers, stops the provider, verifies that old DataSource/EMF/TM/descriptor exports are gone, starts the provider, waits for the new descriptor to become ready, and then starts consumers again.
 
-The capability is disabled by default:
+The capability is disabled by default and is configured as host governance:
 
 ```yaml
-pf4boot:
-  plugin:
+spring:
+  pf4boot:
     jpa:
-      domain-reload:
+      reload:
         mode: DISABLED
 ```
 

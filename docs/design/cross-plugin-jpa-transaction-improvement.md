@@ -1,5 +1,11 @@
 # 跨插件 JPA 事务现状改进方案
 
+> 状态说明：本文中的 `pf4boot.plugin.jpa.mode/domain-id`、`plugins.*` 和
+> `entity-packages` 配置优先级属于早期兼容设计。当前方案以
+> [jpa-plugin-owned-configuration-plan.md](jpa-plugin-owned-configuration-plan.md) 为准：
+> 新插件通过 `JpaDomainDefinitionProvider` / `JpaConsumerBindingProvider` 声明结构性 JPA 契约，
+> 旧配置仅作为 `3.x` 兼容 fallback。
+
 ## 1. 背景
 
 当前跨插件 JPA 事务能力已经完成第一阶段落地：
@@ -213,7 +219,7 @@ public class AuditJpaConfig {
 
 ## 6. 兼容性
 
-- 旧的 `pf4boot.plugin.jpa.mode/domain-id` 继续有效。
+- 旧的 `pf4boot.plugin.jpa.mode/domain-id` 在 `3.x` 继续作为兼容 fallback 有效，并输出迁移提示。
 - 默认 `LOCAL` 行为不变。
 - 新增 descriptor 和插件级绑定属于增强能力，不应影响未启用 JPA 的插件。
 - 错误码新增只提升诊断，不改变成功路径。

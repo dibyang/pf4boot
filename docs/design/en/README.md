@@ -34,6 +34,7 @@ For new development work, read these first:
 ### JPA And Transactions
 
 - [jpa-integration.md](jpa-integration.md): plugin JPA starter behavior and entity scan rules.
+- [jpa-plugin-owned-configuration-plan.md](jpa-plugin-owned-configuration-plan.md): JPA plugin-owned configuration remediation plan.
 - [autoexport-jpa-boundary.md](autoexport-jpa-boundary.md): AutoExport groups and JPA dynamic metadata boundary.
 - [cross-plugin-jpa-transaction-capability.md](cross-plugin-jpa-transaction-capability.md): cross-plugin JPA transaction capability.
 - [cross-plugin-jpa-transaction-improvement.md](cross-plugin-jpa-transaction-improvement.md): cross-plugin JPA transaction improvements.

@@ -1,6 +1,8 @@
 package net.xdob.pf4boot.jpa.starter;
 
 import net.xdob.pf4boot.PluginApplication;
+import net.xdob.pf4boot.jpa.binding.JpaConsumerBinding;
+import net.xdob.pf4boot.jpa.binding.JpaConsumerBindingProvider;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
 import net.xdob.pf4boot.jpa.starter.reload.DefaultJpaPluginBindingRegistry;
 import org.junit.Test;
@@ -44,16 +46,26 @@ import static org.junit.Assert.fail;
 public class PluginJPAStarterTest {
 
   @Test
-  public void jpaStarterDoesNotCreateEntityManagerFactoryWhenPropertyIsMissing() {
+  public void explicitJpaStarterDoesNotRequireEnabledPropertyForSharedMode() {
+    AnnotationConfigApplicationContext parent = new AnnotationConfigApplicationContext();
     AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
     try {
+      registerDomain(parent, "order");
+      parent.refresh();
+
+      context.setParent(parent);
+      addProperties(context,
+          "pf4boot.plugin.jpa.mode", "SHARED",
+          "pf4boot.plugin.jpa.domain-id", "order");
       context.register(PluginJPAStarter.class);
       context.refresh();
 
-      assertEquals(0, context.getBeanNamesForType(PluginJPAStarter.class).length);
-      assertEquals(0, context.getBeanNamesForType(EntityManagerFactory.class).length);
+      assertEquals(1, context.getBeanNamesForType(PluginJPAStarter.class).length);
+      assertTrue(context.getBean("domain.order.entityManagerFactory")
+          == parent.getBean("domain.order.entityManagerFactory"));
     } finally {
       context.close();
+      parent.close();
     }
   }
 
@@ -88,7 +100,6 @@ public class PluginJPAStarterTest {
     AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
     try {
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.mode", "SHARED");
       context.register(PluginJPAStarter.class);
 
@@ -116,7 +127,6 @@ public class PluginJPAStarterTest {
 
       context.setParent(parent);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.mode", "SHARED",
           "pf4boot.plugin.jpa.domain-id", "order");
       context.register(PluginJPAStarter.class);
@@ -157,7 +167,6 @@ public class PluginJPAStarterTest {
       context.setParent(parent);
       context.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.mode", "LOCAL",
           "pf4boot.plugin.jpa.plugins.jpa-test.mode", "SHARED",
           "pf4boot.plugin.jpa.plugins.jpa-test.domain-id", "invoice");
@@ -181,6 +190,34 @@ public class PluginJPAStarterTest {
   }
 
   @Test
+  public void consumerBindingProviderOverridesLegacyConfiguration() {
+    AnnotationConfigApplicationContext parent = new AnnotationConfigApplicationContext();
+    AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
+    try {
+      registerDomain(parent, "invoice");
+      parent.refresh();
+
+      context.setParent(parent);
+      context.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, SharedBindingPlugin::new);
+      addProperties(context,
+          "pf4boot.plugin.jpa.mode", "LOCAL",
+          "pf4boot.plugin.jpa.plugins.jpa-test.mode", "LOCAL");
+      context.register(PluginJPAStarter.class);
+      context.refresh();
+
+      assertTrue(context.getDefaultListableBeanFactory()
+          .containsBeanDefinition("domain.invoice.entityManagerFactory"));
+      assertTrue(context.getBean("domain.invoice.entityManagerFactory")
+          == parent.getBean("domain.invoice.entityManagerFactory"));
+      assertEquals(0, context.getDefaultListableBeanFactory()
+          .getBeanNamesForType(LocalContainerEntityManagerFactoryBean.class).length);
+    } finally {
+      context.close();
+      parent.close();
+    }
+  }
+
+  @Test
   public void pluginLevelBindingCanUseCustomDescriptorRef() {
     AnnotationConfigApplicationContext parent = new AnnotationConfigApplicationContext();
     AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
@@ -196,7 +233,6 @@ public class PluginJPAStarterTest {
       context.setParent(parent);
       context.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.plugins.jpa-test.mode", "SHARED",
           "pf4boot.plugin.jpa.plugins.jpa-test.domain-id", "invoice",
           "pf4boot.plugin.jpa.plugins.jpa-test.descriptor-ref", "custom.invoice.descriptor");
@@ -223,7 +259,6 @@ public class PluginJPAStarterTest {
       context.setParent(parent);
       context.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.plugins.jpa-test.mode", "SHARED",
           "pf4boot.plugin.jpa.plugins.jpa-test.domain-id", "order",
           "pf4boot.plugin.jpa.plugins.jpa-test.additional-domains[0].domain-id", "audit");
@@ -263,7 +298,6 @@ public class PluginJPAStarterTest {
       context.setParent(parent);
       context.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.plugins.jpa-test.mode", "SHARED",
           "pf4boot.plugin.jpa.plugins.jpa-test.domain-id", "order",
           "pf4boot.plugin.jpa.plugins.jpa-test.additional-domains[0].domain-id", "audit");
@@ -286,7 +320,6 @@ public class PluginJPAStarterTest {
     try {
       context.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.plugins.jpa-test.mode", "SHARED");
       context.register(PluginJPAStarter.class);
 
@@ -316,7 +349,6 @@ public class PluginJPAStarterTest {
       context.setParent(parent);
       context.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.mode", "SHARED",
           "pf4boot.plugin.jpa.domain-id", "order",
           "pf4boot.plugin.jpa.plugins.other-plugin.mode", "LOCAL");
@@ -355,7 +387,6 @@ public class PluginJPAStarterTest {
       context.getDefaultListableBeanFactory()
           .setParentBeanFactory(parent.getDefaultListableBeanFactory());
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.mode", "SHARED",
           "pf4boot.plugin.jpa.domain-id", "order");
       context.register(PluginJPAStarter.class);
@@ -405,7 +436,6 @@ public class PluginJPAStarterTest {
           .setParentBeanFactory(parent.getDefaultListableBeanFactory());
       context.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.plugins.jpa-test.mode", "SHARED",
           "pf4boot.plugin.jpa.plugins.jpa-test.domain-id", "order");
       context.register(PluginJPAStarter.class);
@@ -432,7 +462,6 @@ public class PluginJPAStarterTest {
 
       context.setParent(parent);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.mode", "SHARED",
           "pf4boot.plugin.jpa.domain-id", "order");
       context.register(PluginJPAStarter.class);
@@ -458,7 +487,6 @@ public class PluginJPAStarterTest {
       sharedConsumer.setParent(parent);
       sharedConsumer.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
       addProperties(sharedConsumer,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.mode", "SHARED",
           "pf4boot.plugin.jpa.domain-id", "missing");
       sharedConsumer.register(PluginJPAStarter.class);
@@ -473,7 +501,6 @@ public class PluginJPAStarterTest {
 
       unrelated.setParent(parent);
       unrelated.registerBean(PluginApplication.BEAN_PLUGIN, Plugin.class, TestPlugin::new);
-      unrelated.register(PluginJPAStarter.class);
       unrelated.refresh();
 
       assertEquals(0, unrelated.getBeanNamesForType(PluginJPAStarter.class).length);
@@ -499,7 +526,6 @@ public class PluginJPAStarterTest {
 
       context.setParent(parent);
       addProperties(context,
-          "pf4boot.plugin.jpa.enabled", "true",
           "pf4boot.plugin.jpa.mode", "SHARED",
           "pf4boot.plugin.jpa.domain-id", "order");
       context.register(PluginJPAStarter.class);
@@ -533,6 +559,13 @@ public class PluginJPAStarterTest {
               "jpa-test", "jpa-test", TestPlugin.class.getName(), "1.0.0", "", "test", "Apache-2.0"),
           Paths.get("jpa-test"),
           TestPlugin.class.getClassLoader()));
+    }
+  }
+
+  public static class SharedBindingPlugin extends TestPlugin implements JpaConsumerBindingProvider {
+    @Override
+    public JpaConsumerBinding jpaConsumerBinding() {
+      return JpaConsumerBinding.shared("invoice").build();
     }
   }
 

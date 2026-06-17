@@ -1,5 +1,12 @@
 # Cross-Plugin JPA Transaction Capability Design (Execution-Ready)
 
+> Status note: this document records the early implementation design. Examples that use
+> `pf4boot.plugin.jpa.*` structural provider/consumer configuration are now compatibility-era material.
+> The current ownership boundary is defined by
+> [jpa-plugin-owned-configuration-plan.md](jpa-plugin-owned-configuration-plan.md):
+> providers use `JpaDomainDefinitionProvider`, consumers use `JpaConsumerBindingProvider`, and hosts keep only
+> governance configuration such as `spring.pf4boot.jpa.reload.*`.
+
 ## 1. Goals and Non-Goals
 
 ### 1.1 Goals
@@ -289,7 +296,7 @@ See acceptance checklist:
 ## 13. Decision Log
 
 - Domain capability plugin creates and exports `DataSource/EMF/TM` (for this phase).
-- No annotation wrapper like `@EnablePf4bootJpaSharedDomain`; configuration-driven integration first.
+- No annotation wrapper like `@EnablePf4bootJpaSharedDomain`; the current direction has moved from configuration-driven integration to plugin-owned definitions.
 - No cross-domain transactions in phase 1.
 - Shared-domain entities are provided by the domain capability plugin or domain shared library; business plugins bind repositories only in this phase.
 - Keep current `DynamicMetadata.sync()` behavior (no runtime metamodel refresh).

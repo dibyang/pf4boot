@@ -4,6 +4,11 @@
 
 部分插件需要 JPA repository 和 entity，但非 JPA 插件不应该承担相关初始化成本，也不应该意外初始化 `EntityManagerFactory`。因此插件 JPA 支持是显式启用且插件本地化的。
 
+当前实现以插件自治定义为主：provider 通过 `JpaDomainDefinitionProvider` 声明 domain，consumer 通过
+`JpaConsumerBindingProvider` 声明 shared binding。`pf4boot.plugin.jpa.domain.*`、
+`pf4boot.plugin.jpa.mode/domain-id`、`pf4boot.plugin.jpa.plugins.*` 等结构性配置只作为 `3.x` 兼容 fallback。
+整改记录见 [JPA 插件自治配置整改计划](jpa-plugin-owned-configuration-plan.md)。
+
 ## 模块
 
 - `pf4boot-jpa`：提供 `Pf4bootJpaPersistenceProvider`，为 Hibernate 合并 managed class names 和 managed packages。
@@ -13,20 +18,23 @@
 
 ## Plugin Starter 行为
 
-`PluginJPAStarter` 标注了 `@SpringBootPlugin`，并受以下条件保护：
+`PluginJPAStarter` 标注了 `@SpringBootPlugin`，并受以下类存在条件保护：
 
 - `LocalContainerEntityManagerFactoryBean`；
 - `EntityManager`；
-- Hibernate `SessionImplementor`；
-- `pf4boot.plugin.jpa.enabled=true`。
+- Hibernate `SessionImplementor`。
 
-这意味着 JPA 默认不会为每个插件启用。插件必须在 `@PluginStarter` 中包含该 starter，并设置插件本地属性来启用 JPA。
+这意味着 JPA 默认不会为每个插件启用。插件只要在 `@PluginStarter` 中包含该 starter，就表示显式启用 JPA；不再需要 `pf4boot.plugin.jpa.enabled=true`。
 
 共享 JPA consumer 示例：
 
 ```java
 @PluginStarter({UserBookServiceStarter.class, PluginJPAStarter.class})
-public class UserBookServicePlugin extends Pf4bootPlugin {
+public class UserBookServicePlugin extends Pf4bootPlugin implements JpaConsumerBindingProvider {
+  @Override
+  public JpaConsumerBinding jpaConsumerBinding() {
+    return JpaConsumerBinding.shared("demo").build();
+  }
 }
 ```
 
@@ -51,8 +59,7 @@ public class UserBookServicePlugin extends Pf4bootPlugin {
 
 ## 领域共享事务 starter
 
-`pf4boot-jpa-domain-starter` 面向“数据源能力插件”使用。能力插件在 `@PluginStarter` 中包含 `Pf4bootJpaDomainStarter` 后，会按
-`pf4boot.plugin.jpa.domain.*` 配置创建本地域级 Bean：
+`pf4boot-jpa-domain-starter` 面向“数据源能力插件”使用。能力插件在 `@PluginStarter` 中包含 `Pf4bootJpaDomainStarter` 后，会从插件主类或插件上下文中的 `JpaDomainDefinition` 创建本地域级 Bean：
 
 - `domainDataSource`
 - `domainEntityManagerFactory`
@@ -65,10 +72,10 @@ public class UserBookServicePlugin extends Pf4bootPlugin {
 - `domain.{domain-id}.transactionManager`
 - `domain.{domain-id}.descriptor`
 
-导出发生在领域插件 Spring 单例初始化完成后；插件上下文关闭时按相反顺序注销。若平台导出冲突或配置错误，领域插件按
-`PJF-004/PJF-005/PJF-008` 失败启动，并回滚已导出的 Bean。
+导出发生在领域插件 Spring 单例初始化完成后；插件上下文关闭时按相反顺序注销。若平台导出冲突或定义错误，领域插件按
+`PJF-004/PJF-005/PJF-008/PJF-009` 失败启动，并回滚已导出的 Bean。
 
-领域插件创建 `EntityManagerFactory` 前会校验 `entity-packages`：
+领域插件创建 `EntityManagerFactory` 前会校验 `JpaDomainDefinition` 中的 entity packages：
 
 - 配置为空时按 `PJF-005` fail-fast。
 - 包在当前插件 classpath 不可见或扫描失败时按 `PJF-008` fail-fast。
@@ -77,27 +84,13 @@ public class UserBookServicePlugin extends Pf4bootPlugin {
 共享 JPA 场景下，数据源能力插件应保持职责单一，不在自身源码中定义业务 entity、Repository、Controller 或业务 service。entity 推荐放在独立 model 模块中，由领域插件打包或由宿主提供到可见 classpath；consumer 插件的 Repository 引用这些 model entity，并显式绑定共享 `EntityManagerFactory` 和 `TransactionManager`。
 
 领域 starter 排除 Spring Boot 的 DataSource/JPA Repository 自动配置，避免自动创建与共享域无关的默认 EMF 或 Repository。
-业务插件使用 `PluginJPAStarter` 的 `mode=SHARED` 绑定这些平台 Bean，并通过显式 `@EnableJpaRepositories` 声明 Repository 包、
-`entityManagerFactoryRef` 和 `transactionManagerRef`。
+业务插件通过 `JpaConsumerBinding.shared("demo")` 绑定这些平台 Bean，并通过显式 `@EnableJpaRepositories` 声明 Repository 包、
+`entityManagerFactoryRef` 和 `transactionManagerRef`。旧的 `pf4boot.plugin.jpa.mode/domain-id` 和
+`pf4boot.plugin.jpa.plugins.{pluginId}.*` 仍保留为兼容回退，但复杂示例和新插件应使用插件自治 API。
 
-consumer 插件必须显式启用插件侧 JPA starter。推荐使用插件级绑定配置，避免多个插件共用旧的全局
-`mode/domain-id` key 时互相覆盖：
-
-```yaml
-pf4boot:
-  plugin:
-    jpa:
-      enabled: true
-      plugins:
-        sample-user-book-service:
-          mode: SHARED
-          domain-id: demo
-```
-
-旧的 `pf4boot.plugin.jpa.mode/domain-id` 仍保留为兼容回退，但复杂示例和新插件应优先使用
-`pf4boot.plugin.jpa.plugins.{pluginId}.*`。
-
-一个 consumer 插件需要多个共享 domain 时，主 domain 使用 `domain-id`，额外 domain 使用 `additional-domains`。starter 会为主 domain 和额外 domain 都注册本地 EMF/TM BeanDefinition，并校验对应 descriptor ready；Repository 仍必须按包拆分并显式绑定各自的 EMF/TM。跨 domain 原子事务暂不支持。
+一个 consumer 插件需要多个共享 domain 时，主 domain 使用 `JpaConsumerBinding.shared("order")`，额外 domain 使用
+`additionalDomain("audit")`。starter 会为主 domain 和额外 domain 都注册本地 EMF/TM BeanDefinition，并校验对应 descriptor ready；
+Repository 仍必须按包拆分并显式绑定各自的 EMF/TM。跨 domain 原子事务暂不支持。
 
 注意：Spring Data JPA 会递归扫描 parent BeanFactory 中的 `EntityManagerFactory`，随后反查同名 BeanDefinition。因此 JPA domain 导出到 root/platform/application 等共享上下文时，动态共享 Bean 不能只有 singleton；`Pf4bootPluginManagerImpl` 会同步注册指向同一实例的 BeanDefinition，供 Spring Data JPA 后处理器识别。
 
@@ -113,7 +106,7 @@ starter 通过 `HibernateSettings.ddlAuto` 将插件默认 `ddl-auto` 设为 `no
 
 ## JPA domain 重启式刷新
 
-V1 运行时刷新是“重启式刷新”，不是无感热刷新。框架通过 `pf4boot.plugin.jpa.domain-reload.mode` 控制能力：
+V1 运行时刷新是“重启式刷新”，不是无感热刷新。宿主通过 `spring.pf4boot.jpa.reload.mode` 控制能力：
 
 - `DISABLED`：默认禁用，请求会返回 `RELOAD_DISABLED`，不执行插件启停。
 - `PLAN_ONLY`：只生成影响范围、consumer、unrelated 插件、停止顺序和启动顺序。

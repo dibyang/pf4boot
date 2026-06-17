@@ -34,6 +34,7 @@
 ### JPA 与事务
 
 - [jpa-integration.md](jpa-integration.md)：插件 JPA starter 行为和实体扫描规则。
+- [jpa-plugin-owned-configuration-plan.md](jpa-plugin-owned-configuration-plan.md)：JPA 插件自治配置整改计划。
 - [autoexport-jpa-boundary.md](autoexport-jpa-boundary.md)：AutoExport 分组和 JPA 动态元数据边界。
 - [cross-plugin-jpa-transaction-capability.md](cross-plugin-jpa-transaction-capability.md)：跨插件 JPA 事务能力。
 - [cross-plugin-jpa-transaction-improvement.md](cross-plugin-jpa-transaction-improvement.md)：跨插件 JPA 事务改进。

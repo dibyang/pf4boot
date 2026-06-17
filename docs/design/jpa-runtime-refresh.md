@@ -1,5 +1,9 @@
 # JPA 运行时刷新设计
 
+> 状态说明：JPA reload 是宿主治理能力，当前推荐配置前缀为
+> `spring.pf4boot.jpa.reload.*`。本文中出现的 `pf4boot.plugin.jpa.domain-reload.*`
+> 属于早期前缀，在 `3.x` 兼容期仍可读取但会提示迁移。
+
 ## 1. 背景
 
 当前跨插件 JPA 方案通过 `pf4boot-jpa-domain-starter` 提供共享数据源、`EntityManagerFactory`、`PlatformTransactionManager` 和 `JpaDomainDescriptor`，消费插件通过 `pf4boot-jpa-starter` 的 `SHARED` 模式绑定同一个 domain，从而进入同一个事务环境。

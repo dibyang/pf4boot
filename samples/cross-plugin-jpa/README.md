@@ -87,10 +87,10 @@ http://127.0.0.1:7791/
 控制台默认使用 sample 配置中的 `sample-token`，并随 sample host 一起打包。仓库中仍保留独立的
 `samples/plugin-management-console` 静态管理控制台示例；`cross-plugin-jpa` 的内置控制台作为更完整的产品化演示入口。
 
-JPA domain 的实体扫描包不在宿主配置中声明。示例由 `plugin-demo-jpa-domain` 在插件启动初始化阶段声明
-`pf4boot.plugin.jpa.domain.entity-packages[*]`、DataSource 和 ddl 策略，避免宿主替插件维护实体包清单。
-业务插件也在各自插件主类中声明 `pf4boot.plugin.jpa.enabled=true`、`mode=SHARED` 和 `domain-id=demo`；
-宿主只保留 JPA reload 的管理配置，不替插件开启 JPA。
+JPA domain 的实体扫描包不在宿主配置中声明。示例由 `plugin-demo-jpa-domain` 插件主类实现
+`JpaDomainDefinitionProvider`，声明 entity packages、DataSource 和 ddl 策略，避免宿主替插件维护实体包清单。
+业务插件在各自插件主类中实现 `JpaConsumerBindingProvider` 并返回 `JpaConsumerBinding.shared("demo")`；
+宿主只保留 `spring.pf4boot.jpa.reload.*` 这类 JPA reload 管理配置，不替插件开启或绑定 JPA。
 
 预期行为：
 

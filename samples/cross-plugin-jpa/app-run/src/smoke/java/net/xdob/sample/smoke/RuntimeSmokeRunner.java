@@ -133,9 +133,9 @@ public class RuntimeSmokeRunner {
     command.add("--spring.pf4boot.management.http.token=sample-token");
     command.add("--spring.pf4boot.management.http.operation-store.type=file");
     command.add("--spring.pf4boot.management.http.operation-store.directory=" + smokeDir.resolve("operations"));
-    command.add("--pf4boot.plugin.jpa.domain-reload.mode=" + jpaReloadMode);
-    command.add("--pf4boot.plugin.jpa.domain-reload.record-store.type=file");
-    command.add("--pf4boot.plugin.jpa.domain-reload.record-store.directory=" + smokeDir.resolve("jpa-reloads"));
+    command.add("--spring.pf4boot.jpa.reload.mode=" + jpaReloadMode);
+    command.add("--spring.pf4boot.jpa.reload.record-store.type=file");
+    command.add("--spring.pf4boot.jpa.reload.record-store.directory=" + smokeDir.resolve("jpa-reloads"));
     ProcessBuilder builder = new ProcessBuilder(command);
     builder.directory(runtime.toFile());
     builder.redirectOutput(smokeDir.resolve("logs").resolve("stdout.log").toFile());

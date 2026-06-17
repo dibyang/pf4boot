@@ -6,6 +6,7 @@ import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadPlanService;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecordRepository;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadService;
+import net.xdob.pf4boot.jpa.starter.Pf4bootJpaGovernanceProperties;
 import net.xdob.pf4boot.jpa.starter.Pf4bootJpaProperties;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -16,6 +17,7 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.env.Environment;
 import org.springframework.util.StringUtils;
 
 import java.nio.file.Paths;
@@ -25,7 +27,7 @@ import java.nio.file.Paths;
  */
 @Configuration(proxyBeanMethods = false)
 @ConditionalOnClass(JpaDomainReloadPlanService.class)
-@EnableConfigurationProperties(Pf4bootJpaProperties.class)
+@EnableConfigurationProperties({Pf4bootJpaProperties.class, Pf4bootJpaGovernanceProperties.class})
 public class JpaDomainReloadAutoConfiguration {
 
   static final String JPA_PLUGIN_BINDING_REGISTRY_BEAN_NAME = "jpaPluginBindingRegistry";
@@ -70,18 +72,27 @@ public class JpaDomainReloadAutoConfiguration {
       ObjectProvider<Pf4bootPluginManager> pluginManager,
       JpaPluginBindingRegistry bindingRegistry,
       ObjectProvider<PluginDeploymentService> deploymentService,
-      Pf4bootJpaProperties properties) {
+      Pf4bootJpaProperties properties,
+      Pf4bootJpaGovernanceProperties governanceProperties,
+      Environment environment) {
+    Pf4bootJpaProperties effectiveProperties =
+        JpaDomainReloadPropertiesResolver.effective(properties, governanceProperties, environment);
     return new DefaultJpaDomainReloadPlanService(
         pluginManager.getIfAvailable(),
         bindingRegistry,
-        properties,
+        effectiveProperties,
         deploymentService.getIfAvailable());
   }
 
   @Bean
   @ConditionalOnMissingBean
-  public JpaDomainReloadRecordRepository jpaDomainReloadRecordRepository(Pf4bootJpaProperties properties) {
-    Pf4bootJpaProperties.DomainReload domainReload = properties.getDomainReload();
+  public JpaDomainReloadRecordRepository jpaDomainReloadRecordRepository(
+      Pf4bootJpaProperties properties,
+      Pf4bootJpaGovernanceProperties governanceProperties,
+      Environment environment) {
+    Pf4bootJpaProperties effectiveProperties =
+        JpaDomainReloadPropertiesResolver.effective(properties, governanceProperties, environment);
+    Pf4bootJpaProperties.DomainReload domainReload = effectiveProperties.getDomainReload();
     Pf4bootJpaProperties.DomainReload.RecordStore store = domainReload.getRecordStore();
     if (store != null && "file".equalsIgnoreCase(store.getType())) {
       try {
@@ -105,8 +116,12 @@ public class JpaDomainReloadAutoConfiguration {
   @ConditionalOnMissingBean
   public JpaDomainReloadDrainCoordinator jpaDomainReloadDrainCoordinator(
       ObjectProvider<PluginTrafficDrainer> trafficDrainers,
-      Pf4bootJpaProperties properties) {
-    return new JpaDomainReloadDrainCoordinator(trafficDrainers, properties);
+      Pf4bootJpaProperties properties,
+      Pf4bootJpaGovernanceProperties governanceProperties,
+      Environment environment) {
+    return new JpaDomainReloadDrainCoordinator(
+        trafficDrainers,
+        JpaDomainReloadPropertiesResolver.effective(properties, governanceProperties, environment));
   }
 
   @Bean
@@ -117,13 +132,17 @@ public class JpaDomainReloadAutoConfiguration {
       JpaDomainReloadRecordRepository recordRepository,
       JpaDomainReloadDrainCoordinator drainCoordinator,
       ObjectProvider<PluginDeploymentService> deploymentService,
-      Pf4bootJpaProperties properties) {
+      Pf4bootJpaProperties properties,
+      Pf4bootJpaGovernanceProperties governanceProperties,
+      Environment environment) {
+    Pf4bootJpaProperties effectiveProperties =
+        JpaDomainReloadPropertiesResolver.effective(properties, governanceProperties, environment);
     return new DefaultJpaDomainReloadService(
         pluginManager.getIfAvailable(),
         planService,
         recordRepository,
         drainCoordinator,
         deploymentService.getIfAvailable(),
-        properties);
+        effectiveProperties);
   }
 }

@@ -174,20 +174,23 @@ If `/actuator/pf4bootgovernance` returns 404, first confirm the host includes `p
 
 ## JPA Plugins
 
-Plugin JPA must be enabled explicitly:
+Plugin JPA is enabled by explicitly including the starter; it no longer depends on
+`pf4boot.plugin.jpa.enabled=true`. Shared-domain consumers should implement
+`JpaConsumerBindingProvider` on the plugin main class:
 
-```yaml
-pf4boot:
-  plugin:
-    jpa:
-      enabled: true
-      plugins:
-        sample-workflow:
-          mode: SHARED
-          domain-id: demo
+```java
+@PluginStarter({WorkflowStarter.class, PluginJPAStarter.class})
+public class WorkflowPlugin extends Pf4bootPlugin implements JpaConsumerBindingProvider {
+  @Override
+  public JpaConsumerBinding jpaConsumerBinding() {
+    return JpaConsumerBinding.shared("demo").build();
+  }
+}
 ```
 
-`enabled=true` activates `PluginJPAStarter`. Shared-domain consumers should prefer `pf4boot.plugin.jpa.plugins.{pluginId}.mode/domain-id`; the legacy `pf4boot.plugin.jpa.mode/domain-id` keys are only a compatibility fallback. When a plugin writes properties from Java `initiate()`, it must also set `pf4boot.plugin.jpa.enabled=true`; otherwise the starter condition does not match and JPA reload planning can only classify the plugin as an inferred consumer.
+The legacy `pf4boot.plugin.jpa.plugins.{pluginId}.mode/domain-id` and
+`pf4boot.plugin.jpa.mode/domain-id` keys are only `3.x` compatibility fallbacks and emit deprecation warnings.
+New plugins should not write these structural JPA bindings from `initiate()`.
 
 Plugin-side `ddl-auto` defaults to `none`. Schema migration is explicitly owned by the host or plugin through migration tooling. The framework does not force Flyway or Liquibase.
 
@@ -205,35 +208,44 @@ Shared JPA transaction domains should be split into three module roles:
 - domain capability plugins only create and export the DataSource, EntityManagerFactory, TransactionManager, and descriptor; they do not define business repositories, controllers, or services.
 - consumer plugins define their own repositories and business services; repository entities come from model modules and repositories explicitly bind the shared EMF/TM with `@EnableJpaRepositories`.
 
-The domain capability plugin's `pf4boot.plugin.jpa.domain.entity-packages` must point to model packages visible to the provider. Empty configuration fails with `PJF-005`; invisible packages or scan failures fail with `PJF-008`; visible packages with no current `@Entity` emit a first-phase `PJF-008` warning.
+Domain capability plugins declare the domain through `JpaDomainDefinitionProvider`. Entity packages, DataSource, and
+DDL policy are provider-plugin contracts and should not be maintained by the host:
 
-If one consumer plugin needs multiple shared domains, configure the primary domain with `domain-id`, put other domains in `additional-domains`, and declare separate `@EnableJpaRepositories` blocks for each repository package:
-
-```yaml
-pf4boot:
-  plugin:
-    jpa:
-      plugins:
-        sample-workflow:
-          mode: SHARED
-          domain-id: order
-          additional-domains:
-            - domain-id: audit
+```java
+@PluginStarter(Pf4bootJpaDomainStarter.class)
+public class DemoJpaDomainPlugin extends Pf4bootPlugin implements JpaDomainDefinitionProvider {
+  @Override
+  public JpaDomainDefinition jpaDomainDefinition() {
+    return JpaDomainDefinition.builder("demo")
+        .entityPackage("net.xdob.demo.model")
+        .dataSource(JpaDataSourceDefinition.builder("jdbc:h2:file:./work/demo")
+            .username("sa")
+            .driverClassName("org.h2.Driver")
+            .build())
+        .ddlAuto("update")
+        .build();
+  }
+}
 ```
 
-Shared JPA domain runtime refresh is optional and disabled by default. A host or sample that wants the V1 restart-based flow must enable it explicitly:
+Missing definitions fail with `PJF-009`; empty entity packages fail with `PJF-005`; invisible packages or scan failures fail with `PJF-008`.
+
+If one consumer plugin needs multiple shared domains, declare the primary domain with `shared("order")`, add others
+with `additionalDomain("audit")`, and declare separate `@EnableJpaRepositories` blocks for each repository package.
+
+Shared JPA domain runtime refresh is optional and disabled by default. A host or sample that wants the V1 restart-based flow must enable host governance explicitly:
 
 ```yaml
-pf4boot:
-  plugin:
+spring:
+  pf4boot:
     jpa:
-      domain-reload:
+      reload:
         mode: STOP_CONSUMERS_AND_REBUILD
 ```
 
 For production rehearsal, start with `PLAN_ONLY` first. The plan API reports provider, exact consumers, inferred consumers, unrelated plugins, stop/start order, blockers, and warnings without mutating lifecycle. Execute mode without `providerReplacementPath` stops exact consumers, stops the provider, verifies that old DataSource/EMF/TM/descriptor exports are gone, starts the provider, waits for the new descriptor, and then starts consumers. Execute mode with `providerReplacementPath` validates the staged provider package through `PluginDeploymentService`, delegates replacement and rollback to the deployment service, and records a provider replacement summary in the reload record.
 
-Execute mode reuses the common `PluginTrafficDrainer` before stopping plugins. If the host has web, scheduled-task, or other drainers, JPA reload first rejects new entrypoints and waits for in-flight work. Drain timeout or rejection records `drainReport`, returns `DRAIN_TIMEOUT` or `DRAIN_REJECTED`, and does not stop consumers or providers. With no drainer, the default is compatibility mode with a warning; set `pf4boot.plugin.jpa.domain-reload.require-drainer=true` when a drainer must be present.
+Execute mode reuses the common `PluginTrafficDrainer` before stopping plugins. If the host has web, scheduled-task, or other drainers, JPA reload first rejects new entrypoints and waits for in-flight work. Drain timeout or rejection records `drainReport`, returns `DRAIN_TIMEOUT` or `DRAIN_REJECTED`, and does not stop consumers or providers. With no drainer, the default is compatibility mode with a warning; set `spring.pf4boot.jpa.reload.require-drainer=true` when a drainer must be present. The old `pf4boot.plugin.jpa.domain-reload.*` prefix remains readable during the compatibility window as a deprecated fallback.
 
 ## Upgrade Rollback
 

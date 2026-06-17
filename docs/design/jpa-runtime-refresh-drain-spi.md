@@ -125,7 +125,8 @@ sequenceDiagram
 有效超时取值：
 
 1. `JpaDomainReloadRequest.drainTimeoutMillis > 0` 时使用请求值；
-2. 否则使用 `pf4boot.plugin.jpa.domain-reload.default-drain-timeout`；
+2. 否则使用 `spring.pf4boot.jpa.reload.default-drain-timeout`；旧
+   `pf4boot.plugin.jpa.domain-reload.default-drain-timeout` 仅作为兼容 fallback；
 3. 若仍小于等于 0，视为不等待，只执行一次 begin/await 检查。
 
 多个 drainer 共享一个总预算，而不是每个 drainer 都获得完整 timeout。这样用户配置的 `30s` 表示整次 drain 最多 30 秒。

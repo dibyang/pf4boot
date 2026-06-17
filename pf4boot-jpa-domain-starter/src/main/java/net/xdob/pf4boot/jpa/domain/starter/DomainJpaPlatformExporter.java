@@ -3,6 +3,7 @@ package net.xdob.pf4boot.jpa.domain.starter;
 import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.PluginApplication;
+import net.xdob.pf4boot.jpa.domain.JpaDomainDefinition;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +33,7 @@ public class DomainJpaPlatformExporter
 
   private static final Logger LOG = LoggerFactory.getLogger(DomainJpaPlatformExporter.class);
 
-  private final Pf4bootJpaDomainProperties properties;
+  private final JpaDomainDefinition definition;
 
   private final DataSource dataSource;
 
@@ -49,11 +50,11 @@ public class DomainJpaPlatformExporter
   private String group;
 
   public DomainJpaPlatformExporter(
-      Pf4bootJpaDomainProperties properties,
+      JpaDomainDefinition definition,
       DataSource dataSource,
       EntityManagerFactory entityManagerFactory,
       PlatformTransactionManager transactionManager) {
-    this.properties = properties;
+    this.definition = definition;
     this.dataSource = dataSource;
     this.entityManagerFactory = entityManagerFactory;
     this.transactionManager = transactionManager;
@@ -66,7 +67,7 @@ public class DomainJpaPlatformExporter
 
   @Override
   public void afterSingletonsInstantiated() {
-    String domainId = this.properties.requireDomainId();
+    String domainId = this.definition.requireDomainId();
     Pf4bootPlugin plugin = getPlugin();
     this.pluginManager = plugin.getPluginManager();
     if (this.pluginManager == null) {
@@ -76,18 +77,18 @@ public class DomainJpaPlatformExporter
     this.group = plugin.getGroup();
 
     try {
-      export(this.properties.resolveDataSourceName(), this.dataSource);
-      export(this.properties.resolveEntityManagerFactoryName(), this.entityManagerFactory);
-      export(this.properties.resolveTransactionManagerName(), this.transactionManager);
-      export(this.properties.resolveDescriptorName(), descriptor(domainId, plugin));
+      export(this.definition.resolveDataSourceName(), this.dataSource);
+      export(this.definition.resolveEntityManagerFactoryName(), this.entityManagerFactory);
+      export(this.definition.resolveTransactionManagerName(), this.transactionManager);
+      export(this.definition.resolveDescriptorName(), descriptor(domainId, plugin));
       LOG.info(
           "[PF4BOOT-JPA] export domain {} to platform [{}], dataSource={}, entityManagerFactory={}, transactionManager={}, descriptor={}",
           domainId,
           this.group,
-          this.properties.resolveDataSourceName(),
-          this.properties.resolveEntityManagerFactoryName(),
-          this.properties.resolveTransactionManagerName(),
-          this.properties.resolveDescriptorName());
+          this.definition.resolveDataSourceName(),
+          this.definition.resolveEntityManagerFactoryName(),
+          this.definition.resolveTransactionManagerName(),
+          this.definition.resolveDescriptorName());
     } catch (RuntimeException e) {
       rollbackExports();
       throw new IllegalStateException(
@@ -117,10 +118,10 @@ public class DomainJpaPlatformExporter
     return new JpaDomainDescriptor(
         domainId,
         plugin.getPluginId(),
-        this.properties.resolveEntityPackages(),
-        this.properties.resolveDataSourceName(),
-        this.properties.resolveEntityManagerFactoryName(),
-        this.properties.resolveTransactionManagerName(),
+        this.definition.resolveEntityPackages(),
+        this.definition.resolveDataSourceName(),
+        this.definition.resolveEntityManagerFactoryName(),
+        this.definition.resolveTransactionManagerName(),
         true,
         System.currentTimeMillis());
   }

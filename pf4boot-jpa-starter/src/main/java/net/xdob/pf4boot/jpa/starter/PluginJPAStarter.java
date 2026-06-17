@@ -19,7 +19,6 @@ import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.boot.autoconfigure.AutoConfigurationPackages;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.condition.SearchStrategy;
 import org.springframework.boot.autoconfigure.data.jpa.JpaRepositoriesAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
@@ -60,8 +59,6 @@ import java.util.function.Supplier;
  * 1. 默认不启用，避免非 JPA 插件误初始化 EntityManagerFactory。
  * 2. 需要插件显式配置：
  *
- *    pf4boot.plugin.jpa.enabled=true
- *
  * 3. 默认 mode=LOCAL，保持插件本地 EntityManagerFactory/TransactionManager。
  * 4. mode=SHARED 时只校验领域能力插件导出的 EMF/TM，不创建本地 EMF/TM。
  * 5. 如果插件需要指定实体扫描包，可以使用 Spring Boot 原生的 @EntityScan，
@@ -75,11 +72,6 @@ import java.util.function.Supplier;
     EntityManager.class,
     SessionImplementor.class
 })
-@ConditionalOnProperty(
-    prefix = "pf4boot.plugin.jpa",
-    name = "enabled",
-    havingValue = "true"
-)
 @EnableConfigurationProperties({JpaProperties.class, HibernateProperties.class, Pf4bootJpaProperties.class})
 @SpringBootPlugin(exclude = {
     JpaRepositoriesAutoConfiguration.class,

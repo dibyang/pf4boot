@@ -42,28 +42,41 @@ dependencies {
 }
 ```
 
-## 4. Configure The Shared Domain
+## 4. Declare The Shared Domain
 
-Declare the domain configuration where both provider and consumers can see it:
+Provider plugins declare the shared transaction domain through `JpaDomainDefinitionProvider`. Entity packages,
+DataSource, and DDL policy are plugin contracts and are no longer maintained in the host `application.yml`:
 
-```yaml
-pf4boot:
-  plugin:
-    jpa:
-      enabled: true
-      mode: SHARED
-      domain-id: demo
-      domain:
-        id: demo
-        entity-packages:
-          - net.xdob.demo.plugin1.dao.entity
-          - net.xdob.demo.dao
-        datasource:
-          url: jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;NON_KEYWORDS=user
-          username: sa
-          password: ysyhljt2020*
-          driver-class-name: org.h2.Driver
-        ddl-auto: update
+```java
+@PluginStarter(Pf4bootJpaDomainStarter.class)
+public class DemoJpaDomainPlugin extends Pf4bootPlugin implements JpaDomainDefinitionProvider {
+  @Override
+  public JpaDomainDefinition jpaDomainDefinition() {
+    return JpaDomainDefinition.builder("demo")
+        .entityPackage("net.xdob.demo.plugin1.dao.entity")
+        .entityPackage("net.xdob.demo.dao")
+        .dataSource(JpaDataSourceDefinition
+            .builder("jdbc:h2:file:~/h2/pf4boot_demo;AUTO_SERVER=TRUE;DB_CLOSE_DELAY=-1;NON_KEYWORDS=user")
+            .username("sa")
+            .password("******")
+            .driverClassName("org.h2.Driver")
+            .build())
+        .ddlAuto("update")
+        .build();
+  }
+}
+```
+
+Consumer plugins bind the shared domain through `JpaConsumerBindingProvider`:
+
+```java
+@PluginStarter({Plugin1Starter.class, PluginJPAStarter.class})
+public class Plugin1 extends Pf4bootPlugin implements JpaConsumerBindingProvider {
+  @Override
+  public JpaConsumerBinding jpaConsumerBinding() {
+    return JpaConsumerBinding.shared("demo").build();
+  }
+}
 ```
 
 Default exported names:
@@ -145,7 +158,7 @@ layer must explicitly accept partial-success risk or wait for a future cross-dom
 
 ## 7. Rollback
 
-- Fast rollback: switch the business plugin back to `pf4boot.plugin.jpa.mode=LOCAL` and restore local datasource/EMF config.
+- Fast rollback: remove the business plugin's `SHARED` `JpaConsumerBindingProvider` binding and restore local datasource/EMF config.
 - Dependency rollback: remove the domain capability plugin from `plugin.dependencies`.
 - Code rollback: move entities back into the business plugin and restore the previous repository scan range.
 

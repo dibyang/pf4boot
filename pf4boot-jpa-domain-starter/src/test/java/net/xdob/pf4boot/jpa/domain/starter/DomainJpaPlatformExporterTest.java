@@ -3,6 +3,9 @@ package net.xdob.pf4boot.jpa.domain.starter;
 import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.PluginApplication;
+import net.xdob.pf4boot.jpa.domain.JpaDataSourceDefinition;
+import net.xdob.pf4boot.jpa.domain.JpaDomainDefinition;
+import net.xdob.pf4boot.jpa.domain.JpaDomainDefinitionProvider;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
 import org.junit.Test;
 import org.pf4j.DefaultPluginDescriptor;
@@ -42,7 +45,6 @@ public class DomainJpaPlatformExporterTest {
   @Test
   public void exporterRegistersAndUnregistersDomainBeans() {
     RecordingPluginManager recording = new RecordingPluginManager();
-    Pf4bootJpaDomainProperties properties = properties();
     DataSource dataSource = new TestDataSource();
     EntityManagerFactory entityManagerFactory = entityManagerFactory();
     PlatformTransactionManager transactionManager = new TestTransactionManager();
@@ -56,7 +58,7 @@ public class DomainJpaPlatformExporterTest {
       context.registerBean(
           DomainJpaPlatformExporter.class,
           () -> new DomainJpaPlatformExporter(
-              properties, dataSource, entityManagerFactory, transactionManager));
+              definition(), dataSource, entityManagerFactory, transactionManager));
       context.refresh();
 
       assertSame(dataSource, recording.registered.get("test-group:domain.order.dataSource"));
@@ -96,7 +98,7 @@ public class DomainJpaPlatformExporterTest {
       context.registerBean(
           DomainJpaPlatformExporter.class,
           () -> new DomainJpaPlatformExporter(
-              properties(), new TestDataSource(), entityManagerFactory(), new TestTransactionManager()));
+              definition(), new TestDataSource(), entityManagerFactory(), new TestTransactionManager()));
 
       context.refresh();
       fail("descriptor export failure should fail provider startup");
@@ -119,7 +121,7 @@ public class DomainJpaPlatformExporterTest {
       context.registerBean(
           DomainJpaPlatformExporter.class,
           () -> new DomainJpaPlatformExporter(
-              properties(), new TestDataSource(), entityManagerFactory(), new TestTransactionManager()));
+              definition(), new TestDataSource(), entityManagerFactory(), new TestTransactionManager()));
       context.refresh();
       fail("exporter outside plugin context should fail");
     } catch (RuntimeException e) {
@@ -165,12 +167,39 @@ public class DomainJpaPlatformExporterTest {
     }
   }
 
-  private static Pf4bootJpaDomainProperties properties() {
-    Pf4bootJpaDomainProperties properties = new Pf4bootJpaDomainProperties();
-    properties.setId("order");
-    properties.setEntityPackages(
-        Collections.singletonList("net.xdob.pf4boot.jpa.domain.starter.model"));
-    return properties;
+  @Test
+  public void domainStarterUsesPluginProvidedDefinitionWithoutLegacyProperties() {
+    RecordingPluginManager recording = new RecordingPluginManager();
+    AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
+    try {
+      addProperties(context,
+          "spring.jpa.database-platform", "org.hibernate.dialect.H2Dialect");
+      context.registerBean(
+          PluginApplication.BEAN_PLUGIN,
+          Pf4bootPlugin.class,
+          () -> new DefinitionProviderPlugin(recording.proxy()));
+      context.register(Pf4bootJpaDomainStarter.class);
+      context.refresh();
+
+      EntityManagerFactory entityManagerFactory = context.getBean(EntityManagerFactory.class);
+      entityManagerFactory.getMetamodel()
+          .entity(net.xdob.pf4boot.jpa.domain.starter.model.DomainSampleEntity.class);
+
+      assertTrue(recording.registered.containsKey("test-group:domain.bean-domain.dataSource"));
+      assertSame(entityManagerFactory,
+          recording.registered.get("test-group:domain.bean-domain.entityManagerFactory"));
+      assertTrue(recording.registered.containsKey("test-group:domain.bean-domain.transactionManager"));
+      assertTrue(recording.registered.containsKey("test-group:domain.bean-domain.descriptor"));
+    } finally {
+      context.close();
+    }
+  }
+
+  private static JpaDomainDefinition definition() {
+    return JpaDomainDefinition.builder("order")
+        .entityPackage("net.xdob.pf4boot.jpa.domain.starter.model")
+        .dataSource(JpaDataSourceDefinition.builder("jdbc:h2:mem:unused").build())
+        .build();
   }
 
   private static boolean containsMessage(Throwable throwable, String text) {
@@ -302,6 +331,25 @@ public class DomainJpaPlatformExporterTest {
     @Override
     public String getGroup() {
       return "test-group";
+    }
+  }
+
+  private static class DefinitionProviderPlugin extends TestPlugin implements JpaDomainDefinitionProvider {
+    DefinitionProviderPlugin(Pf4bootPluginManager pluginManager) {
+      super(pluginManager);
+    }
+
+    @Override
+    public JpaDomainDefinition jpaDomainDefinition() {
+      return JpaDomainDefinition.builder("bean-domain")
+          .entityPackage("net.xdob.pf4boot.jpa.domain.starter.model")
+          .dataSource(JpaDataSourceDefinition
+              .builder("jdbc:h2:mem:pf4boot_domain_provider_test;DB_CLOSE_DELAY=-1")
+              .username("sa")
+              .driverClassName("org.h2.Driver")
+              .build())
+          .ddlAuto("create-drop")
+          .build();
     }
   }
 
