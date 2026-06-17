@@ -173,6 +173,16 @@ function Remove-SmokeDirectory {
   Write-Output "SMOKE_CLEANUP_WARN path=runtime-smoke"
 }
 
+function Get-SmokePluginZipName {
+  param([string] $Prefix)
+  $pluginDir = Join-Path $runtime "plugins"
+  $matches = @(Get-ChildItem -LiteralPath $pluginDir -Filter "$Prefix-*.zip" | Sort-Object Name)
+  if ($matches.Count -eq 0) {
+    throw "Expected plugin zip with prefix $Prefix in $pluginDir"
+  }
+  return $matches[$matches.Count - 1].Name
+}
+
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $sampleRoot = Resolve-Path (Join-Path $scriptRoot "..")
 $repoRoot = Resolve-Path (Join-Path $sampleRoot "..\..")
@@ -214,6 +224,7 @@ try {
     throw "Expected at least 4 plugin zips"
   }
   Add-SmokeCheck -Name "pluginZips" -Status "PASSED" -Message "count=$($pluginZips.Count)"
+  $workflowPluginZip = Get-SmokePluginZipName -Prefix "plugin-workflow"
 
   $javaArgs = @(
     "-Duser.home=$homeDir",
@@ -279,7 +290,7 @@ try {
   }
   $planBody = @{
     pluginId = "sample-workflow"
-    stagedPluginPath = "plugin-workflow-3.0.0.zip"
+    stagedPluginPath = $workflowPluginZip
     dryRun = $true
   }
   $plan = Invoke-SmokeRequest -Method "POST" -Path "/pf4boot/admin/deployments/plan" -Headers $planHeaders -Body $planBody
@@ -313,7 +324,7 @@ try {
   }
   $badBody = @{
     pluginId = "missing-workflow"
-    stagedPluginPath = "plugin-workflow-3.0.0.zip"
+    stagedPluginPath = $workflowPluginZip
     dryRun = $true
   }
   $badPlan = Invoke-SmokeRequest -Method "POST" -Path "/pf4boot/admin/deployments/plan" -Headers $badHeaders -Body $badBody

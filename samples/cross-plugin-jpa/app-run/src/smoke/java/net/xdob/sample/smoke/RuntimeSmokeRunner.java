@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.regex.Matcher;
@@ -119,6 +120,20 @@ public class RuntimeSmokeRunner {
     addCheck("pluginZips", "PASSED", "count=" + count);
   }
 
+  private String pluginZipName(String prefix) {
+    File[] zips = runtime.resolve("plugins").toFile()
+        .listFiles((dir, name) -> name.startsWith(prefix + "-") && name.endsWith(".zip"));
+    if (zips == null || zips.length == 0) {
+      throw new IllegalStateException("Expected plugin zip with prefix " + prefix);
+    }
+    List<String> names = new ArrayList<String>();
+    for (File zip : zips) {
+      names.add(zip.getName());
+    }
+    Collections.sort(names);
+    return names.get(names.size() - 1);
+  }
+
   private void startHost(String jpaReloadMode) throws Exception {
     String java = Paths.get(System.getProperty("java.home"), "bin",
         isWindows() ? "java.exe" : "java").toString();
@@ -216,7 +231,8 @@ public class RuntimeSmokeRunner {
 
     List<Header> planHeaders = new ArrayList<Header>(admin);
     planHeaders.add(new Header("X-Idempotency-Key", "runtime-smoke-plan-java"));
-    String body = "{\"pluginId\":\"sample-workflow\",\"stagedPluginPath\":\"plugin-workflow-3.0.0.zip\",\"dryRun\":true}";
+    String body = "{\"pluginId\":\"sample-workflow\",\"stagedPluginPath\":\""
+        + pluginZipName("plugin-workflow") + "\",\"dryRun\":true}";
     HttpResult plan = request("POST", "/pf4boot/admin/deployments/plan", planHeaders, body);
     assertAdminSuccess(plan, "management deployment plan");
     HttpResult replay = request("POST", "/pf4boot/admin/deployments/plan", planHeaders, body);
@@ -308,7 +324,7 @@ public class RuntimeSmokeRunner {
     admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
     admin.add(new Header("X-Idempotency-Key", "runtime-smoke-jpa-provider-replace-java"));
     HttpResult reload = request("POST", "/pf4boot/admin/jpa/domains/demo/reload", admin,
-        "{\"providerReplacementPath\":\"plugin-demo-jpa-domain-3.0.0.zip\"}");
+        "{\"providerReplacementPath\":\"" + pluginZipName("plugin-demo-jpa-domain") + "\"}");
     assertAdminSuccess(reload, "JPA provider replacement reload");
     if (!reload.body.contains("\"providerReplacementSummary\"")
         || !reload.body.contains("\"state\":\"SUCCEEDED\"")
