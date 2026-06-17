@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+暂无。
+
+## 3.1.0 - 2026-06-17
+
 ### Added
 
 - 新增 `pf4boot-jpa-management-starter` 可选模块，用于显式启用 JPA reload HTTP 接口和 `pf4bootjpareload` Actuator 端点。
@@ -16,6 +20,10 @@
 ### Removed
 
 - 移除 `pf4boot-web-starter` 中旧的 `PluginManagerController` 管理接口，只保留 `pf4boot-management-starter` 提供的 `/pf4boot/admin/**` 新插件管理接口。
+
+### Fixed
+
+- `samples/cross-plugin-jpa` runtime smoke 不再写死插件 zip 版本号，改为从 runtime 插件目录动态解析当前构建产物。
 
 ## 3.0.0 - 2026-06-17
 
