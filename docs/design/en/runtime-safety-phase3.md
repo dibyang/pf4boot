@@ -13,29 +13,28 @@ Several runtime safety boundaries are not explicit enough:
 
 - `pf4boot-api`: add dynamic bean-name conflict policy configuration and `ApplicationContextProvider` observation methods.
 - `pf4boot-core`: tighten lifecycle operation locking, apply conflict policy before shared bean registration, and expose test observations for scheduled tasks and shared beans.
-- `pf4boot-web-starter`: switch administration operations to semantic HTTP methods and protect MVC dynamic bean registration from conflicts.
+- `pf4boot-web-starter`: remove the old administration controller and keep only MVC dynamic registration and resource mapping; protect MVC dynamic bean registration from conflicts.
+- `pf4boot-management-starter`: becomes the only HTTP management module for plugin administration through `/pf4boot/admin/**`.
 - `docs/design/en`: keep this English design in sync with the Chinese canonical document.
 
 ## Proposed Design
 
 ### Administration Controller
 
-Read-only operations remain GET:
+The old `pf4boot-web-starter` administration controller has been removed. The historical `/auto-start`, `/list`, and `/{pluginId}/...` endpoints are no longer kept. Plugin HTTP management is provided only by `pf4boot-management-starter`, disabled by default, and must be enabled explicitly with `spring.pf4boot.management.http.enabled=true`.
 
-- `GET /auto-start`
-- `GET /list`
+The only retained plugin management endpoints use `/pf4boot/admin` as the default base path:
 
-Mutating operations use semantic methods:
+- `GET /pf4boot/admin/plugins`
+- `GET /pf4boot/admin/plugins/{pluginId}`
+- `POST /pf4boot/admin/plugins/{pluginId}/enable`
+- `DELETE /pf4boot/admin/plugins/{pluginId}/enable`
+- `POST /pf4boot/admin/plugins/{pluginId}/start`
+- `POST /pf4boot/admin/plugins/{pluginId}/stop`
+- `POST /pf4boot/admin/plugins/{pluginId}/restart`
+- `POST /pf4boot/admin/plugins/{pluginId}/reload`
 
-- `PUT /auto-start/{autoStartPlugin}`
-- `POST /{pluginId}/enable`
-- `DELETE /{pluginId}/enable`
-- `POST /{pluginId}/start`
-- `DELETE /{pluginId}/start`
-- `POST /{pluginId}/restart`
-- `POST /{pluginId}/reload`
-
-`all` remains the batch-operation marker. `pluginAdminEnabled` keeps its current default for compatibility, but auto-configuration logs a security warning when the controller is enabled and recommends authentication or `spring.pf4boot.plugin-admin-enabled=false` for public deployments.
+Deployment, rollback, and JPA reload management are also exposed only through `/pf4boot/admin/**`, with authorization, idempotency, audit, rate limiting, and write-request security checks applied consistently.
 
 ### Lifecycle Lock Scope
 
@@ -66,17 +65,17 @@ Observation methods expose only counts or existence checks, not mutable internal
 
 ## Compatibility
 
-The administration mutation paths and HTTP methods change, which is an intentional safety break for the runtime management surface. Read endpoints remain GET. Dynamic bean-name conflicts now fail explicitly by default, surfacing duplicate exports, extensions, controllers, or interceptors earlier. Applications that need previous replacement behavior can opt into `REPLACE`.
+The old `pf4boot-web-starter` administration endpoints are removed, which is an intentional safety break for the runtime management surface. Applications should migrate to the `pf4boot-management-starter` `/pf4boot/admin/**` API. Dynamic bean-name conflicts now fail explicitly by default, surfacing duplicate exports, extensions, controllers, or interceptors earlier. Applications that need previous replacement behavior can opt into `REPLACE`.
 
 ## Verification Plan
 
 - `.\gradlew.bat :pf4boot-api:compileJava`
 - `.\gradlew.bat :pf4boot-core:test`
 - `.\gradlew.bat :pf4boot-web-starter:test`
+- `.\gradlew.bat :pf4boot-management-starter:test`
 
 The root build still disables tasks whose names contain `test`, so cleanup assertions should be verified with module-level test tasks.
 
 ## Open Questions
 
-- Whether the administration controller should default to disabled in a later release needs a migration-cost decision.
 - Bean-name namespacing needs either an API that returns the actual registered bean name or a richer registration record model; this phase does not introduce it.

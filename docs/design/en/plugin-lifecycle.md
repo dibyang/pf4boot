@@ -108,4 +108,4 @@ For lifecycle changes, run at least:
 - `.\gradlew.bat :pf4boot-starter:compileJava`
 - `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
 
-Manual verification should include start, stop, restart, and reload through `PluginManagerController` when possible.
+Manual verification should include start, stop, restart, and reload through the `pf4boot-management-starter` endpoints `/pf4boot/admin/plugins/{pluginId}/start`, `/stop`, `/restart`, and `/reload` when possible. The old `pf4boot-web-starter` management controller is no longer kept.

@@ -13,29 +13,28 @@
 
 - `pf4boot-api`：增加动态 beanName 冲突策略配置和 `ApplicationContextProvider` 观测方法。
 - `pf4boot-core`：收敛生命周期操作锁范围，注册共享 bean 前执行冲突策略，暴露定时任务和共享 bean 的测试观测。
-- `pf4boot-web-starter`：管理接口改用语义化 HTTP 方法，MVC 动态注册 bean 执行冲突保护。
+- `pf4boot-web-starter`：移除旧管理接口，继续只承载 MVC 动态注册和资源映射；MVC 动态注册 bean 执行冲突保护。
+- `pf4boot-management-starter`：作为唯一插件管理 HTTP 接口承载模块，提供 `/pf4boot/admin/**` 管理端点。
 - `docs/design/en`：同步英文设计说明。
 
 ## 设计方案
 
 ### 管理接口
 
-管理接口保留读取类 GET：
+旧的 `pf4boot-web-starter` 管理接口已移除，不再保留 `/auto-start`、`/list` 或 `/{pluginId}/...` 这组历史端点。插件管理 HTTP 能力统一由 `pf4boot-management-starter` 提供，默认关闭，必须显式配置 `spring.pf4boot.management.http.enabled=true`。
 
-- `GET /auto-start`
-- `GET /list`
+唯一保留的插件管理端点以 `/pf4boot/admin` 为默认 base path：
 
-状态变更改为语义化方法：
+- `GET /pf4boot/admin/plugins`
+- `GET /pf4boot/admin/plugins/{pluginId}`
+- `POST /pf4boot/admin/plugins/{pluginId}/enable`
+- `DELETE /pf4boot/admin/plugins/{pluginId}/enable`
+- `POST /pf4boot/admin/plugins/{pluginId}/start`
+- `POST /pf4boot/admin/plugins/{pluginId}/stop`
+- `POST /pf4boot/admin/plugins/{pluginId}/restart`
+- `POST /pf4boot/admin/plugins/{pluginId}/reload`
 
-- `PUT /auto-start/{autoStartPlugin}`
-- `POST /{pluginId}/enable`
-- `DELETE /{pluginId}/enable`
-- `POST /{pluginId}/start`
-- `DELETE /{pluginId}/start`
-- `POST /{pluginId}/restart`
-- `POST /{pluginId}/reload`
-
-`all` 仍作为批量操作标记。`pluginAdminEnabled` 默认值暂不改变以保持兼容，但自动配置在启用管理接口时输出安全告警，建议接入鉴权或设置 `spring.pf4boot.plugin-admin-enabled=false` 避免公网暴露。
+部署、回滚和 JPA reload 等更高层管理能力也只通过 `/pf4boot/admin/**` 暴露，并统一经过鉴权、幂等、审计、限流和写请求安全校验。
 
 ### 生命周期锁范围
 
@@ -66,17 +65,17 @@
 
 ## 兼容性
 
-管理接口的状态变更路径和 HTTP 方法发生变化，属于运行时管理面的安全性破坏性调整；读取接口仍保持 GET。动态 beanName 冲突默认改为显式拒绝，能更早暴露重复导出、重复 extension 或主上下文同名 controller/interceptor 问题。需要保留旧覆盖行为的应用可配置为 `REPLACE`。
+旧 `pf4boot-web-starter` 管理端点被移除，属于运行时管理面的安全性破坏性调整；应用应迁移到 `pf4boot-management-starter` 的 `/pf4boot/admin/**` 接口。动态 beanName 冲突默认改为显式拒绝，能更早暴露重复导出、重复 extension 或主上下文同名 controller/interceptor 问题。需要保留旧覆盖行为的应用可配置为 `REPLACE`。
 
 ## 验证计划
 
 - `.\gradlew.bat :pf4boot-api:compileJava`
 - `.\gradlew.bat :pf4boot-core:test`
 - `.\gradlew.bat :pf4boot-web-starter:test`
+- `.\gradlew.bat :pf4boot-management-starter:test`
 
 根构建仍会禁用名称包含 `test` 的任务，因此释放观测断言优先使用模块级 test 任务验证。
 
 ## 未决问题
 
-- 管理接口是否应在后续版本默认关闭，需要结合现有用户迁移成本评估。
 - 命名空间化 beanName 需要新的返回实际 beanName 的注册 API 或注册记录模型，本阶段不引入。

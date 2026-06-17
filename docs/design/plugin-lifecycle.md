@@ -108,4 +108,4 @@
 - `.\gradlew.bat :pf4boot-starter:compileJava`
 - `.\gradlew.bat :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins`
 
-可行时通过 `PluginManagerController` 手动验证启动、停止、重启和重载。
+可行时通过 `pf4boot-management-starter` 提供的 `/pf4boot/admin/plugins/{pluginId}/start`、`/stop`、`/restart` 和 `/reload` 手动验证生命周期操作。旧的 `pf4boot-web-starter` 管理控制器不再保留。

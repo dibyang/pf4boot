@@ -4,7 +4,9 @@
 
 ## Unreleased
 
-- 暂无。
+### Removed
+
+- 移除 `pf4boot-web-starter` 中旧的 `PluginManagerController` 管理接口，只保留 `pf4boot-management-starter` 提供的 `/pf4boot/admin/**` 新插件管理接口。
 
 ## 3.0.0 - 2026-06-17
 
