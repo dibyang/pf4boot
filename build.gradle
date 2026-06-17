@@ -74,17 +74,7 @@ subprojects {
         }
     }
 
-    def publishable = ![
-            'app-run',
-            'demo-host',
-            'model-user-book',
-            'model-workflow-audit',
-            'plugin-demo-jpa-domain',
-            'plugin-user-book-service',
-            'plugin-workflow',
-            'plugin-unrelated-service',
-            'plugin-management-console'
-    ].contains(project.name)
+    def publishable = !project.path.startsWith(':samples')
 
     apply plugin: 'java'
     apply plugin: "java-library"
