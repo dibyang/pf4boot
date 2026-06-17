@@ -22,6 +22,10 @@ task assembleSampleRuntime(type: Copy) {
 
     into runtimeDir
 
+    doFirst {
+        delete new File(runtimeDir.get().asFile, "plugins")
+    }
+
     from(configurations.runtimeClasspath) {
         into "lib"
         exclude "*-sources.jar", "*-javadoc.jar", "spring-boot-devtools*.jar"

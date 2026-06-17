@@ -38,7 +38,7 @@ The default checksum file lives next to the plugin package, for example `sample-
 {
   "formatVersion": 1,
   "pluginId": "sample-workflow",
-  "pluginVersion": "3.0.0-SNAPSHOT",
+  "pluginVersion": "3.0.0",
   "packageSha256": "lowercase-hex-sha256",
   "pf4bootVersionRange": "[3.0.0,4.0.0)",
   "springBootVersionRange": "[2.7.0,2.8.0)",
@@ -111,10 +111,10 @@ spring:
   "releases": [
     {
       "pluginId": "sample-workflow",
-      "version": "3.0.0-SNAPSHOT",
-      "packagePath": "plugins/plugin-workflow-3.0.0-SNAPSHOT.zip",
+      "version": "3.0.0",
+      "packagePath": "plugins/plugin-workflow-3.0.0.zip",
       "packageSha256": "lowercase-sha256",
-      "trustManifestPath": "plugins/plugin-workflow-3.0.0-SNAPSHOT.zip.pf4boot-trust.json",
+      "trustManifestPath": "plugins/plugin-workflow-3.0.0.zip.pf4boot-trust.json",
       "rolloutPolicy": "manual",
       "rollbackCandidate": true
     }
@@ -127,7 +127,7 @@ The management API can dry-run a plan using release fields:
 ```json
 {
   "pluginId": "sample-workflow",
-  "repositoryVersion": "3.0.0-SNAPSHOT",
+  "repositoryVersion": "3.0.0",
   "dryRun": true
 }
 ```

@@ -279,7 +279,7 @@ try {
   }
   $planBody = @{
     pluginId = "sample-workflow"
-    stagedPluginPath = "plugin-workflow-3.0.0-SNAPSHOT.zip"
+    stagedPluginPath = "plugin-workflow-3.0.0.zip"
     dryRun = $true
   }
   $plan = Invoke-SmokeRequest -Method "POST" -Path "/pf4boot/admin/deployments/plan" -Headers $planHeaders -Body $planBody
@@ -313,7 +313,7 @@ try {
   }
   $badBody = @{
     pluginId = "missing-workflow"
-    stagedPluginPath = "plugin-workflow-3.0.0-SNAPSHOT.zip"
+    stagedPluginPath = "plugin-workflow-3.0.0.zip"
     dryRun = $true
   }
   $badPlan = Invoke-SmokeRequest -Method "POST" -Path "/pf4boot/admin/deployments/plan" -Headers $badHeaders -Body $badBody

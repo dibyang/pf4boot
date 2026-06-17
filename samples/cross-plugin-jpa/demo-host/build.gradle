@@ -29,17 +29,20 @@ task assembleSamplePlugins(type: Copy) {
             ":samples:cross-plugin-jpa:plugin-workflow:pf4boot",
             ":samples:cross-plugin-jpa:plugin-unrelated-service:pf4boot"
     )
+    doFirst {
+        delete "${buildDir}/sample-plugins"
+    }
     from("${project(':samples:cross-plugin-jpa:plugin-demo-jpa-domain').buildDir}/libs") {
-        include "*.zip"
+        include "*-${project.version}.zip"
     }
     from("${project(':samples:cross-plugin-jpa:plugin-user-book-service').buildDir}/libs") {
-        include "*.zip"
+        include "*-${project.version}.zip"
     }
     from("${project(':samples:cross-plugin-jpa:plugin-workflow').buildDir}/libs") {
-        include "*.zip"
+        include "*-${project.version}.zip"
     }
     from("${project(':samples:cross-plugin-jpa:plugin-unrelated-service').buildDir}/libs") {
-        include "*.zip"
+        include "*-${project.version}.zip"
     }
     into "${buildDir}/sample-plugins"
 }

@@ -216,7 +216,7 @@ public class RuntimeSmokeRunner {
 
     List<Header> planHeaders = new ArrayList<Header>(admin);
     planHeaders.add(new Header("X-Idempotency-Key", "runtime-smoke-plan-java"));
-    String body = "{\"pluginId\":\"sample-workflow\",\"stagedPluginPath\":\"plugin-workflow-3.0.0-SNAPSHOT.zip\",\"dryRun\":true}";
+    String body = "{\"pluginId\":\"sample-workflow\",\"stagedPluginPath\":\"plugin-workflow-3.0.0.zip\",\"dryRun\":true}";
     HttpResult plan = request("POST", "/pf4boot/admin/deployments/plan", planHeaders, body);
     assertAdminSuccess(plan, "management deployment plan");
     HttpResult replay = request("POST", "/pf4boot/admin/deployments/plan", planHeaders, body);
@@ -308,7 +308,7 @@ public class RuntimeSmokeRunner {
     admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
     admin.add(new Header("X-Idempotency-Key", "runtime-smoke-jpa-provider-replace-java"));
     HttpResult reload = request("POST", "/pf4boot/admin/jpa/domains/demo/reload", admin,
-        "{\"providerReplacementPath\":\"plugin-demo-jpa-domain-3.0.0-SNAPSHOT.zip\"}");
+        "{\"providerReplacementPath\":\"plugin-demo-jpa-domain-3.0.0.zip\"}");
     assertAdminSuccess(reload, "JPA provider replacement reload");
     if (!reload.body.contains("\"providerReplacementSummary\"")
         || !reload.body.contains("\"state\":\"SUCCEEDED\"")

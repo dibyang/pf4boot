@@ -129,24 +129,24 @@ curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
 curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
   -H "X-Idempotency-Key: deploy-plan-01" \
   -H "Content-Type: application/json" \
-  -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip"}' \
+  -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0.zip"}' \
   http://127.0.0.1:7791/pf4boot/admin/deployments/plan
 
 curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
   -H "X-Idempotency-Key: repository-plan-01" \
   -H "Content-Type: application/json" \
-  -d '{"pluginId":"sample-workflow","repositoryVersion":"3.0.0-SNAPSHOT","dryRun":true}' \
+  -d '{"pluginId":"sample-workflow","repositoryVersion":"3.0.0","dryRun":true}' \
   http://127.0.0.1:7791/pf4boot/admin/deployments/plan
 
 curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
   -H "X-Idempotency-Key: repository-replace-01" \
   -H "Content-Type: application/json" \
-  -d '{"pluginId":"sample-workflow","repositoryVersion":"3.0.0-SNAPSHOT","dryRun":false}' \
+  -d '{"pluginId":"sample-workflow","repositoryVersion":"3.0.0","dryRun":false}' \
   http://127.0.0.1:7791/pf4boot/admin/deployments/replace
 
 curl -X POST -H "X-PF4Boot-Admin-Token: sample-token" \
   -H "Content-Type: application/json" \
-  -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0-SNAPSHOT.zip","dryRun":false}' \
+  -d '{"pluginId":"sample-workflow","stagedPluginPath":"build/sample-plugins/plugin-workflow-3.0.0.zip","dryRun":false}' \
   http://127.0.0.1:7791/pf4boot/admin/deployments/replace
 
 curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" \
