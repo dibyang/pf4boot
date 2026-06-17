@@ -6,5 +6,5 @@ dependencies {
     compileOnly project(":pf4boot-api")
     testImplementation project(":pf4boot-api")
     testImplementation("net.xdob.springframework:spring-test:$spring_version")
-    testImplementation("com.h2database:h2:2.2.224")
+    testImplementation("net.xdob.h2db:h2db:${h2db_version}")
 }
