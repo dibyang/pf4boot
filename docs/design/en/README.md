@@ -13,6 +13,9 @@ For new development work, read these first:
 3. [plugin-lifecycle.md](plugin-lifecycle.md): plugin loading, start, stop, reload, and cleanup flow.
 4. [context-and-bean-sharing.md](context-and-bean-sharing.md): Spring context hierarchy, exported beans, extension points, and events.
 5. [plugin-developer-guide.md](plugin-developer-guide.md): plugin development, dependency scopes, package verification, observability, JPA, and rollback guidance.
+6. [plugin-ecosystem-3.3-roadmap.md](plugin-ecosystem-3.3-roadmap.md): 3.3 plugin ecosystem roadmap.
+7. [plugin-developer-experience-3.3-design.md](plugin-developer-experience-3.3-design.md): first three 3.3 plugin developer experience design topics.
+8. [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md): implementation plan and acceptance for the first three 3.3 topics.
 
 ## By Topic
 
@@ -54,6 +57,12 @@ For new development work, read these first:
 - [runtime-safety-phase3.md](runtime-safety-phase3.md): runtime safety hardening.
 - [verification-foundation.md](verification-foundation.md): verification foundation.
 - [decisions/plugin-repository-governance-decision.md](decisions/plugin-repository-governance-decision.md): plugin repository governance decision.
+
+### Plugin Ecosystem And Developer Experience
+
+- [plugin-ecosystem-3.3-roadmap.md](plugin-ecosystem-3.3-roadmap.md): six-goal 3.3 roadmap.
+- [plugin-developer-experience-3.3-design.md](plugin-developer-experience-3.3-design.md): design for the official developer guide, `pf4boot-plugin 1.7.0` baseline, and templates/samples.
+- [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md): implementation phases, acceptance, and tracking for the first three 3.3 topics.
 
 ## Governance
 

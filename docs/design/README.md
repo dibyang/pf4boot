@@ -13,6 +13,9 @@
 3. [plugin-lifecycle.md](plugin-lifecycle.md)：插件加载、启动、停止、重载和清理流程。
 4. [context-and-bean-sharing.md](context-and-bean-sharing.md)：Spring 上下文层级、导出 Bean、扩展点和事件。
 5. [plugin-developer-guide.md](plugin-developer-guide.md)：插件开发、依赖作用域、包校验、观测、JPA 和升级回滚指南。
+6. [plugin-ecosystem-3.3-roadmap.md](plugin-ecosystem-3.3-roadmap.md)：3.3 插件生态路线图。
+7. [plugin-developer-experience-3.3-design.md](plugin-developer-experience-3.3-design.md)：3.3 前三项插件开发者体验设计。
+8. [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md)：3.3 前三项实施规划与验收。
 
 ## 按主题阅读
 
@@ -54,6 +57,12 @@
 - [runtime-safety-phase3.md](runtime-safety-phase3.md)：运行时安全增强。
 - [verification-foundation.md](verification-foundation.md)：验证基础设施。
 - [decisions/plugin-repository-governance-decision.md](decisions/plugin-repository-governance-decision.md)：插件仓库治理决策。
+
+### 插件生态与开发体验
+
+- [plugin-ecosystem-3.3-roadmap.md](plugin-ecosystem-3.3-roadmap.md)：3.3 六项目标路线图。
+- [plugin-developer-experience-3.3-design.md](plugin-developer-experience-3.3-design.md)：官方开发指南、`pf4boot-plugin 1.7.0` 基线和模板/sample 梳理设计。
+- [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md)：3.3 前三项的实施阶段、验收和追踪。
 
 ## 文档治理
 

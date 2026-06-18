@@ -11,6 +11,21 @@
 - `demo-host`：示例宿主应用和运行配置。
 - `app-run`：示例运行时打包项目，组装 host 运行依赖、配置、启动脚本和插件 zip。
 
+## 模板来源
+
+该 sample 是 3.3 官方模板矩阵的主要来源：
+
+| 模板 | 来源模块 | 可复制内容 | 不建议直接复制 |
+| --- | --- | --- | --- |
+| `service-plugin` | `plugin-unrelated-service` | 无 JPA 依赖的插件结构、健康检查、导出服务写法 | sample 端口、测试数据和演示命名 |
+| `jpa-domain-plugin` | `plugin-demo-jpa-domain` | `JpaDomainDefinitionProvider`、domain provider 职责边界、starter 依赖方式 | 把业务 Repository、Controller 或 service 放进 provider |
+| `jpa-consumer-plugin` | `plugin-user-book-service` | Repository 包扫描、共享 EMF/TM 绑定、导出业务 service | 创建本地 EMF/TM 或直接依赖其它插件内部 Repository |
+| `workflow-plugin` | `plugin-workflow` | 跨插件 service 编排、外层事务回滚、audit 演示 | 跨插件注入内部 Repository、把跨数据源写入当成强事务 |
+| `sample-host` | `demo-host` | 宿主启用插件管理、JPA 管理和 actuator 的配置方式 | `sample-token`、开放远程访问、演示用 H2 路径 |
+| `runtime-package` | `app-run` | runtime 目录、插件 zip 收集、smoke 入口 | 把 `build/runtime` 当作源码模板 |
+
+`build/`、`work/`、`logs/` 和历史版本 jar 都是生成产物，不是模板源码。
+
 ## 验证命令
 
 ```powershell
@@ -35,6 +50,16 @@
 
 - `samples/cross-plugin-jpa/app-run/build/runtime`
 - `samples/cross-plugin-jpa/app-run/build/distributions/pf4boot-cross-plugin-jpa-sample-*.zip`
+
+3.3 模板验收建议至少执行：
+
+```powershell
+.\gradlew.bat :samples:cross-plugin-jpa:plugin-unrelated-service:compileJava `
+  :samples:cross-plugin-jpa:plugin-demo-jpa-domain:compileJava `
+  :samples:cross-plugin-jpa:plugin-user-book-service:compileJava `
+  :samples:cross-plugin-jpa:plugin-workflow:compileJava `
+  :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins
+```
 
 ## 运行日志
 
@@ -86,6 +111,8 @@ http://127.0.0.1:7791/
 
 控制台默认使用 sample 配置中的 `sample-token`，并随 sample host 一起打包。仓库中仍保留独立的
 `samples/plugin-management-console` 静态管理控制台示例；`cross-plugin-jpa` 的内置控制台作为更完整的产品化演示入口。
+
+注意：`sample-token`、`allow-loopback-only: false`、H2 文件库、固定端口 `7791` 都是演示配置。生产环境应替换为受控网络、强 token 或 `REMOTE_DELEGATED` 鉴权，并按实际部署目录设置 staging/cache 路径。
 
 JPA domain 的实体扫描包不在宿主配置中声明。示例由 `plugin-demo-jpa-domain` 插件主类实现
 `JpaDomainDefinitionProvider`，声明 entity packages、DataSource 和 ddl 策略，避免宿主替插件维护实体包清单。
@@ -238,5 +265,6 @@ samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-sm
 
 编译、打包、HTTP smoke、管理 API 示例流程已同步更新。验收记录见：
 
-- `docs/design/plugin-framework-production-hardening-acceptance.md`
-- `docs/design/plugin-http-management-api-acceptance.md`
+- `docs/design/plugin-developer-guide.md`
+- `docs/design/plugin-developer-experience-3.3-plan.md`
+- `docs/design/archive/plugin-http-management-api-acceptance.md`
