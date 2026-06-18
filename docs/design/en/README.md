@@ -18,6 +18,7 @@ For new development work, read these first:
 8. [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md): implementation plan and acceptance for the first three 3.3 topics.
 9. [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md): late-stage 3.3 plugin ecosystem design.
 10. [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md): implementation plan and acceptance for the last three 3.3 topics.
+11. [plugin-app-quickstart-template.md](plugin-app-quickstart-template.md): quickstart host application and minimal plugin template.
 
 ## By Topic
 
@@ -69,6 +70,7 @@ For new development work, read these first:
 - [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md): design for compatibility matrix, package verification, plugin repository/distribution, and management console sample UI.
 - [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md): implementation phases, acceptance, and tracking for the last three 3.3 topics.
 - [plugin-compatibility-matrix.md](plugin-compatibility-matrix.md): 3.3 compatibility matrix and sample plugin package verification rules.
+- [plugin-app-quickstart-template.md](plugin-app-quickstart-template.md): quickstart application template, basic host/plugin, and JPA upgrade path.
 
 ## Governance
 

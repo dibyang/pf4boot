@@ -1,0 +1,17 @@
+apply plugin: 'net.xdob.pf4boot-plugin'
+
+pf4bootPlugin {
+    id = "template-hello-plugin"
+    pluginClass = "net.xdob.sample.template.hello.TemplateHelloPlugin"
+    description = "quickstart hello plugin"
+    dependencies = ""
+    provider = "pf4boot"
+    requires = ""
+    license = "Apache-2.0"
+}
+
+dependencies {
+    compileOnlyApi project(":pf4boot-api")
+    compileOnlyApi project(":pf4boot-web-support")
+}
+

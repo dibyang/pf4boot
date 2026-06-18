@@ -1,0 +1,35 @@
+dependencies {
+    api project(":pf4boot-starter")
+    api project(":pf4boot-actuator")
+    api project(":pf4boot-management-starter")
+    api project(":pf4boot-web-starter")
+    api("net.xdob.springframework.boot:spring-boot-starter-web:${spring_boot_version}") {
+        exclude group: 'org.slf4j'
+    }
+    api("org.slf4j:slf4j-api:${slf4j_version}")
+    api("ch.qos.logback:logback-classic:1.2.13")
+    plugin project(":samples:app-template-basic:plugin-hello")
+}
+
+task assembleTemplatePlugins(type: Copy) {
+    group = "verification"
+    description = "Assembles the quickstart template plugin zip for the host."
+    dependsOn ":samples:app-template-basic:plugin-hello:pf4boot"
+    doFirst {
+        delete "${buildDir}/template-plugins"
+    }
+    from("${project(':samples:app-template-basic:plugin-hello').buildDir}/libs") {
+        include "*-${project.version}.zip"
+    }
+    into "${buildDir}/template-plugins"
+}
+
+task runTemplateHost(type: JavaExec) {
+    group = "application"
+    description = "Runs the quickstart template host with the hello plugin."
+    dependsOn assembleTemplatePlugins, classes
+    classpath = sourceSets.main.runtimeClasspath
+    main = "net.xdob.sample.template.host.TemplateHostApplication"
+    workingDir = rootProject.projectDir
+}
+

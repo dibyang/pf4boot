@@ -18,6 +18,7 @@
 8. [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md)：3.3 前三项实施规划与验收。
 9. [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md)：3.3 后三项插件生态设计。
 10. [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md)：3.3 后三项实施规划与验收。
+11. [plugin-app-quickstart-template.md](plugin-app-quickstart-template.md)：快速搭建宿主应用和最小插件模板。
 
 ## 按主题阅读
 
@@ -69,6 +70,7 @@
 - [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md)：兼容矩阵、打包校验、插件仓库/分发和管理控制台 sample UI 设计。
 - [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md)：3.3 后三项的实施阶段、验收和追踪。
 - [plugin-compatibility-matrix.md](plugin-compatibility-matrix.md)：3.3 兼容矩阵和 sample 插件包校验规则。
+- [plugin-app-quickstart-template.md](plugin-app-quickstart-template.md)：快速应用模板、basic host/plugin 和 JPA 升级路径。
 
 ## 文档治理
 
