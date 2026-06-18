@@ -374,6 +374,51 @@ public class PluginManagementControllerTest {
   }
 
   @Test
+  public void rollbackEndpointDelegatesToDeploymentService() {
+    Pf4bootManagementProperties properties = properties();
+    InMemoryPluginDeploymentRecordStore store = new InMemoryPluginDeploymentRecordStore();
+    DeploymentPlan plan = new DeploymentPlan(
+        "rb-dep-1",
+        "sample-workflow",
+        "target/test-staged/plugin.zip",
+        "target/current/plugin.jar",
+        "1.0.0",
+        org.pf4j.PluginState.STOPPED,
+        "2.0.0",
+        null,
+        Collections.<String>emptyList(),
+        Collections.<String>emptyList(),
+        Collections.<String>emptyList(),
+        Collections.<DeploymentCheckResult>emptyList(),
+        new RollbackSnapshot(
+            "sample-workflow",
+            "target/current/plugin.jar",
+            "1.0.0",
+            org.pf4j.PluginState.STOPPED,
+            Collections.<String>emptyList(),
+            Collections.<String, String>emptyMap()));
+    store.save(new DeploymentRecord(
+        "rb-dep-1",
+        "sample-workflow",
+        DeploymentState.SUCCEEDED,
+        0L,
+        0L,
+        "replace ok",
+        plan));
+    RecordingDeploymentService deploymentService = new RecordingDeploymentService();
+    PluginManagementController controller =
+        controller(properties, new InvocationRecorder().createPluginManager(), deploymentService, store);
+    MockHttpServletRequest request = baseRequest("/pf4boot/admin/deployments/rb-dep-1/rollback");
+
+    PluginAdminResponse<DeploymentRecord> response = controller.rollback("rb-dep-1", request);
+
+    assertNotNull(response);
+    assertEquals(1, deploymentService.rollbackCalls);
+    assertEquals("rb-dep-1", deploymentService.lastRollbackDeploymentId);
+    assertEquals(DeploymentState.SUCCEEDED, response.getData().getState());
+  }
+
+  @Test
   public void confirmEndpointRejectsMissingDeploymentRecord() {
     Pf4bootManagementProperties properties = properties();
     PluginManagementController controller =
@@ -632,7 +677,9 @@ public class PluginManagementControllerTest {
     private int repositoryPlanCalls;
     private int repositoryReplaceCalls;
     private int replaceCalls;
+    private int rollbackCalls;
     private String lastReplacePluginId;
+    private String lastRollbackDeploymentId;
     private PluginReleaseRequest lastReleaseRequest;
 
     @Override
@@ -688,6 +735,21 @@ public class PluginManagementControllerTest {
           1L,
           "replace ok",
           null);
+    }
+
+    @Override
+    public DeploymentRecord rollback(DeploymentRecord record) {
+      rollbackCalls++;
+      lastRollbackDeploymentId = record == null ? null : record.getDeploymentId();
+      return new DeploymentRecord(
+          lastRollbackDeploymentId,
+          record == null ? null : record.getTargetPluginId(),
+          DeploymentState.SUCCEEDED,
+          1L,
+          1L,
+          "rollback ok",
+          record == null ? null : record.getPlan(),
+          DeploymentRecord.history(DeploymentState.PLANNED, DeploymentState.ROLLING_BACK, DeploymentState.SUCCEEDED));
     }
   }
 

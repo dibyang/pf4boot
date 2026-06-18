@@ -245,6 +245,20 @@ public class RuntimeSmokeRunner {
     System.out.println("SMOKE_MANAGEMENT_OPERATION operationId=" + firstOperation);
     System.out.println("SMOKE_IDEMPOTENCY_REPLAY operationId=" + replayOperation);
     addCheck("managementIdempotency", "PASSED", "operation replayed");
+
+    List<Header> badHeaders = new ArrayList<Header>(admin);
+    badHeaders.add(new Header("X-Idempotency-Key", "runtime-smoke-bad-plan-java"));
+    String badBody = "{\"pluginId\":\"missing-workflow\",\"stagedPluginPath\":\""
+        + pluginZipName("plugin-workflow") + "\",\"dryRun\":true}";
+    HttpResult badPlan = request("POST", "/pf4boot/admin/deployments/plan", badHeaders, badBody);
+    assertStatus(badPlan, 200, "bad deployment plan");
+    if (!badPlan.body.contains("\"success\":false")) {
+      throw new IllegalStateException("bad deployment plan should return a failed management response: " + badPlan.body);
+    }
+    HttpResult deployments = request("GET", "/pf4boot/admin/deployments", admin, null);
+    assertAdminSuccess(deployments, "deployment records");
+    System.out.println("SMOKE_FAILURE_CASE code=" + stringField(badPlan.body, "code"));
+    addCheck("failureCase", "PASSED", "code=" + stringField(badPlan.body, "code"));
   }
 
   private void checkJpaProviderIsolation() throws Exception {
@@ -328,7 +342,9 @@ public class RuntimeSmokeRunner {
     assertAdminSuccess(reload, "JPA provider replacement reload");
     if (!reload.body.contains("\"providerReplacementSummary\"")
         || !reload.body.contains("\"state\":\"SUCCEEDED\"")
-        || !reload.body.contains("\"targetPluginId\":\"sample-demo-jpa-domain\"")) {
+        || !reload.body.contains("\"targetPluginId\":\"sample-demo-jpa-domain\"")
+        || !reload.body.contains("\"cleanupSummary\"")
+        || !reload.body.contains("\"passed\":true")) {
       throw new IllegalStateException("JPA provider replacement summary missing: " + reload.body);
     }
     HttpResult summary = request("GET", "/api/sample/workflow/summary", null, null);

@@ -50,6 +50,9 @@ public class LocalTokenPluginManagementAuthorizer implements PluginManagementAut
         "pf4boot:deployment:replace",
         "pf4boot:deployment:confirm",
         "pf4boot:deployment:rollback",
+        "pf4boot:jpa-reload:plan",
+        "pf4boot:jpa-reload:execute",
+        "pf4boot:jpa-reload:query",
         "pf4boot:admin:all"));
     return principal;
   }

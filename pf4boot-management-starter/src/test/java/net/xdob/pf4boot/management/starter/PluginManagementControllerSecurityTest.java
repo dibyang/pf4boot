@@ -384,6 +384,11 @@ public class PluginManagementControllerSecurityTest {
       public DeploymentRecord replace(String targetPluginId, java.nio.file.Path stagedPluginPath) {
         return null;
       }
+
+      @Override
+      public DeploymentRecord rollback(DeploymentRecord record) {
+        return rollbackRecord(record);
+      }
     };
 
     PluginManagementRequestFactory requestFactory = new PluginManagementRequestFactory();
@@ -490,6 +495,11 @@ public class PluginManagementControllerSecurityTest {
       public DeploymentRecord replace(String targetPluginId, java.nio.file.Path stagedPluginPath) {
         return null;
       }
+
+      @Override
+      public DeploymentRecord rollback(DeploymentRecord record) {
+        return rollbackRecord(record);
+      }
     };
 
     PluginManagementRequestFactory requestFactory = new PluginManagementRequestFactory();
@@ -587,7 +597,25 @@ public class PluginManagementControllerSecurityTest {
             "confirm ok",
             null);
       }
+
+      @Override
+      public DeploymentRecord rollback(DeploymentRecord record) {
+        return rollbackRecord(record);
+      }
     };
+  }
+
+  private DeploymentRecord rollbackRecord(DeploymentRecord record) {
+    DeploymentPlan plan = record == null ? null : record.getPlan();
+    return new DeploymentRecord(
+        record == null ? "rollback-missing" : record.getDeploymentId(),
+        record == null ? null : record.getTargetPluginId(),
+        DeploymentState.SUCCEEDED,
+        System.currentTimeMillis(),
+        System.currentTimeMillis(),
+        "rollback ok",
+        plan,
+        DeploymentRecord.history(DeploymentState.PLANNED, DeploymentState.ROLLING_BACK, DeploymentState.SUCCEEDED));
   }
 
   private MockHttpServletRequest baseRequest() {

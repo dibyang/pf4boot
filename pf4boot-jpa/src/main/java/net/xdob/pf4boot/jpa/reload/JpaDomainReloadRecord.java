@@ -1,5 +1,7 @@
 package net.xdob.pf4boot.jpa.reload;
 
+import net.xdob.pf4boot.deployment.PluginCleanupSummary;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -23,6 +25,7 @@ public class JpaDomainReloadRecord {
   private final String rollbackSummary;
   private final JpaDomainDrainReport drainReport;
   private final JpaProviderReplacementSummary providerReplacementSummary;
+  private final PluginCleanupSummary cleanupSummary;
 
   public JpaDomainReloadRecord(
       String reloadId,
@@ -50,6 +53,7 @@ public class JpaDomainReloadRecord {
         failureCode,
         failureMessage,
         rollbackSummary,
+        null,
         null,
         null);
   }
@@ -82,6 +86,7 @@ public class JpaDomainReloadRecord {
         failureMessage,
         rollbackSummary,
         drainReport,
+        null,
         null);
   }
 
@@ -100,6 +105,40 @@ public class JpaDomainReloadRecord {
       String rollbackSummary,
       JpaDomainDrainReport drainReport,
       JpaProviderReplacementSummary providerReplacementSummary) {
+    this(
+        reloadId,
+        planId,
+        domainId,
+        state,
+        startedAt,
+        finishedAt,
+        request,
+        plan,
+        stateTransitions,
+        failureCode,
+        failureMessage,
+        rollbackSummary,
+        drainReport,
+        providerReplacementSummary,
+        null);
+  }
+
+  public JpaDomainReloadRecord(
+      String reloadId,
+      String planId,
+      String domainId,
+      JpaDomainReloadState state,
+      long startedAt,
+      long finishedAt,
+      JpaDomainReloadRequest request,
+      JpaDomainReloadPlan plan,
+      List<JpaDomainReloadState> stateTransitions,
+      JpaDomainReloadFailureCode failureCode,
+      String failureMessage,
+      String rollbackSummary,
+      JpaDomainDrainReport drainReport,
+      JpaProviderReplacementSummary providerReplacementSummary,
+      PluginCleanupSummary cleanupSummary) {
     this.reloadId = reloadId;
     this.planId = planId;
     this.domainId = domainId;
@@ -116,6 +155,7 @@ public class JpaDomainReloadRecord {
     this.rollbackSummary = rollbackSummary;
     this.drainReport = drainReport;
     this.providerReplacementSummary = providerReplacementSummary;
+    this.cleanupSummary = cleanupSummary;
   }
 
   public String getReloadId() {
@@ -172,5 +212,9 @@ public class JpaDomainReloadRecord {
 
   public JpaProviderReplacementSummary getProviderReplacementSummary() {
     return providerReplacementSummary;
+  }
+
+  public PluginCleanupSummary getCleanupSummary() {
+    return cleanupSummary;
   }
 }

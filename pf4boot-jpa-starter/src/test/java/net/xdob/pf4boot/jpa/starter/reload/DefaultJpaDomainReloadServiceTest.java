@@ -3,7 +3,9 @@ package net.xdob.pf4boot.jpa.starter.reload;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.deployment.DeploymentPlan;
 import net.xdob.pf4boot.deployment.DeploymentRecord;
+import net.xdob.pf4boot.deployment.DeploymentCheckResult;
 import net.xdob.pf4boot.deployment.DeploymentState;
+import net.xdob.pf4boot.deployment.PluginCleanupSummary;
 import net.xdob.pf4boot.deployment.PluginDeploymentService;
 import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
@@ -31,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -137,6 +140,73 @@ public class DefaultJpaDomainReloadServiceTest {
       assertEquals(Paths.get("plugins/new-provider.zip").toString(), deploymentService.stagedPath.toString());
       assertEquals("deployment-1", record.getProviderReplacementSummary().getDeploymentId());
       assertEquals("2.0.0", record.getProviderReplacementSummary().getStagedVersion());
+      assertSame(deploymentService.cleanupSummary, record.getCleanupSummary());
+    } finally {
+      fixture.close();
+    }
+  }
+
+  @Test
+  public void reloadProviderReplacementRecordsDeploymentErrorCode() {
+    Fixture fixture = new Fixture();
+    try {
+      fixture.addPlugin("provider-demo", PluginState.STARTED);
+      fixture.registerDescriptor("demo", "provider-demo", true);
+      RecordingDeploymentService deploymentService = new RecordingDeploymentService(DeploymentState.FAILED);
+
+      JpaDomainReloadRequest request = request("demo", "replace-provider-failed-key");
+      request.setProviderReplacementPath("plugins/new-provider.zip");
+      JpaDomainReloadRecord record = fixture.service(deploymentService).reload(request);
+
+      assertEquals(JpaDomainReloadState.FAILED, record.getState());
+      assertEquals(JpaDomainReloadFailureCode.PROVIDER_REPLACEMENT_VERIFY_FAILED, record.getFailureCode());
+      assertEquals("PRECHECK_FAILED", record.getProviderReplacementSummary().getErrorCode());
+      assertEquals("SUCCEEDED_OR_NOT_REQUIRED", record.getProviderReplacementSummary().getRollbackStatus());
+      assertSame(deploymentService.cleanupSummary, record.getCleanupSummary());
+    } finally {
+      fixture.close();
+    }
+  }
+
+  @Test
+  public void reloadProviderReplacementUsesFallbackCleanupSummaryWhenDeploymentOmitsIt() {
+    Fixture fixture = new Fixture();
+    try {
+      fixture.addPlugin("provider-demo", PluginState.STARTED);
+      fixture.registerDescriptor("demo", "provider-demo", true);
+      RecordingDeploymentService deploymentService =
+          new RecordingDeploymentService(DeploymentState.SUCCEEDED, false);
+
+      JpaDomainReloadRequest request = request("demo", "replace-provider-no-cleanup-key");
+      request.setProviderReplacementPath("plugins/new-provider.zip");
+      JpaDomainReloadRecord record = fixture.service(deploymentService).reload(request);
+
+      assertEquals(JpaDomainReloadState.SUCCEEDED, record.getState());
+      assertNotNull(record.getCleanupSummary());
+      assertTrue(record.getCleanupSummary().isPassed());
+      assertEquals(Collections.singletonList("provider-demo"), record.getCleanupSummary().getPluginIds());
+      assertEquals(1, record.getCleanupSummary().getInfoCount());
+    } finally {
+      fixture.close();
+    }
+  }
+
+  @Test
+  public void reloadRecordsProviderCleanupSummaryAfterSuccessfulRestart() {
+    Fixture fixture = new Fixture();
+    try {
+      fixture.addPlugin("provider-demo", PluginState.STARTED);
+      fixture.addPlugin("sample-user-book-service", PluginState.STARTED, "provider-demo");
+      fixture.registerDescriptor("demo", "provider-demo", true);
+      fixture.registry.register(binding("sample-user-book-service", "demo"));
+
+      JpaDomainReloadRecord record = fixture.service().reload(request("demo", "cleanup-summary-key"));
+
+      assertEquals(JpaDomainReloadState.SUCCEEDED, record.getState());
+      assertNotNull(record.getCleanupSummary());
+      assertTrue(record.getCleanupSummary().isPassed());
+      assertEquals(Collections.singletonList("provider-demo"), record.getCleanupSummary().getPluginIds());
+      assertEquals(2, record.getCleanupSummary().getInfoCount());
     } finally {
       fixture.close();
     }
@@ -490,12 +560,21 @@ public class DefaultJpaDomainReloadServiceTest {
 
   private static class RecordingDeploymentService implements PluginDeploymentService {
     private final DeploymentState state;
+    private final PluginCleanupSummary cleanupSummary = PluginCleanupSummary.passed(
+        Collections.singletonList("provider-demo"),
+        Collections.singletonList(DeploymentCheckResult.info("TEST_CLEAN", "cleaned")));
     private int replaceCalls;
     private String targetPluginId;
     private java.nio.file.Path stagedPath;
+    private final boolean includeCleanupSummary;
 
     private RecordingDeploymentService(DeploymentState state) {
+      this(state, true);
+    }
+
+    private RecordingDeploymentService(DeploymentState state, boolean includeCleanupSummary) {
       this.state = state;
+      this.includeCleanupSummary = includeCleanupSummary;
     }
 
     @Override
@@ -537,7 +616,11 @@ public class DefaultJpaDomainReloadServiceTest {
           now,
           now,
           state == DeploymentState.SUCCEEDED ? "replacement succeeded" : "replacement failed",
-          plan);
+          plan,
+          DeploymentRecord.history(state),
+          0,
+          state == DeploymentState.FAILED ? "PRECHECK_FAILED" : null,
+          includeCleanupSummary ? cleanupSummary : null);
     }
   }
 }

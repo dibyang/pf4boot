@@ -23,7 +23,7 @@ task assembleSampleRuntime(type: Copy) {
     into runtimeDir
 
     doFirst {
-        delete new File(runtimeDir.get().asFile, "plugins")
+        delete runtimeDir.get().asFile
     }
 
     from(configurations.runtimeClasspath) {

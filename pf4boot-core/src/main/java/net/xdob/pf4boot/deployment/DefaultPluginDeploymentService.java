@@ -64,6 +64,7 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
   private final PluginTrustManifestLoader trustManifestLoader;
   private final VersionRangeMatcher versionRangeMatcher;
   private final PluginRepositoryResolver repositoryResolver;
+  private final Map<String, DeploymentRecord> records = new java.util.concurrent.ConcurrentHashMap<>();
 
   public DefaultPluginDeploymentService(Pf4bootPluginManager pluginManager, Pf4bootProperties properties) {
     this(pluginManager, properties, Collections.emptyList());
@@ -360,7 +361,7 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
       beginDrain(plan);
       awaitDrain(plan);
       stopPlugins(plan.getStopOrder());
-      verifyStoppedPlugins(plan.getStopOrder());
+      PluginCleanupSummary cleanupSummary = verifyStoppedPlugins(plan.getStopOrder());
       unloadPlugins(plan.getStopOrder());
       String loadedPluginId = pluginManager.loadPlugin(stagedPluginPath);
       if (!targetPluginId.equals(loadedPluginId)) {
@@ -371,6 +372,7 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
       startPlugins(plan.getStartOrder());
       verifyHealth(plan);
       return record(plan, DeploymentState.SUCCEEDED, "replacement succeeded", startedAt, null,
+          cleanupSummary,
           DeploymentState.PRECHECKED, DeploymentState.APPLYING, DeploymentState.DRAINING,
           DeploymentState.STOPPING, DeploymentState.CLEANUP_VERIFYING, DeploymentState.ACTIVATING,
           DeploymentState.STARTING, DeploymentState.VERIFYING, DeploymentState.SUCCEEDED);
@@ -378,6 +380,49 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
       return rollback(plan, replacementFailure, startedAt);
     } finally {
       endDrain(plan);
+    }
+  }
+
+  @Override
+  public DeploymentRecord getRecord(String deploymentId) {
+    if (deploymentId == null) {
+      return null;
+    }
+    return records.get(deploymentId);
+  }
+
+  @Override
+  public DeploymentRecord rollback(String deploymentId) {
+    DeploymentRecord record = getRecord(deploymentId);
+    if (record == null) {
+      throw new IllegalArgumentException("Deployment record not found: " + deploymentId);
+    }
+    return rollback(record);
+  }
+
+  @Override
+  public DeploymentRecord rollback(DeploymentRecord record) {
+    if (record == null) {
+      throw new IllegalArgumentException("Deployment record must not be null");
+    }
+    DeploymentPlan plan = record.getPlan();
+    if (plan == null || plan.getRollbackSnapshot() == null) {
+      throw new IllegalArgumentException("Deployment rollback snapshot is unavailable: " + record.getDeploymentId());
+    }
+    long startedAt = System.currentTimeMillis();
+    try {
+      stopPlugins(plan.getStopOrder());
+      unloadPlugins(plan.getStopOrder());
+      restoreSnapshot(plan);
+      startSnapshotPlugins(plan);
+      verifyHealth(plan);
+      return record(plan, DeploymentState.SUCCEEDED, "rollback succeeded", startedAt, null,
+          DeploymentState.PLANNED, DeploymentState.ROLLING_BACK, DeploymentState.SUCCEEDED);
+    } catch (Throwable rollbackFailure) {
+      return record(plan, DeploymentState.MANUAL_INTERVENTION,
+          "rollback failed: " + rollbackFailure.getMessage(),
+          startedAt, errorCode(rollbackFailure),
+          DeploymentState.PLANNED, DeploymentState.ROLLING_BACK, DeploymentState.MANUAL_INTERVENTION);
     }
   }
 
@@ -410,14 +455,29 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
       long startedAt,
       String errorCode,
       DeploymentState... history) {
+    return record(plan, state, message, startedAt, errorCode, null, history);
+  }
+
+  private DeploymentRecord record(
+      DeploymentPlan plan,
+      DeploymentState state,
+      String message,
+      long startedAt,
+      String errorCode,
+      PluginCleanupSummary cleanupSummary,
+      DeploymentState... history) {
     long now = System.currentTimeMillis();
     DeploymentRecord record = new DeploymentRecord(plan.getDeploymentId(), plan.getTargetPluginId(), state,
-        startedAt, now, message, plan, DeploymentRecord.history(history), now - startedAt, errorCode);
+        startedAt, now, message, plan, DeploymentRecord.history(history), now - startedAt, errorCode,
+        cleanupSummary);
     record(record);
     return record;
   }
 
   private void record(DeploymentRecord record) {
+    if (record != null) {
+      records.put(record.getDeploymentId(), record);
+    }
     for (PluginDeploymentRecorder recorder : deploymentRecorders) {
       recorder.record(record);
     }
@@ -479,10 +539,11 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
     }
   }
 
-  private void verifyStoppedPlugins(List<String> pluginIds) {
+  private PluginCleanupSummary verifyStoppedPlugins(List<String> pluginIds) {
     if (cleanupVerifiers.isEmpty()) {
-      return;
+      return PluginCleanupSummary.notChecked(pluginIds, "No PluginCleanupVerifier registered");
     }
+    List<DeploymentCheckResult> allResults = new ArrayList<>();
     for (String pluginId : pluginIds) {
       PluginWrapper plugin = pluginManager.getPlugin(pluginId);
       if (plugin == null) {
@@ -494,6 +555,7 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
         if (results == null) {
           continue;
         }
+        allResults.addAll(results);
         for (DeploymentCheckResult result : results) {
           if (result != null && result.isError()) {
             throw new PluginRuntimeException(
@@ -505,6 +567,7 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
         }
       }
     }
+    return PluginCleanupSummary.passed(pluginIds, allResults);
   }
 
   private void unloadPlugins(List<String> pluginIds) {

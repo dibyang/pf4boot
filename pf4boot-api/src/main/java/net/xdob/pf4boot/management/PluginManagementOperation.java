@@ -15,7 +15,10 @@ public enum PluginManagementOperation {
   DEPLOYMENT_REPLACE("pf4boot:deployment:replace"),
   DEPLOYMENT_CONFIRM("pf4boot:deployment:confirm"),
   DEPLOYMENT_ROLLBACK("pf4boot:deployment:rollback"),
-  DEPLOYMENT_QUERY("pf4boot:deployment:query");
+  DEPLOYMENT_QUERY("pf4boot:deployment:query"),
+  JPA_RELOAD_PLAN("pf4boot:jpa-reload:plan"),
+  JPA_RELOAD_EXECUTE("pf4boot:jpa-reload:execute"),
+  JPA_RELOAD_QUERY("pf4boot:jpa-reload:query");
 
   private final String permission;
 

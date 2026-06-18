@@ -48,6 +48,8 @@ For new development work, read these first:
 
 ### Production And Operations
 
+- [next-version-production-goals.md](next-version-production-goals.md): next-version production goals.
+- [next-version-production-design.md](next-version-production-design.md): next-version production implementation design.
 - [plugin-hot-replacement-deployment-improvement.md](plugin-hot-replacement-deployment-improvement.md): plugin hot replacement deployment improvements.
 - [runtime-safety-phase3.md](runtime-safety-phase3.md): runtime safety hardening.
 - [verification-foundation.md](verification-foundation.md): verification foundation.

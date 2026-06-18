@@ -48,6 +48,8 @@
 
 ### 生产化与运维
 
+- [next-version-production-goals.md](next-version-production-goals.md)：下一版本生产化目标。
+- [next-version-production-design.md](next-version-production-design.md)：下一版本生产化实施设计。
 - [plugin-hot-replacement-deployment-improvement.md](plugin-hot-replacement-deployment-improvement.md)：插件热替换部署改进。
 - [runtime-safety-phase3.md](runtime-safety-phase3.md)：运行时安全增强。
 - [verification-foundation.md](verification-foundation.md)：验证基础设施。

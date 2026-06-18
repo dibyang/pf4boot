@@ -48,4 +48,39 @@ public interface PluginDeploymentService {
    * @return 部署记录，包含最终状态和计划
    */
   DeploymentRecord replace(String targetPluginId, Path stagedPluginPath);
+
+  /**
+   * 查询部署记录。
+   *
+   * @param deploymentId 部署 ID
+   * @return 部署记录；不存在时可返回 null
+   */
+  default DeploymentRecord getRecord(String deploymentId) {
+    throw new UnsupportedOperationException("Deployment record query is not supported");
+  }
+
+  /**
+   * 按部署 ID 执行回滚。
+   *
+   * @param deploymentId 部署 ID
+   * @return 回滚结果记录
+   */
+  default DeploymentRecord rollback(String deploymentId) {
+    throw new UnsupportedOperationException("Deployment rollback is not supported");
+  }
+
+  /**
+   * 按已有部署记录执行回滚。
+   *
+   * <p>该方法用于管理层已有持久化记录但服务内部没有内存记录的场景。</p>
+   *
+   * @param record 部署记录
+   * @return 回滚结果记录
+   */
+  default DeploymentRecord rollback(DeploymentRecord record) {
+    if (record == null) {
+      throw new IllegalArgumentException("Deployment record must not be null");
+    }
+    return rollback(record.getDeploymentId());
+  }
 }

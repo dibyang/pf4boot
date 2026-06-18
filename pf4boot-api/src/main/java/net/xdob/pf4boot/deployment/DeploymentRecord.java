@@ -22,6 +22,7 @@ public class DeploymentRecord {
   private final List<DeploymentState> stateHistory;
   private final long durationMillis;
   private final String errorCode;
+  private final PluginCleanupSummary cleanupSummary;
 
   public DeploymentRecord(
       String deploymentId,
@@ -59,6 +60,32 @@ public class DeploymentRecord {
       List<DeploymentState> stateHistory,
       long durationMillis,
       String errorCode) {
+    this(
+        deploymentId,
+        targetPluginId,
+        state,
+        createdAt,
+        updatedAt,
+        message,
+        plan,
+        stateHistory,
+        durationMillis,
+        errorCode,
+        null);
+  }
+
+  public DeploymentRecord(
+      String deploymentId,
+      String targetPluginId,
+      DeploymentState state,
+      long createdAt,
+      long updatedAt,
+      String message,
+      DeploymentPlan plan,
+      List<DeploymentState> stateHistory,
+      long durationMillis,
+      String errorCode,
+      PluginCleanupSummary cleanupSummary) {
     this.deploymentId = deploymentId;
     this.targetPluginId = targetPluginId;
     this.state = state;
@@ -69,6 +96,7 @@ public class DeploymentRecord {
     this.stateHistory = unmodifiableHistory(stateHistory, state);
     this.durationMillis = durationMillis;
     this.errorCode = errorCode;
+    this.cleanupSummary = cleanupSummary;
   }
 
   public static List<DeploymentState> history(DeploymentState... states) {
@@ -125,5 +153,9 @@ public class DeploymentRecord {
 
   public String getErrorCode() {
     return errorCode;
+  }
+
+  public PluginCleanupSummary getCleanupSummary() {
+    return cleanupSummary;
   }
 }

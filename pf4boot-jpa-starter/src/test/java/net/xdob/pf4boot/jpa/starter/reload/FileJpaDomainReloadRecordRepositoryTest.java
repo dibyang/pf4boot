@@ -1,5 +1,7 @@
 package net.xdob.pf4boot.jpa.starter.reload;
 
+import net.xdob.pf4boot.deployment.DeploymentCheckResult;
+import net.xdob.pf4boot.deployment.PluginCleanupSummary;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadFailureCode;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecord;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRequest;
@@ -89,18 +91,25 @@ public class FileJpaDomainReloadRecordRepositoryTest {
             "1.0.0",
             "2.0.0",
             "SUCCEEDED",
+            "PRECHECK_FAILED",
             null,
-            "replacement succeeded"));
+            "replacement succeeded"),
+        PluginCleanupSummary.passed(
+            Arrays.asList("provider-demo"),
+            Arrays.asList(DeploymentCheckResult.info("JPA_EXPORTS_REMOVED", "removed"))));
 
     store.save(record);
 
     FileJpaDomainReloadRecordRepository reloaded =
         new FileJpaDomainReloadRecordRepository(directory, 100, true);
 
-    assertEquals("deployment-1",
-        reloaded.findById("reload-replace").getProviderReplacementSummary().getDeploymentId());
-    assertEquals("2.0.0",
-        reloaded.findById("reload-replace").getProviderReplacementSummary().getStagedVersion());
+    JpaDomainReloadRecord restored = reloaded.findById("reload-replace");
+    assertEquals("deployment-1", restored.getProviderReplacementSummary().getDeploymentId());
+    assertEquals("2.0.0", restored.getProviderReplacementSummary().getStagedVersion());
+    assertEquals("PRECHECK_FAILED", restored.getProviderReplacementSummary().getErrorCode());
+    assertEquals("reload-replace", reloaded.findByIdempotencyKey("key-replace").getReloadId());
+    assertEquals("reload-replace", reloaded.findLatest().getReloadId());
+    assertEquals(1, restored.getCleanupSummary().getInfoCount());
   }
 
   @Test

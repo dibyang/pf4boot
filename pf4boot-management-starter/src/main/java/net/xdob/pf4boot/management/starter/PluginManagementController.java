@@ -5,7 +5,6 @@ import net.xdob.pf4boot.deployment.DeploymentPlan;
 import net.xdob.pf4boot.deployment.DeploymentRecord;
 import net.xdob.pf4boot.deployment.DeploymentState;
 import net.xdob.pf4boot.deployment.PluginDeploymentService;
-import net.xdob.pf4boot.deployment.RollbackSnapshot;
 import net.xdob.pf4boot.modal.PluginRuntimeSnapshot;
 import net.xdob.pf4boot.management.PluginAdminResponse;
 import net.xdob.pf4boot.management.PluginDeploymentRequest;
@@ -32,7 +31,6 @@ import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpServletRequest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -361,7 +359,7 @@ public class PluginManagementController {
             "Deployment record not found: " + deploymentId,
             404);
       }
-      DeploymentRecord result = rollbackByPlan(source.getPlan());
+      DeploymentRecord result = deploymentService.rollback(source);
       deploymentRecordStore.save(result);
 
       PluginOperationRecord operationRecord = operationStore.findById(operationId);
@@ -796,120 +794,6 @@ public class PluginManagementController {
         PluginManagementErrorCode.INVALID_REQUEST,
         "Unsupported repository deployment operation: " + operation,
         400);
-  }
-
-  private DeploymentRecord rollbackByPlan(DeploymentPlan plan) {
-    // Rollback must stop->unload->restore->start->health-check in a fixed order.
-    if (plan == null || plan.getRollbackSnapshot() == null) {
-      throw new PluginManagementException(
-          PluginManagementErrorCode.PRECHECK_FAILED,
-          "Deployment plan can not be rolled back because rollback snapshot is unavailable",
-          409);
-    }
-    long startedAt = System.currentTimeMillis();
-    RollbackSnapshot snapshot = plan.getRollbackSnapshot();
-    try {
-      stopPlugins(plan.getStopOrder());
-      unloadPlugins(plan.getStopOrder());
-      restoreSnapshot(plan, snapshot);
-      startSnapshotPlugins(plan, snapshot);
-      verifyHealth(plan.getStartOrder(), snapshot);
-      return new DeploymentRecord(
-          plan.getDeploymentId(),
-          plan.getTargetPluginId(),
-          DeploymentState.SUCCEEDED,
-          startedAt,
-          System.currentTimeMillis(),
-          "rollback succeeded",
-          plan,
-          DeploymentRecord.history(DeploymentState.PLANNED, DeploymentState.ROLLING_BACK,
-              DeploymentState.SUCCEEDED),
-          System.currentTimeMillis() - startedAt,
-          null);
-    } catch (RuntimeException rollbackFailure) {
-      return new DeploymentRecord(
-          plan.getDeploymentId(),
-          plan.getTargetPluginId(),
-          DeploymentState.MANUAL_INTERVENTION,
-          startedAt,
-          System.currentTimeMillis(),
-          "rollback failed",
-          plan,
-          DeploymentRecord.history(DeploymentState.PLANNED, DeploymentState.ROLLING_BACK,
-              DeploymentState.MANUAL_INTERVENTION),
-          System.currentTimeMillis() - startedAt,
-          "ROLLBACK_FAILED");
-    }
-  }
-
-  private void stopPlugins(List<String> pluginIds) {
-    for (String pluginId : pluginIds) {
-      PluginWrapper plugin = pluginManager.getPlugin(pluginId);
-      if (plugin != null && plugin.getPluginState().isStarted()) {
-        pluginManager.stopPlugin(pluginId);
-      }
-    }
-  }
-
-  private void unloadPlugins(List<String> pluginIds) {
-    for (String pluginId : pluginIds) {
-      if (pluginManager.getPlugin(pluginId) != null) {
-        pluginManager.unloadPlugin(pluginId);
-      }
-    }
-  }
-
-  private void restoreSnapshot(DeploymentPlan plan, RollbackSnapshot snapshot) {
-    for (String pluginId : plan.getStartOrder()) {
-      if (pluginManager.getPlugin(pluginId) == null) {
-        String pluginPath = snapshot.getPluginPaths().get(pluginId);
-        if (pluginPath == null) {
-          throw new PluginManagementException(
-              PluginManagementErrorCode.PRECHECK_FAILED,
-              "Rollback plugin path is not available: " + pluginId,
-              409);
-        }
-        pluginManager.loadPlugin(Paths.get(pluginPath));
-      }
-    }
-  }
-
-  private void startSnapshotPlugins(DeploymentPlan plan, RollbackSnapshot snapshot) {
-    for (String pluginId : plan.getStartOrder()) {
-      if (snapshot.getStartedPluginIds().contains(pluginId)) {
-        PluginState state = pluginManager.startPlugin(pluginId);
-        if (!state.isStarted()) {
-          throw new PluginManagementException(
-              PluginManagementErrorCode.OPERATION_FAILED,
-              "Rollback plugin start failed: " + pluginId,
-              500);
-        }
-      }
-    }
-  }
-
-  private void verifyHealth(List<String> pluginIds, RollbackSnapshot snapshot) {
-    for (String pluginId : pluginIds) {
-      PluginWrapper plugin = pluginManager.getPlugin(pluginId);
-      if (plugin == null) {
-        throw new PluginManagementException(
-            PluginManagementErrorCode.OPERATION_FAILED,
-            "Plugin not found after rollback: " + pluginId,
-            500);
-      }
-      if (snapshot.getStartedPluginIds().contains(pluginId) && !plugin.getPluginState().isStarted()) {
-        throw new PluginManagementException(
-            PluginManagementErrorCode.OPERATION_FAILED,
-            "Rollback plugin not started: " + pluginId,
-            500);
-      }
-      if (pluginManager.getPluginErrors(pluginId) != null) {
-        throw new PluginManagementException(
-            PluginManagementErrorCode.OPERATION_FAILED,
-            "Plugin error during rollback: " + pluginId,
-            500);
-      }
-    }
   }
 
   private <T> PluginAdminResponse<T> replayResponse(

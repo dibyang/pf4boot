@@ -5,6 +5,7 @@ import net.xdob.pf4boot.jpa.reload.JpaDomainReloadPlanService;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadRecordRepository;
 import net.xdob.pf4boot.jpa.reload.JpaDomainReloadService;
 import net.xdob.pf4boot.management.PluginManagementAuthorizer;
+import net.xdob.pf4boot.management.PluginOperationStore;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.autoconfigure.AutoConfigureAfter;
@@ -44,7 +45,11 @@ public class Pf4bootJpaManagementAutoConfiguration {
       PluginManagementAuthorizer authorizer,
       PluginManagementRequestFactory requestFactory,
       PluginManagementAuditRecorder auditRecorder,
-      ObjectProvider<PluginManagementPathValidator> pathValidator) {
+      ObjectProvider<PluginManagementPathValidator> pathValidator,
+      ObjectProvider<PluginManagementIdempotencyService> idempotencyService,
+      ObjectProvider<PluginOperationStore> operationStore,
+      ObjectProvider<PluginManagementWriteSecurityPolicy> writeSecurityPolicy,
+      ObjectProvider<DefaultPluginManagementMetricsRecorder> managementMetricsRecorder) {
     return new JpaDomainReloadManagementController(
         planService,
         reloadService,
@@ -52,7 +57,11 @@ public class Pf4bootJpaManagementAutoConfiguration {
         authorizer,
         requestFactory,
         auditRecorder,
-        pathValidator.getIfAvailable());
+        pathValidator.getIfAvailable(),
+        idempotencyService.getIfAvailable(),
+        operationStore.getIfAvailable(),
+        writeSecurityPolicy.getIfAvailable(),
+        managementMetricsRecorder.getIfAvailable());
   }
 
   @Bean

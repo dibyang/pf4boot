@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 public class DefaultPluginDeploymentServiceTest {
@@ -440,6 +441,52 @@ public class DefaultPluginDeploymentServiceTest {
     assertEquals(DeploymentState.SUCCEEDED, record.getState());
     assertTrue(record.getStateHistory().contains(DeploymentState.VERIFYING));
     assertEquals("2.0.0", pluginManager.getPlugin("base").getDescriptor().getVersion());
+  }
+
+  @Test
+  public void replaceRecordsCleanupSummaryWhenVerifierPasses() throws Exception {
+    pluginManager.addResolvedPlugin("base", PluginState.STARTED);
+    Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
+    PluginCleanupVerifier verifier = (pluginId, classLoader) ->
+        Collections.singletonList(DeploymentCheckResult.info("TEST_CLEAN", "cleaned"));
+
+    DeploymentRecord record = service(null, verifier).replace("base", stagedPath);
+
+    assertEquals(DeploymentState.SUCCEEDED, record.getState());
+    assertNotNull(record.getCleanupSummary());
+    assertTrue(record.getCleanupSummary().isPassed());
+    assertEquals(Collections.singletonList("base"), record.getCleanupSummary().getPluginIds());
+    assertEquals(1, record.getCleanupSummary().getInfoCount());
+    assertEquals(0, record.getCleanupSummary().getErrorCount());
+  }
+
+  @Test
+  public void replaceRecordsCleanupSummaryWhenVerifierIsAbsent() throws Exception {
+    pluginManager.addResolvedPlugin("base", PluginState.STARTED);
+    Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
+
+    DeploymentRecord record = service().replace("base", stagedPath);
+
+    assertEquals(DeploymentState.SUCCEEDED, record.getState());
+    assertNotNull(record.getCleanupSummary());
+    assertTrue(record.getCleanupSummary().isPassed());
+    assertEquals(Collections.singletonList("base"), record.getCleanupSummary().getPluginIds());
+    assertEquals(1, record.getCleanupSummary().getInfoCount());
+  }
+
+  @Test
+  public void serviceCanQueryAndRollbackDeploymentRecord() throws Exception {
+    pluginManager.addResolvedPlugin("base", PluginState.STARTED);
+    Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
+    DefaultPluginDeploymentService service = service();
+
+    DeploymentRecord plan = service.planReplacement("base", stagedPath);
+    DeploymentRecord queried = service.getRecord(plan.getDeploymentId());
+    DeploymentRecord rollback = service.rollback(queried);
+
+    assertEquals(plan.getDeploymentId(), queried.getDeploymentId());
+    assertEquals(DeploymentState.SUCCEEDED, rollback.getState());
+    assertTrue(rollback.getStateHistory().contains(DeploymentState.ROLLING_BACK));
   }
 
   @Test

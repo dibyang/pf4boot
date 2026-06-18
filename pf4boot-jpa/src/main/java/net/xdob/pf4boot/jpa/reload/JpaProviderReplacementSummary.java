@@ -14,6 +14,7 @@ public class JpaProviderReplacementSummary {
   private final String currentVersion;
   private final String stagedVersion;
   private final String state;
+  private final String errorCode;
   private final String rollbackStatus;
   private final String message;
 
@@ -26,12 +27,35 @@ public class JpaProviderReplacementSummary {
       String state,
       String rollbackStatus,
       String message) {
+    this(
+        deploymentId,
+        targetPluginId,
+        stagedPluginPath,
+        currentVersion,
+        stagedVersion,
+        state,
+        null,
+        rollbackStatus,
+        message);
+  }
+
+  public JpaProviderReplacementSummary(
+      String deploymentId,
+      String targetPluginId,
+      String stagedPluginPath,
+      String currentVersion,
+      String stagedVersion,
+      String state,
+      String errorCode,
+      String rollbackStatus,
+      String message) {
     this.deploymentId = deploymentId;
     this.targetPluginId = targetPluginId;
     this.stagedPluginPath = stagedPluginPath;
     this.currentVersion = currentVersion;
     this.stagedVersion = stagedVersion;
     this.state = state;
+    this.errorCode = errorCode;
     this.rollbackStatus = rollbackStatus;
     this.message = trim(message);
   }
@@ -58,6 +82,10 @@ public class JpaProviderReplacementSummary {
 
   public String getState() {
     return state;
+  }
+
+  public String getErrorCode() {
+    return errorCode;
   }
 
   public String getRollbackStatus() {

@@ -6,6 +6,8 @@ import net.xdob.pf4boot.annotation.PluginStarter;
 import net.xdob.pf4boot.deployment.DeploymentPlan;
 import net.xdob.pf4boot.deployment.DeploymentRecord;
 import net.xdob.pf4boot.deployment.DeploymentState;
+import net.xdob.pf4boot.deployment.DeploymentCheckResult;
+import net.xdob.pf4boot.deployment.PluginCleanupSummary;
 import net.xdob.pf4boot.deployment.PluginDeploymentService;
 import net.xdob.pf4boot.jpa.domain.JpaDomainDescriptor;
 import net.xdob.pf4boot.jpa.reload.JpaDomainDrainReport;
@@ -160,7 +162,7 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
         stopPlugins(plan.getStopOrder());
         states.add(JpaDomainReloadState.STOPPING_PROVIDER);
         stopPlugin(plan.getProviderPluginId(), JpaDomainReloadFailureCode.PROVIDER_STOP_FAILED);
-        verifyProviderExportsRemoved(request, plan);
+        PluginCleanupSummary cleanupSummary = verifyProviderExportsRemoved(request, plan);
         states.add(JpaDomainReloadState.STARTING_PROVIDER);
         startProviderWithRetry(plan.getProviderPluginId());
         states.add(JpaDomainReloadState.STARTING_CONSUMERS);
@@ -186,7 +188,9 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
             null,
             null,
             null,
-            drainReport);
+            drainReport,
+            null,
+            cleanupSummary);
         save(record);
         return record;
       } catch (ReloadStepException e) {
@@ -346,6 +350,7 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
         plan.getProviderPluginId(),
         Paths.get(request.getProviderReplacementPath()));
     JpaProviderReplacementSummary replacementSummary = replacementSummary(deploymentRecord);
+    PluginCleanupSummary cleanupSummary = replacementCleanupSummary(deploymentRecord, plan);
     if (deploymentRecord == null || DeploymentState.SUCCEEDED != deploymentRecord.getState()) {
       JpaDomainReloadState state = deploymentRecord != null
           && DeploymentState.MANUAL_INTERVENTION == deploymentRecord.getState()
@@ -366,7 +371,8 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
           deploymentRecord == null ? "provider replacement did not return deployment record" : deploymentRecord.getMessage(),
           state == JpaDomainReloadState.MANUAL_INTERVENTION_REQUIRED ? "manual intervention required" : null,
           null,
-          replacementSummary);
+          replacementSummary,
+          cleanupSummary);
     }
     states.add(JpaDomainReloadState.STARTING_PROVIDER);
     states.add(JpaDomainReloadState.HEALTH_CHECKING);
@@ -387,7 +393,8 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
           "provider descriptor is not ready after replacement",
           "manual intervention required",
           null,
-          replacementSummary);
+          replacementSummary,
+          cleanupSummary);
     }
     states.add(JpaDomainReloadState.SUCCEEDED);
     return new JpaDomainReloadRecord(
@@ -404,7 +411,23 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
         null,
         null,
         null,
-        replacementSummary);
+        replacementSummary,
+        cleanupSummary);
+  }
+
+  private PluginCleanupSummary replacementCleanupSummary(DeploymentRecord record, JpaDomainReloadPlan plan) {
+    if (record == null) {
+      return null;
+    }
+    if (record.getCleanupSummary() != null) {
+      return record.getCleanupSummary();
+    }
+    List<String> pluginIds = plan == null || plan.getProviderPluginId() == null
+        ? Collections.<String>emptyList()
+        : Collections.singletonList(plan.getProviderPluginId());
+    return PluginCleanupSummary.notChecked(
+        pluginIds,
+        "Provider replacement cleanup summary was not returned by PluginDeploymentService");
   }
 
   private JpaProviderReplacementSummary replacementSummary(DeploymentRecord record) {
@@ -425,6 +448,7 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
         plan == null ? null : plan.getCurrentVersion(),
         plan == null ? null : plan.getStagedVersion(),
         record.getState() == null ? null : record.getState().name(),
+        record.getErrorCode(),
         rollbackStatus,
         record.getMessage());
   }
@@ -439,13 +463,20 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
     return JpaDomainReloadFailureCode.PROVIDER_REPLACEMENT_ACTIVATION_FAILED;
   }
 
-  private void verifyProviderExportsRemoved(JpaDomainReloadRequest request, JpaDomainReloadPlan plan) {
+  private PluginCleanupSummary verifyProviderExportsRemoved(JpaDomainReloadRequest request, JpaDomainReloadPlan plan) {
+    List<DeploymentCheckResult> results = new ArrayList<>();
+    List<String> pluginIds = plan == null || plan.getProviderPluginId() == null
+        ? Collections.<String>emptyList()
+        : Collections.singletonList(plan.getProviderPluginId());
     JpaDomainDescriptor descriptor = plan == null ? null : plan.getDescriptor();
     if (descriptor != null) {
       assertPlatformBeanAbsent(descriptor.getDataSourceBeanName(), request.getDomainId());
       assertPlatformBeanAbsent(descriptor.getEntityManagerFactoryBeanName(), request.getDomainId());
       assertPlatformBeanAbsent(descriptor.getTransactionManagerBeanName(), request.getDomainId());
       assertPlatformBeanAbsent("domain." + request.getDomainId() + ".descriptor", request.getDomainId());
+      results.add(DeploymentCheckResult.info(
+          "JPA_EXPORTS_REMOVED",
+          "Provider JPA exports removed for domain: " + request.getDomainId()));
     }
     JpaDomainReloadPlan stoppedPlan = planService.plan(request);
     if (stoppedPlan.getDescriptor() != null) {
@@ -453,6 +484,10 @@ public class DefaultJpaDomainReloadService implements JpaDomainReloadService {
           JpaDomainReloadFailureCode.PROVIDER_STOP_FAILED,
           "provider JPA exports were not removed: " + request.getDomainId());
     }
+    results.add(DeploymentCheckResult.info(
+        "JPA_DESCRIPTOR_REMOVED",
+        "Provider descriptor removed for domain: " + request.getDomainId()));
+    return PluginCleanupSummary.passed(pluginIds, results);
   }
 
   private void assertPlatformBeanAbsent(String beanName, String domainId) {
