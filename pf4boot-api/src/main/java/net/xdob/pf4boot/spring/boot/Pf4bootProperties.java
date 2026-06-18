@@ -57,6 +57,22 @@ public class Pf4bootProperties {
    */
   private String pluginCompatibilitySpringBootVersion = "";
   /**
+   * PF4J version used for trust manifest pf4jVersionRange checks.
+   */
+  private String pluginCompatibilityPf4jVersion = "3.15.0";
+  /**
+   * pf4boot-plugin Gradle plugin version used for trust manifest pf4bootPluginVersionRange checks.
+   */
+  private String pluginCompatibilityPf4bootPluginVersion = "1.7.0";
+  /**
+   * JDK version used for trust manifest jdkVersionRange checks.
+   */
+  private String pluginCompatibilityJdkVersion = "1.8";
+  /**
+   * Plugin package format version used for trust manifest packageFormatVersionRange checks.
+   */
+  private String pluginCompatibilityPackageFormatVersion = "1";
+  /**
    * Enables offline plugin repository resolution.
    */
   private boolean pluginRepositoryEnabled = false;
@@ -240,6 +256,50 @@ public class Pf4bootProperties {
     this.pluginCompatibilitySpringBootVersion = pluginCompatibilitySpringBootVersion == null
         ? ""
         : pluginCompatibilitySpringBootVersion.trim();
+  }
+
+  public String getPluginCompatibilityPf4jVersion() {
+    return pluginCompatibilityPf4jVersion;
+  }
+
+  public void setPluginCompatibilityPf4jVersion(String pluginCompatibilityPf4jVersion) {
+    this.pluginCompatibilityPf4jVersion = pluginCompatibilityPf4jVersion == null
+        || pluginCompatibilityPf4jVersion.trim().isEmpty()
+        ? "3.15.0"
+        : pluginCompatibilityPf4jVersion.trim();
+  }
+
+  public String getPluginCompatibilityPf4bootPluginVersion() {
+    return pluginCompatibilityPf4bootPluginVersion;
+  }
+
+  public void setPluginCompatibilityPf4bootPluginVersion(String pluginCompatibilityPf4bootPluginVersion) {
+    this.pluginCompatibilityPf4bootPluginVersion = pluginCompatibilityPf4bootPluginVersion == null
+        || pluginCompatibilityPf4bootPluginVersion.trim().isEmpty()
+        ? "1.7.0"
+        : pluginCompatibilityPf4bootPluginVersion.trim();
+  }
+
+  public String getPluginCompatibilityJdkVersion() {
+    return pluginCompatibilityJdkVersion;
+  }
+
+  public void setPluginCompatibilityJdkVersion(String pluginCompatibilityJdkVersion) {
+    this.pluginCompatibilityJdkVersion = pluginCompatibilityJdkVersion == null
+        || pluginCompatibilityJdkVersion.trim().isEmpty()
+        ? "1.8"
+        : pluginCompatibilityJdkVersion.trim();
+  }
+
+  public String getPluginCompatibilityPackageFormatVersion() {
+    return pluginCompatibilityPackageFormatVersion;
+  }
+
+  public void setPluginCompatibilityPackageFormatVersion(String pluginCompatibilityPackageFormatVersion) {
+    this.pluginCompatibilityPackageFormatVersion = pluginCompatibilityPackageFormatVersion == null
+        || pluginCompatibilityPackageFormatVersion.trim().isEmpty()
+        ? "1"
+        : pluginCompatibilityPackageFormatVersion.trim();
   }
 
   public boolean isPluginRepositoryEnabled() {

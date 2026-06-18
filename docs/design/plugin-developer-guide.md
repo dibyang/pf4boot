@@ -156,6 +156,12 @@ spring:
     plugin-package-trust-manifest-extension: .pf4boot-trust.json
     plugin-capability-precheck-mode: WARN
     plugin-compatibility-precheck-mode: WARN
+    plugin-compatibility-pf4boot-version: 3.3.0
+    plugin-compatibility-pf4boot-plugin-version: 1.7.0
+    plugin-compatibility-spring-boot-version: 2.7.22
+    plugin-compatibility-pf4j-version: 3.15.0
+    plugin-compatibility-jdk-version: 1.8
+    plugin-compatibility-package-format-version: 1
     system-version: 1.0.0
 ```
 
@@ -164,6 +170,8 @@ spring:
 - `ENFORCE`：校验失败时阻断插件加载。
 
 默认 checksum 文件位于插件包同级目录，例如 `sample-workflow.zip.sha256`。trust manifest 第一阶段也使用同级旁路文件，例如 `sample-workflow.zip.pf4boot-trust.json`。
+
+部署预检会读取 trust manifest 中的 `pf4bootVersionRange`、`pf4bootPluginVersionRange`、`springBootVersionRange`、`pf4jVersionRange`、`jdkVersionRange` 和 `packageFormatVersionRange`。`plugin-compatibility-precheck-mode=WARN` 时只进入部署计划告警；切换为 `ENFORCE` 后不兼容插件包会被 replace 阶段阻断。
 
 ## 离线插件仓库
 

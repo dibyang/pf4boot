@@ -5,10 +5,11 @@
   "releases": [
     {
       "pluginId": "sample-demo-jpa-domain",
-      "version": "3.0.0",
-      "packagePath": "plugins/plugin-demo-jpa-domain-3.0.0.zip",
+      "version": "3.3.0",
+      "packagePath": "plugins/plugin-demo-jpa-domain-3.3.0.zip",
       "packageSha256": "replace-with-lowercase-sha256",
-      "trustManifestPath": "plugins/plugin-demo-jpa-domain-3.0.0.zip.pf4boot-trust.json",
+      "trustManifestPath": "plugins/plugin-demo-jpa-domain-3.3.0.zip.pf4boot-trust.json",
+      "compatibilityMatrixId": "pf4boot-3.3",
       "rolloutPolicy": "manual",
       "rollbackCandidate": true,
       "attributes": {
@@ -17,10 +18,11 @@
     },
     {
       "pluginId": "sample-user-book-service",
-      "version": "3.0.0",
-      "packagePath": "plugins/plugin-user-book-service-3.0.0.zip",
+      "version": "3.3.0",
+      "packagePath": "plugins/plugin-user-book-service-3.3.0.zip",
       "packageSha256": "replace-with-lowercase-sha256",
-      "trustManifestPath": "plugins/plugin-user-book-service-3.0.0.zip.pf4boot-trust.json",
+      "trustManifestPath": "plugins/plugin-user-book-service-3.3.0.zip.pf4boot-trust.json",
+      "compatibilityMatrixId": "pf4boot-3.3",
       "rolloutPolicy": "manual",
       "rollbackCandidate": true,
       "attributes": {
@@ -29,10 +31,11 @@
     },
     {
       "pluginId": "sample-workflow",
-      "version": "3.0.0",
-      "packagePath": "plugins/plugin-workflow-3.0.0.zip",
+      "version": "3.3.0",
+      "packagePath": "plugins/plugin-workflow-3.3.0.zip",
       "packageSha256": "replace-with-lowercase-sha256",
-      "trustManifestPath": "plugins/plugin-workflow-3.0.0.zip.pf4boot-trust.json",
+      "trustManifestPath": "plugins/plugin-workflow-3.3.0.zip.pf4boot-trust.json",
+      "compatibilityMatrixId": "pf4boot-3.3",
       "rolloutPolicy": "manual",
       "rollbackCandidate": true,
       "attributes": {

@@ -301,6 +301,82 @@ public class DefaultPluginDeploymentServiceTest {
   }
 
   @Test
+  public void planWarnsPf4bootPluginVersionMismatchInWarnMode() throws Exception {
+    pluginManager.addResolvedPlugin("base");
+    Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
+    writeCompatibilityManifest(stagedPath, "base", null, null,
+        null, "[2.0,3.0)", null, null);
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode.WARN);
+    properties.setPluginCompatibilityPf4bootPluginVersion("1.7.0");
+
+    DeploymentRecord record = service(properties).planReplacement("base", stagedPath);
+
+    assertEquals(DeploymentState.PRECHECKED, record.getState());
+    assertTrue(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PF4BOOT_PLUGIN_VERSION_RANGE_MISMATCH".equals(result.getCode())
+            && !result.isError()));
+  }
+
+  @Test
+  public void planRejectsPf4jVersionMismatchInEnforceMode() throws Exception {
+    pluginManager.addResolvedPlugin("base");
+    Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
+    writeCompatibilityManifest(stagedPath, "base", null, null,
+        "[4.0,5.0)", null, null, null);
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode.ENFORCE);
+    properties.setPluginCompatibilityPf4jVersion("3.15.0");
+
+    DeploymentRecord record = service(properties).planReplacement("base", stagedPath);
+
+    assertEquals(DeploymentState.FAILED, record.getState());
+    assertFalse(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PF4J_VERSION_RANGE_MISMATCH".equals(result.getCode())
+            && result.isError()));
+  }
+
+  @Test
+  public void planRejectsJdkVersionMismatchInEnforceMode() throws Exception {
+    pluginManager.addResolvedPlugin("base");
+    Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
+    writeCompatibilityManifest(stagedPath, "base", null, null,
+        null, null, "[99,100)", null);
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode.ENFORCE);
+    properties.setPluginCompatibilityJdkVersion("1.8");
+
+    DeploymentRecord record = service(properties).planReplacement("base", stagedPath);
+
+    assertEquals(DeploymentState.FAILED, record.getState());
+    assertFalse(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "JDK_VERSION_RANGE_MISMATCH".equals(result.getCode())
+            && result.isError()));
+  }
+
+  @Test
+  public void planRejectsPackageFormatVersionMismatchInEnforceMode() throws Exception {
+    pluginManager.addResolvedPlugin("base");
+    Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
+    writeCompatibilityManifest(stagedPath, "base", null, null,
+        null, null, null, "[2,3)");
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode.ENFORCE);
+    properties.setPluginCompatibilityPackageFormatVersion("1");
+
+    DeploymentRecord record = service(properties).planReplacement("base", stagedPath);
+
+    assertEquals(DeploymentState.FAILED, record.getState());
+    assertFalse(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PACKAGE_FORMAT_VERSION_RANGE_MISMATCH".equals(result.getCode())
+            && result.isError()));
+  }
+
+  @Test
   public void replaceStopsUnloadsLoadsAndStartsInOrder() throws Exception {
     pluginManager.addResolvedPlugin("base", PluginState.STARTED);
     pluginManager.addResolvedPlugin("direct", PluginState.STARTED, "base");
@@ -662,6 +738,19 @@ public class DefaultPluginDeploymentServiceTest {
       String pluginId,
       String pf4bootVersionRange,
       String springBootVersionRange) throws Exception {
+    writeCompatibilityManifest(pluginPath, pluginId, pf4bootVersionRange, springBootVersionRange,
+        null, null, null, null);
+  }
+
+  private void writeCompatibilityManifest(
+      Path pluginPath,
+      String pluginId,
+      String pf4bootVersionRange,
+      String springBootVersionRange,
+      String pf4jVersionRange,
+      String pf4bootPluginVersionRange,
+      String jdkVersionRange,
+      String packageFormatVersionRange) throws Exception {
     StringBuilder manifest = new StringBuilder("{")
         .append("\"pluginId\":\"").append(pluginId).append("\",")
         .append("\"pluginVersion\":\"1.0.0\",")
@@ -671,6 +760,18 @@ public class DefaultPluginDeploymentServiceTest {
     }
     if (springBootVersionRange != null) {
       manifest.append(",\"springBootVersionRange\":\"").append(springBootVersionRange).append("\"");
+    }
+    if (pf4jVersionRange != null) {
+      manifest.append(",\"pf4jVersionRange\":\"").append(pf4jVersionRange).append("\"");
+    }
+    if (pf4bootPluginVersionRange != null) {
+      manifest.append(",\"pf4bootPluginVersionRange\":\"").append(pf4bootPluginVersionRange).append("\"");
+    }
+    if (jdkVersionRange != null) {
+      manifest.append(",\"jdkVersionRange\":\"").append(jdkVersionRange).append("\"");
+    }
+    if (packageFormatVersionRange != null) {
+      manifest.append(",\"packageFormatVersionRange\":\"").append(packageFormatVersionRange).append("\"");
     }
     manifest.append("}");
     Files.write(pluginPath.resolveSibling(pluginPath.getFileName().toString() + ".pf4boot-trust.json"),

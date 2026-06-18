@@ -17,8 +17,17 @@ public class PluginManagementConsoleContractTest {
 
     assertTrue(html.contains("/pf4boot/admin/plugins"));
     assertTrue(html.contains("/pf4boot/admin/deployments/plan"));
+    assertTrue(html.contains("/pf4boot/admin/deployments/replace"));
+    assertTrue(html.contains("/confirm"));
+    assertTrue(html.contains("/rollback"));
+    assertTrue(html.contains("/pf4boot/admin/jpa/domains/"));
+    assertTrue(html.contains("/reload/plan"));
+    assertTrue(html.contains("/actuator/pf4bootjpareload"));
     assertTrue(html.contains("/actuator/pf4bootgovernance"));
     assertTrue(html.contains("X-PF4Boot-Admin-Token"));
     assertTrue(html.contains("X-Idempotency-Key"));
+    assertTrue(html.contains("repositoryVersion"));
+    assertTrue(html.contains("repositoryRollback"));
+    assertTrue(html.contains("localStorage") == false);
   }
 }

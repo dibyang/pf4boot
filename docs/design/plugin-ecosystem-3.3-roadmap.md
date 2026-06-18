@@ -15,9 +15,9 @@
 | E1 | 官方插件开发指南重写 | 先做，形成按插件类型组织的开发指南和迁移路径 |
 | E2 | `pf4boot-plugin 1.7.0` 能力基线对齐 | 先做，明确框架文档、sample 和构建脚本如何使用 1.7.0 能力 |
 | E3 | 官方模板/复杂 samples 梳理 | 先做，整理官方模板矩阵、sample 分层和验收命令 |
-| E4 | 兼容矩阵和打包校验 | 纳入 3.3，总体规划先占位，详细设计后续展开 |
-| E5 | 插件仓库/分发设计 | 纳入 3.3，总体规划先占位，详细设计后续展开 |
-| E6 | 管理控制台 sample UI | 纳入 3.3，总体规划先占位，详细设计后续展开 |
+| E4 | 兼容矩阵和打包校验 | 后三项设计已展开，详见 `plugin-ecosystem-3.3-late-stage-design.md` |
+| E5 | 插件仓库/分发设计 | 后三项设计已展开，详见 `plugin-ecosystem-3.3-late-stage-design.md` |
+| E6 | 管理控制台 sample UI | 后三项设计已展开，详见 `plugin-ecosystem-3.3-late-stage-design.md` |
 
 ## 非目标
 
@@ -90,7 +90,7 @@
 
 ## E4 兼容矩阵和打包校验
 
-3.3 纳入该目标，但前 3 项完成后再展开详细设计。
+3.3 纳入该目标，详细设计见 [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md)，实施追踪见 [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md)。
 
 初始方向：
 
@@ -100,7 +100,7 @@
 
 ## E5 插件仓库/分发设计
 
-3.3 纳入该目标，但前 3 项完成后再展开详细设计。
+3.3 纳入该目标，详细设计见 [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md)，实施追踪见 [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md)。
 
 初始方向：
 
@@ -110,7 +110,7 @@
 
 ## E6 管理控制台 sample UI
 
-3.3 纳入该目标，但前 3 项完成后再展开详细设计。
+3.3 纳入该目标，详细设计见 [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md)，实施追踪见 [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md)。
 
 初始方向：
 
@@ -126,9 +126,9 @@
 | P2 | E1 开发指南重写 | 重写 `plugin-developer-guide.md` 和英文翻译 | 指南覆盖 6 类插件路径和故障排查 |
 | P3 | E2 1.7.0 基线对齐 | 梳理构建脚本、sample 写法和文档术语 | `rg` 检查无旧术语误导，sample 构建命令通过 |
 | P4 | E3 模板/sample 整理 | sample README、模板矩阵、验证命令 | `cross-plugin-jpa`、`saga-outbox`、console 文档闭环 |
-| P5 | E4 兼容矩阵和打包校验设计 | 详细设计和计划 | 明确校验任务、错误码和兼容矩阵格式 |
-| P6 | E5 插件仓库/分发设计 | 详细设计和计划 | 明确 offline-index、release request 和 cache 规则 |
-| P7 | E6 管理控制台 sample UI 设计 | 详细设计和计划 | 明确 UI 边界、API 映射和验收 |
+| P5 | E4 兼容矩阵和打包校验设计 | 已完成详细设计和计划 | 明确校验任务、错误码和兼容矩阵格式 |
+| P6 | E5 插件仓库/分发设计 | 已完成详细设计和计划 | 明确 offline-index、release request 和 cache 规则 |
+| P7 | E6 管理控制台 sample UI 设计 | 已完成详细设计和计划 | 明确 UI 边界、API 映射和验收 |
 
 ## 完成定义
 
@@ -139,4 +139,3 @@
 3. `pf4boot-plugin 1.7.0` 在本仓库中的消费边界明确。
 4. 官方模板矩阵和 sample 职责边界明确。
 5. E4-E6 已进入 3.3 路线图，但不会阻塞前 3 项实施。
-

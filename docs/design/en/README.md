@@ -16,6 +16,8 @@ For new development work, read these first:
 6. [plugin-ecosystem-3.3-roadmap.md](plugin-ecosystem-3.3-roadmap.md): 3.3 plugin ecosystem roadmap.
 7. [plugin-developer-experience-3.3-design.md](plugin-developer-experience-3.3-design.md): first three 3.3 plugin developer experience design topics.
 8. [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md): implementation plan and acceptance for the first three 3.3 topics.
+9. [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md): late-stage 3.3 plugin ecosystem design.
+10. [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md): implementation plan and acceptance for the last three 3.3 topics.
 
 ## By Topic
 
@@ -25,6 +27,7 @@ For new development work, read these first:
 - [plugin-lifecycle.md](plugin-lifecycle.md): lifecycle and cleanup boundaries.
 - [context-and-bean-sharing.md](context-and-bean-sharing.md): context and bean sharing.
 - [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md): loading, repositories, and packaging.
+- [plugin-compatibility-matrix.md](plugin-compatibility-matrix.md): plugin compatibility matrix and package verification report.
 - [starter-boundary-split.md](starter-boundary-split.md): starter boundary split.
 
 ### Web And Management APIs
@@ -63,6 +66,9 @@ For new development work, read these first:
 - [plugin-ecosystem-3.3-roadmap.md](plugin-ecosystem-3.3-roadmap.md): six-goal 3.3 roadmap.
 - [plugin-developer-experience-3.3-design.md](plugin-developer-experience-3.3-design.md): design for the official developer guide, `pf4boot-plugin 1.7.0` baseline, and templates/samples.
 - [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md): implementation phases, acceptance, and tracking for the first three 3.3 topics.
+- [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md): design for compatibility matrix, package verification, plugin repository/distribution, and management console sample UI.
+- [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md): implementation phases, acceptance, and tracking for the last three 3.3 topics.
+- [plugin-compatibility-matrix.md](plugin-compatibility-matrix.md): 3.3 compatibility matrix and sample plugin package verification rules.
 
 ## Governance
 

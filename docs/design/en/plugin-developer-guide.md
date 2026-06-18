@@ -144,6 +144,12 @@ spring:
     plugin-package-trust-manifest-extension: .pf4boot-trust.json
     plugin-capability-precheck-mode: WARN
     plugin-compatibility-precheck-mode: WARN
+    plugin-compatibility-pf4boot-version: 3.3.0
+    plugin-compatibility-pf4boot-plugin-version: 1.7.0
+    plugin-compatibility-spring-boot-version: 2.7.22
+    plugin-compatibility-pf4j-version: 3.15.0
+    plugin-compatibility-jdk-version: 1.8
+    plugin-compatibility-package-format-version: 1
     system-version: 1.0.0
 ```
 
@@ -152,6 +158,8 @@ spring:
 - `ENFORCE`: block plugin loading when verification fails.
 
 The default checksum and trust manifest are sidecar files next to the package, for example `sample-workflow.zip.sha256` and `sample-workflow.zip.pf4boot-trust.json`.
+
+Deployment precheck reads `pf4bootVersionRange`, `pf4bootPluginVersionRange`, `springBootVersionRange`, `pf4jVersionRange`, `jdkVersionRange`, and `packageFormatVersionRange` from the trust manifest. With `plugin-compatibility-precheck-mode=WARN`, mismatches are reported in the deployment plan only. With `ENFORCE`, incompatible packages are blocked before replace.
 
 ## Offline Plugin Repository
 

@@ -16,6 +16,8 @@
 6. [plugin-ecosystem-3.3-roadmap.md](plugin-ecosystem-3.3-roadmap.md)：3.3 插件生态路线图。
 7. [plugin-developer-experience-3.3-design.md](plugin-developer-experience-3.3-design.md)：3.3 前三项插件开发者体验设计。
 8. [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md)：3.3 前三项实施规划与验收。
+9. [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md)：3.3 后三项插件生态设计。
+10. [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md)：3.3 后三项实施规划与验收。
 
 ## 按主题阅读
 
@@ -25,6 +27,7 @@
 - [plugin-lifecycle.md](plugin-lifecycle.md)：生命周期和清理边界。
 - [context-and-bean-sharing.md](context-and-bean-sharing.md)：上下文和 Bean 共享。
 - [plugin-loading-and-packaging.md](plugin-loading-and-packaging.md)：加载、仓库和打包。
+- [plugin-compatibility-matrix.md](plugin-compatibility-matrix.md)：插件兼容矩阵和打包校验报告。
 - [starter-boundary-split.md](starter-boundary-split.md)：starter 边界拆分。
 
 ### Web 与管理接口
@@ -63,6 +66,9 @@
 - [plugin-ecosystem-3.3-roadmap.md](plugin-ecosystem-3.3-roadmap.md)：3.3 六项目标路线图。
 - [plugin-developer-experience-3.3-design.md](plugin-developer-experience-3.3-design.md)：官方开发指南、`pf4boot-plugin 1.7.0` 基线和模板/sample 梳理设计。
 - [plugin-developer-experience-3.3-plan.md](plugin-developer-experience-3.3-plan.md)：3.3 前三项的实施阶段、验收和追踪。
+- [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md)：兼容矩阵、打包校验、插件仓库/分发和管理控制台 sample UI 设计。
+- [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md)：3.3 后三项的实施阶段、验收和追踪。
+- [plugin-compatibility-matrix.md](plugin-compatibility-matrix.md)：3.3 兼容矩阵和 sample 插件包校验规则。
 
 ## 文档治理
 

@@ -48,6 +48,114 @@ task assembleSamplePlugins(type: Copy) {
     into "${buildDir}/sample-plugins"
 }
 
+task verifySamplePluginPackages {
+    group = "verification"
+    description = "Verifies sample plugin package descriptors, bundled host APIs and sidecar metadata."
+    dependsOn assembleSamplePlugins
+
+    def pluginsDir = file("${buildDir}/sample-plugins")
+    def reportFile = file("${buildDir}/reports/plugin-package-verification/result.json")
+    def hostApiPrefixes = [
+            "pf4boot-api-",
+            "pf4boot-core-",
+            "pf4boot-starter-",
+            "pf4boot-web-support-",
+            "pf4boot-web-starter-",
+            "pf4boot-jpa-",
+            "pf4boot-jpa-starter-",
+            "pf4boot-jpa-domain-starter-",
+            "pf4boot-management-starter-",
+            "pf4boot-jpa-management-starter-",
+            "pf4boot-actuator-"
+    ]
+
+    inputs.dir pluginsDir
+    outputs.file reportFile
+
+    doLast {
+        reportFile.parentFile.mkdirs()
+        def packages = pluginsDir.exists()
+                ? pluginsDir.listFiles({ File file -> file.name.endsWith(".zip") } as FileFilter).sort { it.name }
+                : []
+        def packageReports = []
+        packages.each { File pluginZip ->
+            def rules = []
+            def descriptor = new Properties()
+            def bundledLibs = []
+            def zip = new java.util.zip.ZipFile(pluginZip)
+            try {
+                def descriptorEntry = zip.getEntry("plugin.properties")
+                if (descriptorEntry == null) {
+                    rules << rule("DESCRIPTOR_REQUIRED", "ERROR", "FAILED", "plugin.properties is missing")
+                } else {
+                    zip.getInputStream(descriptorEntry).withCloseable { stream ->
+                        descriptor.load(stream)
+                    }
+                    def missing = ["plugin.id", "plugin.version", "plugin.class"].findAll {
+                        !descriptor.getProperty(it)
+                    }
+                    if (missing.isEmpty()) {
+                        rules << rule("DESCRIPTOR_REQUIRED", "ERROR", "PASSED", "plugin.properties contains required fields")
+                    } else {
+                        rules << rule("DESCRIPTOR_REQUIRED", "ERROR", "FAILED", "missing descriptor fields: ${missing.join(',')}")
+                    }
+                }
+                zip.entries().each { entry ->
+                    if (!entry.directory && entry.name.startsWith("lib/") && entry.name.endsWith(".jar")) {
+                        bundledLibs << entry.name.substring("lib/".length())
+                    }
+                }
+            } finally {
+                zip.close()
+            }
+
+            def bundledHostApis = bundledLibs.findAll { lib ->
+                hostApiPrefixes.any { prefix -> lib.startsWith(prefix) }
+            }
+            if (bundledHostApis.isEmpty()) {
+                rules << rule("NO_HOST_API_BUNDLED", "ERROR", "PASSED", "host APIs are not bundled")
+            } else {
+                rules << rule("NO_HOST_API_BUNDLED", "ERROR", "FAILED", "host APIs bundled: ${bundledHostApis.join(',')}")
+            }
+
+            def checksum = new File(pluginZip.parentFile, pluginZip.name + ".sha256")
+            rules << (checksum.exists()
+                    ? rule("CHECKSUM_PRESENT", "WARN", "PASSED", "checksum sidecar exists")
+                    : rule("CHECKSUM_PRESENT", "WARN", "WARN", "checksum sidecar is missing"))
+
+            def trust = new File(pluginZip.parentFile, pluginZip.name + ".pf4boot-trust.json")
+            rules << (trust.exists()
+                    ? rule("TRUST_MANIFEST_PRESENT", "WARN", "PASSED", "trust manifest sidecar exists")
+                    : rule("TRUST_MANIFEST_PRESENT", "WARN", "WARN", "trust manifest sidecar is missing"))
+
+            def state = rules.any { it.severity == "ERROR" && it.state != "PASSED" } ? "FAILED" : "PASSED"
+            packageReports << [
+                    schemaVersion: 1,
+                    pluginId     : descriptor.getProperty("plugin.id", ""),
+                    pluginVersion: descriptor.getProperty("plugin.version", ""),
+                    packagePath  : rootProject.relativePath(pluginZip),
+                    state        : state,
+                    bundledLibs  : bundledLibs,
+                    rules        : rules
+            ]
+        }
+        def overallState = packageReports.any { it.state != "PASSED" } ? "FAILED" : "PASSED"
+        def json = toJson([
+                schemaVersion: 1,
+                generatedAt  : System.currentTimeMillis(),
+                state        : overallState,
+                packages     : packageReports
+        ])
+        reportFile.text = json + System.lineSeparator()
+        if (overallState != "PASSED") {
+            throw new GradleException("Sample plugin package verification failed. See ${reportFile}")
+        }
+        println "Sample plugin package verification report: ${reportFile}"
+    }
+}
+
+assembleSamplePlugins.finalizedBy verifySamplePluginPackages
+
 task runSampleHost(type: JavaExec) {
     group = "application"
     description = "Runs the cross-plugin JPA sample host with assembled plugin zips."
@@ -55,4 +163,32 @@ task runSampleHost(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     main = "net.xdob.sample.host.CrossPluginJpaSampleHost"
     workingDir = rootProject.projectDir
+}
+
+private static Map rule(String name, String severity, String state, String message) {
+    [rule: name, severity: severity, state: state, message: message]
+}
+
+private static String toJson(Object value) {
+    if (value == null) {
+        return "null"
+    }
+    if (value instanceof Map) {
+        return "{" + value.collect { key, item -> quote(key.toString()) + ":" + toJson(item) }.join(",") + "}"
+    }
+    if (value instanceof Iterable) {
+        return "[" + value.collect { item -> toJson(item) }.join(",") + "]"
+    }
+    if (value instanceof Number || value instanceof Boolean) {
+        return value.toString()
+    }
+    return quote(value.toString())
+}
+
+private static String quote(String value) {
+    "\"" + value
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\r", "\\r")
+            .replace("\n", "\\n") + "\""
 }

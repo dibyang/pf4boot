@@ -919,6 +919,34 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
         "springBoot",
         effectiveSpringBootVersion(),
         manifest.getSpringBootVersionRange());
+    checkVersionRange(
+        checks,
+        mode,
+        "PF4J_VERSION_RANGE",
+        "pf4j",
+        effectivePf4jVersion(),
+        manifest.getPf4jVersionRange());
+    checkVersionRange(
+        checks,
+        mode,
+        "PF4BOOT_PLUGIN_VERSION_RANGE",
+        "pf4bootPlugin",
+        effectivePf4bootPluginVersion(),
+        manifest.getPf4bootPluginVersionRange());
+    checkVersionRange(
+        checks,
+        mode,
+        "JDK_VERSION_RANGE",
+        "jdk",
+        effectiveJdkVersion(),
+        manifest.getJdkVersionRange());
+    checkVersionRange(
+        checks,
+        mode,
+        "PACKAGE_FORMAT_VERSION_RANGE",
+        "packageFormat",
+        effectivePackageFormatVersion(),
+        manifest.getPackageFormatVersionRange());
   }
 
   private void checkVersionRange(
@@ -972,6 +1000,30 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
     }
     String version = org.springframework.boot.SpringBootVersion.getVersion();
     return isBlank(version) ? "0.0.0" : version;
+  }
+
+  private String effectivePf4jVersion() {
+    return isBlank(properties.getPluginCompatibilityPf4jVersion())
+        ? "3.15.0"
+        : properties.getPluginCompatibilityPf4jVersion();
+  }
+
+  private String effectivePf4bootPluginVersion() {
+    return isBlank(properties.getPluginCompatibilityPf4bootPluginVersion())
+        ? "1.7.0"
+        : properties.getPluginCompatibilityPf4bootPluginVersion();
+  }
+
+  private String effectiveJdkVersion() {
+    return isBlank(properties.getPluginCompatibilityJdkVersion())
+        ? "1.8"
+        : properties.getPluginCompatibilityJdkVersion();
+  }
+
+  private String effectivePackageFormatVersion() {
+    return isBlank(properties.getPluginCompatibilityPackageFormatVersion())
+        ? "1"
+        : properties.getPluginCompatibilityPackageFormatVersion();
   }
 
   private List<PluginCapability> availableCapabilities(String targetPluginId) {

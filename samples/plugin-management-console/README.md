@@ -14,7 +14,9 @@
 可以复制的内容：
 
 - token header、`X-Idempotency-Key` 和错误响应处理模式。
-- 插件列表、生命周期操作、deployment plan 的 HTTP 调用形状。
+- 插件列表、生命周期操作、deployment plan/replace/confirm/rollback 的 HTTP 调用形状。
+- repository release dry-run/replace 字段，包括 `repositoryVersion`、`repositoryVersionRange`、`repositoryRollback`。
+- JPA reload plan/execute/current/record 的 HTTP 调用形状。
 - Actuator 摘要读取和前端展示边界。
 
 不建议直接复制的内容：
@@ -31,11 +33,14 @@
 
 - 插件列表和 Actuator 摘要读取。
 - 插件 start/stop/restart/reload/enable/disable。
-- deployment plan。
+- deployment plan/replace/confirm/rollback。
+- repository release dry-run/replace。
+- JPA reload plan/execute/current/record。
+- 401/403、409、precheck failed、manual intervention 等统一错误展示。
 - 写操作自动携带 token 和 `X-Idempotency-Key`。
 
 ## 3.3 后续目标
 
-- 补齐 replace、rollback、JPA reload、审计和错误展示。
+- 如需继续增强，可增加 headless UI smoke，把静态契约测试升级为真实浏览器交互验证。
 - 保持 sample 或独立项目边界，不进入 core/starter 发布模块。
 - 与 `docs/design/plugin-developer-experience-3.3-plan.md` 的 `management-client` 模板验收保持一致。

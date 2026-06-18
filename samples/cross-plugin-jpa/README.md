@@ -61,6 +61,14 @@
   :samples:cross-plugin-jpa:demo-host:assembleSamplePlugins
 ```
 
+`assembleSamplePlugins` 会自动执行 `verifySamplePluginPackages`，生成插件包校验报告：
+
+```text
+samples/cross-plugin-jpa/demo-host/build/reports/plugin-package-verification/result.json
+```
+
+该报告检查 `plugin.properties` 必填字段、host API 是否被误打进插件包，以及 checksum/trust sidecar 是否存在。
+
 ## 运行日志
 
 `app-run` 和 RPM 安装后的服务默认写文件日志：

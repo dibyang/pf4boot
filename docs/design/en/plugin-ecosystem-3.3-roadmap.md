@@ -15,9 +15,9 @@ The root build already uses `net.xdob.pf4boot:pf4boot-plugin:1.7.0`. The user co
 | E1 | Rewrite the official plugin developer guide | First batch; provide type-oriented development paths and migration guidance |
 | E2 | Align with the `pf4boot-plugin 1.7.0` baseline | First batch; define how docs, samples, and build scripts consume 1.7.0 |
 | E3 | Organize official templates and complex samples | First batch; define the template matrix, sample layering, and verification commands |
-| E4 | Compatibility matrix and package verification | Included in 3.3; detailed design follows after E1-E3 |
-| E5 | Plugin repository and distribution design | Included in 3.3; detailed design follows after E1-E3 |
-| E6 | Management console sample UI | Included in 3.3; detailed design follows after E1-E3 |
+| E4 | Compatibility matrix and package verification | Late-stage design expanded in `plugin-ecosystem-3.3-late-stage-design.md` |
+| E5 | Plugin repository and distribution design | Late-stage design expanded in `plugin-ecosystem-3.3-late-stage-design.md` |
+| E6 | Management console sample UI | Late-stage design expanded in `plugin-ecosystem-3.3-late-stage-design.md` |
 
 ## Non-Goals
 
@@ -78,7 +78,7 @@ The goal is to make samples both capability demonstrations and template sources.
 
 ## E4 Compatibility Matrix And Package Verification
 
-Included in 3.3, with detailed design after the first three goals.
+Included in 3.3. Detailed design: [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md). Implementation tracking: [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md).
 
 Initial direction:
 
@@ -88,7 +88,7 @@ Initial direction:
 
 ## E5 Plugin Repository And Distribution
 
-Included in 3.3, with detailed design after the first three goals.
+Included in 3.3. Detailed design: [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md). Implementation tracking: [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md).
 
 Initial direction:
 
@@ -98,7 +98,7 @@ Initial direction:
 
 ## E6 Management Console Sample UI
 
-Included in 3.3, with detailed design after the first three goals.
+Included in 3.3. Detailed design: [plugin-ecosystem-3.3-late-stage-design.md](plugin-ecosystem-3.3-late-stage-design.md). Implementation tracking: [plugin-ecosystem-3.3-late-stage-plan.md](plugin-ecosystem-3.3-late-stage-plan.md).
 
 Initial direction:
 
@@ -114,9 +114,9 @@ Initial direction:
 | P2 | E1 developer guide rewrite | Rewritten `plugin-developer-guide.md` and translation | Six plugin paths and troubleshooting covered |
 | P3 | E2 1.7.0 baseline alignment | Build script, sample style, and terminology alignment | No misleading legacy terminology; sample commands pass |
 | P4 | E3 template/sample organization | Sample READMEs, template matrix, verification commands | cross-plugin-jpa, saga-outbox, and console docs close the loop |
-| P5 | E4 detailed design | Design and plan | Check tasks, error codes, and matrix format defined |
-| P6 | E5 detailed design | Design and plan | offline-index, release request, and cache rules defined |
-| P7 | E6 detailed design | Design and plan | UI boundary, API mapping, and acceptance defined |
+| P5 | E4 detailed design | Detailed design and plan completed | Check tasks, error codes, and matrix format defined |
+| P6 | E5 detailed design | Detailed design and plan completed | offline-index, release request, and cache rules defined |
+| P7 | E6 detailed design | Detailed design and plan completed | UI boundary, API mapping, and acceptance defined |
 
 ## Definition Of Done
 
@@ -127,4 +127,3 @@ The first 3.3 batch is complete when:
 3. The `pf4boot-plugin 1.7.0` consumption boundary is clear.
 4. The official template matrix and sample responsibilities are clear.
 5. E4-E6 are included in the 3.3 roadmap but do not block E1-E3 implementation.
-

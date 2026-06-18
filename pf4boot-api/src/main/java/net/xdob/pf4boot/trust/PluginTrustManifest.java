@@ -20,6 +20,10 @@ public class PluginTrustManifest {
   private String packageSha256;
   private String pf4bootVersionRange;
   private String springBootVersionRange;
+  private String pf4jVersionRange;
+  private String pf4bootPluginVersionRange;
+  private String jdkVersionRange;
+  private String packageFormatVersionRange;
   private PluginSignatureMetadata signature;
   private List<PluginCapability> providedCapabilities = new ArrayList<>();
   private List<PluginCapabilityRequirement> requiredCapabilities = new ArrayList<>();
@@ -62,6 +66,38 @@ public class PluginTrustManifest {
 
   public void setSpringBootVersionRange(String springBootVersionRange) {
     this.springBootVersionRange = springBootVersionRange;
+  }
+
+  public String getPf4jVersionRange() {
+    return pf4jVersionRange;
+  }
+
+  public void setPf4jVersionRange(String pf4jVersionRange) {
+    this.pf4jVersionRange = pf4jVersionRange;
+  }
+
+  public String getPf4bootPluginVersionRange() {
+    return pf4bootPluginVersionRange;
+  }
+
+  public void setPf4bootPluginVersionRange(String pf4bootPluginVersionRange) {
+    this.pf4bootPluginVersionRange = pf4bootPluginVersionRange;
+  }
+
+  public String getJdkVersionRange() {
+    return jdkVersionRange;
+  }
+
+  public void setJdkVersionRange(String jdkVersionRange) {
+    this.jdkVersionRange = jdkVersionRange;
+  }
+
+  public String getPackageFormatVersionRange() {
+    return packageFormatVersionRange;
+  }
+
+  public void setPackageFormatVersionRange(String packageFormatVersionRange) {
+    this.packageFormatVersionRange = packageFormatVersionRange;
   }
 
   public PluginSignatureMetadata getSignature() {

@@ -14,6 +14,7 @@
       --band: #f4f6f9;
       --accent: #1167b1;
       --danger: #b42318;
+      --ok: #067647;
     }
     * { box-sizing: border-box; }
     body {
@@ -23,39 +24,32 @@
       background: var(--band);
     }
     header {
-      padding: 18px 24px;
-      background: #ffffff;
+      padding: 16px 22px;
+      background: #fff;
       border-bottom: 1px solid var(--line);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      gap: 14px;
     }
     h1 { font-size: 20px; margin: 0; letter-spacing: 0; }
-    main { padding: 20px 24px 32px; max-width: 1280px; margin: 0 auto; }
-    .toolbar {
-      display: grid;
-      grid-template-columns: minmax(220px, 1fr) minmax(180px, 280px) auto;
-      gap: 10px;
-      align-items: end;
-      margin-bottom: 18px;
-    }
+    main { padding: 18px 22px 30px; max-width: 1380px; margin: 0 auto; }
     label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
     input, select, textarea {
       width: 100%;
       border: 1px solid var(--line);
       background: #fff;
       color: var(--ink);
-      padding: 9px 10px;
+      padding: 8px 9px;
       border-radius: 6px;
       font: inherit;
     }
-    textarea { min-height: 84px; resize: vertical; }
+    textarea { min-height: 72px; resize: vertical; }
     button {
       border: 1px solid var(--accent);
       background: var(--accent);
       color: #fff;
-      padding: 9px 12px;
+      padding: 8px 11px;
       border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
@@ -63,30 +57,38 @@
     }
     button.secondary { background: #fff; color: var(--accent); }
     button.danger { background: var(--danger); border-color: var(--danger); }
+    button.ok { background: var(--ok); border-color: var(--ok); }
     section {
       background: var(--panel);
       border: 1px solid var(--line);
       border-radius: 8px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       overflow: hidden;
     }
     section h2 {
       font-size: 15px;
       margin: 0;
-      padding: 12px 14px;
+      padding: 11px 13px;
       border-bottom: 1px solid var(--line);
       background: #fbfcfe;
     }
-    .section-body { padding: 14px; }
-    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    .section-body { padding: 13px; }
+    .toolbar, .grid-2, .grid-3 {
+      display: grid;
+      gap: 12px;
+      align-items: end;
+    }
+    .toolbar { grid-template-columns: minmax(220px, 1fr) minmax(180px, 260px) auto auto; }
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .actions { display: flex; gap: 7px; flex-wrap: wrap; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { border-bottom: 1px solid var(--line); padding: 8px; text-align: left; vertical-align: top; }
     th { color: var(--muted); font-weight: 600; background: #fbfcfe; }
     pre {
       margin: 0;
-      min-height: 140px;
-      max-height: 360px;
+      min-height: 180px;
+      max-height: 420px;
       overflow: auto;
       background: #101828;
       color: #e6edf7;
@@ -95,10 +97,12 @@
       font-size: 12px;
       line-height: 1.45;
     }
-    @media (max-width: 760px) {
+    .hint { color: var(--muted); font-size: 12px; margin-top: 8px; }
+    .status { font-size: 12px; color: var(--muted); }
+    @media (max-width: 900px) {
       header { align-items: flex-start; flex-direction: column; }
       main { padding: 14px; }
-      .toolbar, .grid { grid-template-columns: 1fr; }
+      .toolbar, .grid-2, .grid-3 { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -107,21 +111,26 @@
   <h1>PF4Boot 管理控制台</h1>
   <div class="actions">
     <button class="secondary" onclick="loadPlugins()">刷新插件</button>
+    <button class="secondary" onclick="loadDeployments()">刷新部署</button>
     <button class="secondary" onclick="loadActuator()">刷新观测</button>
   </div>
 </header>
 <main>
-  <div class="toolbar">
-    <div>
-      <label for="apiBase">API Base</label>
-      <input id="apiBase" value="http://127.0.0.1:7791">
+  <section>
+    <h2>连接</h2>
+    <div class="section-body toolbar">
+      <div>
+        <label for="apiBase">API Base</label>
+        <input id="apiBase" value="http://127.0.0.1:7791">
+      </div>
+      <div>
+        <label for="token">Admin Token</label>
+        <input id="token" value="sample-token" autocomplete="off">
+      </div>
+      <button onclick="loadAll()">连接</button>
+      <button class="secondary" onclick="clearOutput()">清空结果</button>
     </div>
-    <div>
-      <label for="token">Admin Token</label>
-      <input id="token" value="sample-token">
-    </div>
-    <button onclick="loadAll()">连接</button>
-  </div>
+  </section>
 
   <section>
     <h2>插件</h2>
@@ -133,33 +142,105 @@
     </div>
   </section>
 
-  <div class="grid">
-    <section>
-      <h2>部署预检</h2>
-      <div class="section-body">
-        <label for="deployPlugin">Plugin ID</label>
-        <input id="deployPlugin" value="sample-workflow">
-        <label for="deployPath">Staged Plugin Path</label>
-        <input id="deployPath" value="plugin-workflow-3.1.0.zip">
-        <div class="actions" style="margin-top:10px">
-          <button onclick="deploymentPlan()">生成计划</button>
+  <section>
+    <h2>部署</h2>
+    <div class="section-body">
+      <div class="grid-3">
+        <div>
+          <label for="deployPlugin">Plugin ID</label>
+          <input id="deployPlugin" value="sample-workflow">
+        </div>
+        <div>
+          <label for="deployPath">Staged Plugin Path</label>
+          <input id="deployPath" value="plugin-workflow-3.3.0-SNAPSHOT.zip">
+        </div>
+        <div>
+          <label for="deploymentId">Deployment ID</label>
+          <input id="deploymentId" placeholder="plan/replace 后填入或手工输入">
         </div>
       </div>
-    </section>
-  </div>
+      <div class="grid-3" style="margin-top:10px">
+        <div>
+          <label for="repositoryVersion">Repository Version</label>
+          <input id="repositoryVersion" placeholder="3.3.0">
+        </div>
+        <div>
+          <label for="repositoryVersionRange">Repository Version Range</label>
+          <input id="repositoryVersionRange" placeholder="[3.3.0,3.4.0)">
+        </div>
+        <div>
+          <label for="repositoryRollback">Repository Rollback</label>
+          <select id="repositoryRollback">
+            <option value="false">false</option>
+            <option value="true">true</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button onclick="deploymentPlan(false)">Staged Plan</button>
+        <button class="ok" onclick="deploymentReplace(false)">Staged Replace</button>
+        <button onclick="deploymentPlan(true)">Repository Plan</button>
+        <button class="ok" onclick="deploymentReplace(true)">Repository Replace</button>
+        <button class="secondary" onclick="confirmDeployment()">Confirm</button>
+        <button class="danger" onclick="rollbackDeployment()">Rollback</button>
+        <button class="secondary" onclick="loadDeployments()">Records</button>
+      </div>
+      <div class="hint">真实执行会发送 <code>dryRun=false</code>，并自动生成 <code>X-Idempotency-Key</code>。</div>
+    </div>
+  </section>
 
   <section>
-    <h2>观测</h2>
+    <h2>JPA Reload</h2>
     <div class="section-body">
-      <div class="actions">
-        <button class="secondary" onclick="loadActuator()">读取 Actuator</button>
-        <button class="secondary" onclick="loadMetrics()">读取 Metrics</button>
+      <div class="grid-3">
+        <div>
+          <label for="jpaDomain">Domain ID</label>
+          <input id="jpaDomain" value="demo">
+        </div>
+        <div>
+          <label for="jpaMode">Mode</label>
+          <select id="jpaMode">
+            <option value="PLAN_ONLY">PLAN_ONLY</option>
+            <option value="STOP_CONSUMERS_AND_REBUILD">STOP_CONSUMERS_AND_REBUILD</option>
+          </select>
+        </div>
+        <div>
+          <label for="reloadId">Reload ID</label>
+          <input id="reloadId" placeholder="reload 后填入或手工输入">
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:10px">
+        <div>
+          <label for="providerReplacementPath">Provider Replacement Path</label>
+          <input id="providerReplacementPath" placeholder="可选 staged provider zip">
+        </div>
+        <div>
+          <label for="reloadReason">Reason</label>
+          <input id="reloadReason" value="console-request">
+        </div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button onclick="jpaReloadPlan()">Plan</button>
+        <button class="ok" onclick="jpaReloadExecute()">Execute</button>
+        <button class="secondary" onclick="jpaReloadCurrent()">Current</button>
+        <button class="secondary" onclick="jpaReloadRecord()">Record</button>
       </div>
     </div>
   </section>
 
   <section>
-    <h2>结果</h2>
+    <h2>观测</h2>
+    <div class="section-body">
+      <div class="actions">
+        <button class="secondary" onclick="loadActuator()">Governance</button>
+        <button class="secondary" onclick="loadJpaActuator()">JPA Reload Actuator</button>
+        <button class="secondary" onclick="loadMetrics()">Metrics</button>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>结果 <span id="lastStatus" class="status"></span></h2>
     <div class="section-body"><pre id="output">{}</pre></div>
   </section>
 </main>
@@ -169,8 +250,27 @@
   const token = () => byId('token').value;
   const idempotencyKey = prefix => prefix + '-' + Date.now() + '-' + Math.random().toString(16).slice(2);
 
-  function show(data) {
+  function text(value) {
+    return value == null ? '' : String(value).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function show(data, status) {
     byId('output').textContent = JSON.stringify(data, null, 2);
+    byId('lastStatus').textContent = status || '';
+    rememberIds(data);
+  }
+
+  function clearOutput() {
+    show({});
+  }
+
+  function rememberIds(payload) {
+    const data = payload && payload.data ? payload.data : payload;
+    if (!data) return;
+    if (data.deploymentId) byId('deploymentId').value = data.deploymentId;
+    if (data.reloadId) byId('reloadId').value = data.reloadId;
   }
 
   async function api(path, options = {}) {
@@ -179,72 +279,165 @@
     if (options.write) headers['X-Idempotency-Key'] = idempotencyKey(options.idempotencyPrefix || 'console');
     if (options.body) headers['Content-Type'] = 'application/json';
     const response = await fetch(apiBase() + path, Object.assign({}, options, { headers }));
-    const text = await response.text();
-    const body = text ? JSON.parse(text) : null;
-    if (!response.ok) throw body || new Error('HTTP ' + response.status);
+    const raw = await response.text();
+    let body = raw;
+    try { body = raw ? JSON.parse(raw) : null; } catch (ignored) {}
+    if (!response.ok) {
+      show(body || { status: response.status }, 'HTTP ' + response.status);
+      throw body || new Error('HTTP ' + response.status);
+    }
     return body;
   }
 
+  async function guarded(action) {
+    try {
+      const result = await action();
+      show(result, result && result.code ? result.code : 'OK');
+      return result;
+    } catch (error) {
+      if (error && error.code) return error;
+      show({ error: String(error && error.message ? error.message : error) }, 'ERROR');
+      return null;
+    }
+  }
+
   async function loadPlugins() {
-    const result = await api('/pf4boot/admin/plugins');
-    const rows = (result.data || result.plugins || []).map(plugin => {
-      const id = plugin.pluginId || plugin.id;
-      return `<tr><td>${id || ''}</td><td>${plugin.version || ''}</td><td>${plugin.state || ''}</td><td class="actions"><button class="secondary" onclick="startPlugin('${id}')">启动</button><button class="danger" onclick="stopPlugin('${id}')">停止</button><button class="secondary" onclick="restartPlugin('${id}')">重启</button><button class="secondary" onclick="reloadPlugin('${id}')">Reload</button><button class="secondary" onclick="enablePlugin('${id}')">启用</button><button class="secondary" onclick="disablePlugin('${id}')">禁用</button></td></tr>`;
+    const result = await guarded(() => api('/pf4boot/admin/plugins'));
+    const rows = ((result && result.data) || []).map(plugin => {
+      const id = plugin.pluginId || plugin.id || '';
+      const safeId = text(id);
+      return `<tr><td>${safeId}</td><td>${text(plugin.version)}</td><td>${text(plugin.state)}</td><td class="actions">` +
+        `<button class="secondary" onclick="pluginAction('${safeId}','start')">启动</button>` +
+        `<button class="danger" onclick="pluginAction('${safeId}','stop')">停止</button>` +
+        `<button class="secondary" onclick="pluginAction('${safeId}','restart')">重启</button>` +
+        `<button class="secondary" onclick="pluginAction('${safeId}','reload')">Reload</button>` +
+        `<button class="secondary" onclick="pluginAction('${safeId}','enable')">启用</button>` +
+        `<button class="secondary" onclick="disablePlugin('${safeId}')">禁用</button>` +
+        `</td></tr>`;
     }).join('');
     byId('plugins').innerHTML = rows || '<tr><td colspan="4">无数据</td></tr>';
-    show(result);
   }
 
-  async function startPlugin(pluginId) {
-    show(await api('/pf4boot/admin/plugins/' + pluginId + '/start', { method: 'POST', write: true, idempotencyPrefix: 'start' }));
-    await loadPlugins();
-  }
-
-  async function stopPlugin(pluginId) {
-    show(await api('/pf4boot/admin/plugins/' + pluginId + '/stop', { method: 'POST', write: true, idempotencyPrefix: 'stop' }));
-    await loadPlugins();
-  }
-
-  async function restartPlugin(pluginId) {
-    show(await api('/pf4boot/admin/plugins/' + pluginId + '/restart', { method: 'POST', write: true, idempotencyPrefix: 'restart' }));
-    await loadPlugins();
-  }
-
-  async function reloadPlugin(pluginId) {
-    show(await api('/pf4boot/admin/plugins/' + pluginId + '/reload', { method: 'POST', write: true, idempotencyPrefix: 'reload' }));
-    await loadPlugins();
-  }
-
-  async function enablePlugin(pluginId) {
-    show(await api('/pf4boot/admin/plugins/' + pluginId + '/enable', { method: 'POST', write: true, idempotencyPrefix: 'enable' }));
+  async function pluginAction(pluginId, action) {
+    await guarded(() => api('/pf4boot/admin/plugins/' + encodeURIComponent(pluginId) + '/' + action, {
+      method: 'POST', write: true, idempotencyPrefix: 'plugin-' + action
+    }));
     await loadPlugins();
   }
 
   async function disablePlugin(pluginId) {
-    show(await api('/pf4boot/admin/plugins/' + pluginId + '/enable', { method: 'DELETE', write: true, idempotencyPrefix: 'disable' }));
+    await guarded(() => api('/pf4boot/admin/plugins/' + encodeURIComponent(pluginId) + '/enable', {
+      method: 'DELETE', write: true, idempotencyPrefix: 'plugin-disable'
+    }));
     await loadPlugins();
   }
 
-  async function deploymentPlan() {
-    show(await api('/pf4boot/admin/deployments/plan', {
+  function deploymentBody(repository) {
+    const body = {
+      pluginId: byId('deployPlugin').value,
+      dryRun: true
+    };
+    if (repository) {
+      if (byId('repositoryVersion').value) body.repositoryVersion = byId('repositoryVersion').value;
+      if (byId('repositoryVersionRange').value) body.repositoryVersionRange = byId('repositoryVersionRange').value;
+      body.repositoryRollback = byId('repositoryRollback').value === 'true';
+    } else {
+      body.stagedPluginPath = byId('deployPath').value;
+    }
+    return body;
+  }
+
+  async function deploymentPlan(repository) {
+    await guarded(() => api('/pf4boot/admin/deployments/plan', {
       method: 'POST',
       write: true,
-      idempotencyPrefix: 'deploy-plan',
-      body: JSON.stringify({ pluginId: byId('deployPlugin').value, stagedPluginPath: byId('deployPath').value, dryRun: true })
+      idempotencyPrefix: repository ? 'repo-plan' : 'deploy-plan',
+      body: JSON.stringify(deploymentBody(repository))
     }));
   }
 
+  async function deploymentReplace(repository) {
+    const body = deploymentBody(repository);
+    body.dryRun = false;
+    await guarded(() => api('/pf4boot/admin/deployments/replace', {
+      method: 'POST',
+      write: true,
+      idempotencyPrefix: repository ? 'repo-replace' : 'deploy-replace',
+      body: JSON.stringify(body)
+    }));
+    await loadDeployments();
+  }
+
+  async function confirmDeployment() {
+    const id = byId('deploymentId').value;
+    await guarded(() => api('/pf4boot/admin/deployments/' + encodeURIComponent(id) + '/confirm', {
+      method: 'POST', write: true, idempotencyPrefix: 'deploy-confirm'
+    }));
+  }
+
+  async function rollbackDeployment() {
+    const id = byId('deploymentId').value;
+    await guarded(() => api('/pf4boot/admin/deployments/' + encodeURIComponent(id) + '/rollback', {
+      method: 'POST', write: true, idempotencyPrefix: 'deploy-rollback'
+    }));
+  }
+
+  async function loadDeployments() {
+    await guarded(() => api('/pf4boot/admin/deployments'));
+  }
+
+  function jpaReloadBody(execute) {
+    const body = {
+      domainId: byId('jpaDomain').value,
+      mode: byId('jpaMode').value,
+      reason: byId('reloadReason').value
+    };
+    if (byId('providerReplacementPath').value) {
+      body.providerReplacementPath = byId('providerReplacementPath').value;
+    }
+    if (!execute) body.dryRun = true;
+    return body;
+  }
+
+  async function jpaReloadPlan() {
+    const domain = encodeURIComponent(byId('jpaDomain').value);
+    await guarded(() => api('/pf4boot/admin/jpa/domains/' + domain + '/reload/plan', {
+      method: 'POST', write: true, idempotencyPrefix: 'jpa-plan', body: JSON.stringify(jpaReloadBody(false))
+    }));
+  }
+
+  async function jpaReloadExecute() {
+    const domain = encodeURIComponent(byId('jpaDomain').value);
+    await guarded(() => api('/pf4boot/admin/jpa/domains/' + domain + '/reload', {
+      method: 'POST', write: true, idempotencyPrefix: 'jpa-reload', body: JSON.stringify(jpaReloadBody(true))
+    }));
+  }
+
+  async function jpaReloadCurrent() {
+    const domain = encodeURIComponent(byId('jpaDomain').value);
+    await guarded(() => api('/pf4boot/admin/jpa/domains/' + domain + '/reload/current'));
+  }
+
+  async function jpaReloadRecord() {
+    const id = byId('reloadId').value;
+    await guarded(() => api('/pf4boot/admin/jpa/reloads/' + encodeURIComponent(id)));
+  }
+
   async function loadActuator() {
-    const governance = await api('/actuator/pf4bootgovernance', { admin: false });
-    show({ governance });
+    await guarded(() => api('/actuator/pf4bootgovernance', { admin: false }));
+  }
+
+  async function loadJpaActuator() {
+    await guarded(() => api('/actuator/pf4bootjpareload', { admin: false }));
   }
 
   async function loadMetrics() {
-    show(await api('/actuator/metrics/pf4boot.management.request.total', { admin: false }));
+    await guarded(() => api('/actuator/metrics/pf4boot.management.request.total', { admin: false }));
   }
 
   async function loadAll() {
     await loadPlugins();
+    await loadDeployments();
     await loadActuator();
   }
 </script>
