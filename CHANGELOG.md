@@ -6,6 +6,45 @@
 
 暂无。
 
+## 3.2.0 - 2026-06-18
+
+### Added
+
+- 新增下一版本生产化目标和设计文档，明确 JPA 运行时刷新、热替换部署事务、HTTP 管理治理、资源清理诊断和 runtime smoke 验收的发布范围。
+- 新增 `PluginCleanupSummary`，用于在部署记录和 JPA reload 记录中暴露资源清理摘要。
+- JPA reload 管理接口新增独立权限点：`JPA_RELOAD_PLAN`、`JPA_RELOAD_EXECUTE`、`JPA_RELOAD_QUERY`。
+- `PluginDeploymentService` 新增兼容 default 方法：`getRecord`、`rollback(String)` 和 `rollback(DeploymentRecord)`。
+
+### Changed
+
+- JPA reload 执行接口接入写请求安全校验、幂等、operation record、审计和失败记录。
+- JPA provider replacement summary 新增 `errorCode` 字段，并保留旧构造器和旧记录兼容。
+- `DefaultPluginDeploymentService` 支持部署记录查询和显式 rollback，并在热替换成功路径记录 cleanup summary。
+- `samples/cross-plugin-jpa:app-run:runtimeSmoke` 扩展覆盖部署失败预检、JPA reload、provider replacement、drain timeout、record persistence、Actuator 汇总和无关插件隔离。
+
+### Fixed
+
+- `samples/cross-plugin-jpa:app-run:assembleSampleRuntime` 每次清理完整 runtime 输出目录，避免旧版本 jar 污染 `lib/*` 类路径。
+- JPA reload 文件记录仓库补充 provider replacement summary、cleanup summary、latest 和 idempotency 恢复相关测试覆盖。
+
+### Compatibility
+
+- 继续保持 Java 8 兼容。
+- 新增 JPA reload 管理权限会影响自定义 `PluginManagementAuthorizer`；默认本地 token authorizer 已放行。
+- `PluginDeploymentService` 新增方法均为 default method，不破坏二进制兼容。
+- `DeploymentRecord`、`JpaDomainReloadRecord`、`JpaProviderReplacementSummary` 新增字段均保持旧构造器兼容；旧 JSON 记录缺失新增字段时按 `null` 处理。
+
+### Verification
+
+发布前建议执行：
+
+```powershell
+.\gradlew.bat build
+.\gradlew.bat :pf4boot-core:test :pf4boot-management-starter:test :pf4boot-jpa-starter:test :pf4boot-jpa-management-starter:test --rerun-tasks
+.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke
+.\gradlew.bat publishToMavenLocal
+```
+
 ## 3.1.0 - 2026-06-17
 
 ### Added
