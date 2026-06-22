@@ -51,6 +51,11 @@ public class Pf4bootProperties {
    */
   private boolean pluginPackageSignatureRequired = false;
   /**
+   * Requires cryptographic signature verification when signature metadata is
+   * present. Production profile enables this effective gate.
+   */
+  private boolean pluginPackageSignatureVerificationRequired = false;
+  /**
    * Plugin capability precheck mode before deployment replacement.
    */
   private PluginPackageVerificationMode pluginCapabilityPrecheckMode = PluginPackageVerificationMode.DISABLED;
@@ -127,6 +132,11 @@ public class Pf4bootProperties {
    * Plugin trust root identifiers (预留：后续可用于签名根密钥映射).
    */
   private String[] pluginPackageTrustRoots = new String[0];
+  /**
+   * Public keys bound by trust root id. Values may be PEM public keys or raw
+   * base64 X.509 SubjectPublicKeyInfo content.
+   */
+  private Map<String, String> pluginPackageTrustRootPublicKeys = new HashMap<>();
   /**
    * Strategy for dynamically registered bean name conflicts.
    */
@@ -254,6 +264,14 @@ public class Pf4bootProperties {
 
   public void setPluginPackageSignatureRequired(boolean pluginPackageSignatureRequired) {
     this.pluginPackageSignatureRequired = pluginPackageSignatureRequired;
+  }
+
+  public boolean isPluginPackageSignatureVerificationRequired() {
+    return productionProfileEnabled || pluginPackageSignatureVerificationRequired;
+  }
+
+  public void setPluginPackageSignatureVerificationRequired(boolean pluginPackageSignatureVerificationRequired) {
+    this.pluginPackageSignatureVerificationRequired = pluginPackageSignatureVerificationRequired;
   }
 
   public PluginPackageVerificationMode getPluginCapabilityPrecheckMode() {
@@ -442,6 +460,16 @@ public class Pf4bootProperties {
 
   public void setPluginPackageTrustRoots(String[] pluginPackageTrustRoots) {
     this.pluginPackageTrustRoots = pluginPackageTrustRoots == null ? new String[0] : pluginPackageTrustRoots;
+  }
+
+  public Map<String, String> getPluginPackageTrustRootPublicKeys() {
+    return pluginPackageTrustRootPublicKeys;
+  }
+
+  public void setPluginPackageTrustRootPublicKeys(Map<String, String> pluginPackageTrustRootPublicKeys) {
+    this.pluginPackageTrustRootPublicKeys = pluginPackageTrustRootPublicKeys == null
+        ? new HashMap<String, String>()
+        : new HashMap<>(pluginPackageTrustRootPublicKeys);
   }
 
   public DynamicBeanConflictPolicy getDynamicBeanConflictPolicy() {

@@ -25,6 +25,7 @@ public class PluginTrustManifest {
   private String jdkVersionRange;
   private String packageFormatVersionRange;
   private PluginSignatureMetadata signature;
+  private String signaturePayload;
   private List<PluginCapability> providedCapabilities = new ArrayList<>();
   private List<PluginCapabilityRequirement> requiredCapabilities = new ArrayList<>();
 
@@ -106,6 +107,14 @@ public class PluginTrustManifest {
 
   public void setSignature(PluginSignatureMetadata signature) {
     this.signature = signature;
+  }
+
+  public String getSignaturePayload() {
+    return signaturePayload;
+  }
+
+  public void setSignaturePayload(String signaturePayload) {
+    this.signaturePayload = signaturePayload;
   }
 
   public List<PluginCapability> getProvidedCapabilities() {

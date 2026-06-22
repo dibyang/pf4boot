@@ -27,9 +27,13 @@ import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
+import java.security.Signature;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -272,7 +276,8 @@ public class DefaultPluginDeploymentServiceTest {
     Files.createDirectories(packagePath.getParent());
     Files.write(packagePath, "base".getBytes("UTF-8"));
     pluginManager.addStagedDescriptor(packagePath, descriptor("base", "2.0.0"));
-    writeProductionTrustManifest(packagePath, "base", "2.0.0", sha256(packagePath), "release-key");
+    KeyPair keyPair = rsaKeyPair();
+    writeProductionTrustManifest(packagePath, "base", "2.0.0", sha256(packagePath), "release-key", keyPair);
     writeRepositoryIndex(
         repositoryRoot,
         "base",
@@ -302,7 +307,8 @@ public class DefaultPluginDeploymentServiceTest {
     Files.createDirectories(packagePath.getParent());
     Files.write(packagePath, "base".getBytes("UTF-8"));
     pluginManager.addStagedDescriptor(packagePath, descriptor("base", "2.0.0"));
-    writeProductionTrustManifest(packagePath, "base", "2.0.0", sha256(packagePath), "release-key");
+    KeyPair keyPair = rsaKeyPair();
+    writeProductionTrustManifest(packagePath, "base", "2.0.0", sha256(packagePath), "release-key", keyPair);
     writeRepositoryIndex(
         repositoryRoot,
         "base",
@@ -314,6 +320,7 @@ public class DefaultPluginDeploymentServiceTest {
         true);
     Pf4bootProperties properties = productionRepositoryProperties(repositoryRoot, cacheRoot);
     properties.setPluginRepositoryReplaceEnabled(true);
+    properties.setPluginPackageTrustRootPublicKeys(Collections.singletonMap("release-key", pemPublicKey(keyPair)));
 
     DeploymentRecord record = service(properties).replace(releaseRequest("base", "2.0.0"));
 
@@ -805,18 +812,50 @@ public class DefaultPluginDeploymentServiceTest {
       String version,
       String sha256,
       String keyId) throws Exception {
-    String json = "{"
+    writeProductionTrustManifest(pluginPath, pluginId, version, sha256, keyId, null);
+  }
+
+  private void writeProductionTrustManifest(
+      Path pluginPath,
+      String pluginId,
+      String version,
+      String sha256,
+      String keyId,
+      KeyPair keyPair) throws Exception {
+    String payload = "{"
         + "\"pluginId\":\"" + pluginId + "\","
         + "\"pluginVersion\":\"" + version + "\","
-        + "\"packageSha256\":\"" + sha256 + "\","
+        + "\"packageSha256\":\"" + sha256 + "\""
+        + "}";
+    String signatureValue = keyPair == null ? "signature-value" : sign(payload, keyPair);
+    String json = payload.substring(0, payload.length() - 1)
+        + ","
         + "\"signature\":{"
         + "\"algorithm\":\"SHA256withRSA\","
         + "\"keyId\":\"" + keyId + "\","
-        + "\"value\":\"signature-value\""
+        + "\"value\":\"" + signatureValue + "\""
         + "}"
         + "}";
     Files.write(pluginPath.resolveSibling(pluginPath.getFileName().toString() + ".pf4boot-trust.json"),
         json.getBytes("UTF-8"));
+  }
+
+  private KeyPair rsaKeyPair() throws Exception {
+    KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+    generator.initialize(2048);
+    return generator.generateKeyPair();
+  }
+
+  private String sign(String payload, KeyPair keyPair) throws Exception {
+    Signature signature = Signature.getInstance("SHA256withRSA");
+    signature.initSign(keyPair.getPrivate());
+    signature.update(payload.getBytes("UTF-8"));
+    return Base64.getEncoder().encodeToString(signature.sign());
+  }
+
+  private String pemPublicKey(KeyPair keyPair) {
+    String encoded = Base64.getMimeEncoder(64, "\n".getBytes()).encodeToString(keyPair.getPublic().getEncoded());
+    return "-----BEGIN PUBLIC KEY-----\n" + encoded + "\n-----END PUBLIC KEY-----\n";
   }
 
   private String sha256(Path path) throws Exception {

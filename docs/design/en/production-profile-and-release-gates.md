@@ -23,6 +23,7 @@ Add `spring.pf4boot.production-profile-enabled`. It defaults to `false` for comp
 - `plugin-repository-trust-mode=ENFORCE`
 - `plugin-repository-release-gate-enabled=true`
 - `plugin-package-signature-required=true`
+- `plugin-package-signature-verification-required=true`
 
 The production profile does not automatically enable `plugin-repository-replace-enabled`. Applications must still opt in to real repository replacement; once enabled, release gates must also pass.
 
@@ -35,14 +36,26 @@ Trust-chain enforcement has three layers:
 
 1. The package checksum sidecar must exist and match.
 2. The trust manifest must exist and must match plugin id, version, and package sha256.
-3. Under the production profile, the trust manifest must include complete signature metadata, and `keyId` must be recognized by `plugin-package-trust-roots` or a `PluginTrustRootProvider`.
+3. Under the production profile, the trust manifest must include complete signature metadata, and `keyId` must resolve to a public key from `PluginTrustRootProvider` or `plugin-package-trust-root-public-keys`, then pass real cryptographic verification.
+
+The default signing format uses the trust manifest JSON with the top-level `signature` field removed as the UTF-8 signed payload. `signature.value` is a Base64-encoded signature. The default implementation supports `SHA256withRSA`, `SHA384withRSA`, `SHA512withRSA`, `SHA256withECDSA`, `SHA384withECDSA`, and `SHA512withECDSA`. `plugin-package-trust-roots` remains as a compatibility keyId allow-list outside production; production profile requires a real public key:
+
+```yaml
+spring:
+  pf4boot:
+    plugin-package-trust-root-public-keys:
+      release-key: |
+        -----BEGIN PUBLIC KEY-----
+        ...
+        -----END PUBLIC KEY-----
+```
 
 When a repository release is copied into controlled cache/staging, the deployment service writes a checksum sidecar for the cached package and copies the repository trust manifest next to it. Replacement can then reuse `PluginDeploymentService.replace(...)`, loader checks, rollback, and health checks without bypassing existing deployment governance.
 
 ## Compatibility
 
 - With the production profile disabled, existing applications and legacy plugins keep their current behavior.
-- With the production profile enabled, packages missing checksum, trust manifest, signature metadata, trust root, repository index signature, or release gate approval are rejected.
+- With the production profile enabled, packages missing checksum, trust manifest, signature metadata, trust root public key, repository index signature, or release gate approval are rejected.
 - Custom `PluginPackageTrustVerifier` implementations remain available as extra verifiers. The default verifier still enforces the base manifest, checksum, and trust-root gates first.
 - If `plugin-repository-replace-enabled=false`, the production profile still allows only plan/dry-run repository flows, not real replacement.
 
@@ -62,5 +75,4 @@ When management endpoints are touched, also run:
 
 ## Open Questions
 
-- The default verifier currently enforces signature metadata and trust-root recognition, but it does not define the canonical signed payload or cryptographic verification format. Full cryptographic signing should be designed as a separate trust-root topic.
-- A sample `application-production.yml` can be added later when sample documentation is refreshed.
+- The default verifier now defines the trust manifest cryptographic payload and a basic algorithm allow-list, but certificate chains, revocation, KMS/HSM rotation, and real repository index signatures should still be designed as a separate trust-root topic.

@@ -23,6 +23,7 @@
 - `plugin-repository-trust-mode=ENFORCE`
 - `plugin-repository-release-gate-enabled=true`
 - `plugin-package-signature-required=true`
+- `plugin-package-signature-verification-required=true`
 
 生产 profile 不自动开启 `plugin-repository-replace-enabled`。真实 repository replace 仍需应用显式打开该开关；打开后还必须通过 release gate。
 
@@ -37,14 +38,26 @@
 
 1. 插件包 checksum sidecar 必须存在并匹配。
 2. trust manifest 必须存在，plugin id、version、package sha256 必须匹配。
-3. 生产 profile 下 trust manifest 必须包含完整 signature metadata，且 `keyId` 必须能被 `plugin-package-trust-roots` 或 `PluginTrustRootProvider` 识别。
+3. 生产 profile 下 trust manifest 必须包含完整 signature metadata，且 `keyId` 必须能解析到 `PluginTrustRootProvider` 或 `plugin-package-trust-root-public-keys` 提供的公钥，并完成真实验签。
+
+默认签名格式使用 trust manifest 去掉顶层 `signature` 字段后的 UTF-8 JSON 作为签名原文。`signature.value` 为 Base64 编码的签名值，默认实现支持 `SHA256withRSA`、`SHA384withRSA`、`SHA512withRSA`、`SHA256withECDSA`、`SHA384withECDSA` 和 `SHA512withECDSA`。`plugin-package-trust-roots` 仍保留为非生产兼容的 keyId 识别列表；生产 profile 要求配置真实公钥：
+
+```yaml
+spring:
+  pf4boot:
+    plugin-package-trust-root-public-keys:
+      release-key: |
+        -----BEGIN PUBLIC KEY-----
+        ...
+        -----END PUBLIC KEY-----
+```
 
 仓库 release 进入受控 cache/staging 后，部署服务负责为缓存包写入 checksum sidecar，并把 repository index 指向的 trust manifest 复制为缓存包旁路文件。这样后续统一复用 `PluginDeploymentService.replace(...)` 和加载前校验，不绕过既有部署、回滚和 health check。
 
 ## 兼容性
 
 - 默认不开生产 profile，既有应用和旧插件行为不变。
-- 开启生产 profile 后，缺少 checksum、trust manifest、signature metadata、trust root、repository index signature 或 release gate 的插件包会被阻断。
+- 开启生产 profile 后，缺少 checksum、trust manifest、signature metadata、trust root public key、repository index signature 或 release gate 的插件包会被阻断。
 - 自定义 `PluginPackageTrustVerifier` 仍可作为额外校验器；默认校验器先执行基础清单、checksum 和 trust root 门禁。
 - `plugin-repository-replace-enabled=false` 时，即使生产 profile 开启也只允许 plan/dry-run，不执行真实替换。
 
@@ -64,5 +77,4 @@
 
 ## 未决问题
 
-- 当前默认校验器只强制 signature metadata 和 trust root 识别，不定义具体签名原文和算法验签格式；完整加密签名格式应作为独立信任根专题继续设计。
-- 生产 profile 的推荐配置是否需要生成样例 `application-production.yml`，可在 sample 文档整理时补充。
+- 当前默认校验器已定义 trust manifest 的加密签名原文和基础算法白名单，但证书链、吊销列表、KMS/HSM 轮换和 repository index 真实签名仍应作为独立信任根专题继续设计。

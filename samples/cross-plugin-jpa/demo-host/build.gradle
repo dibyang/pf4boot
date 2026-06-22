@@ -21,6 +21,35 @@ dependencies {
     plugin project(":samples:cross-plugin-jpa:plugin-unrelated-service")
 }
 
+def sampleReleasePrivateKey = """-----BEGIN PRIVATE KEY-----
+MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC7cMwVaMJQH/ux
+TWTyit4ov896J7GGZ4TqAs3kBVdNynytNjKU7EqJwK+AAnwXLvrpDodnZiiDsLTk
+gW9NxVvHRaLBfGRav+iq002dm41UaWkY1Ly58DpHrh9Y1Y1ZlTAhwWHEGa7kP/IB
+hXbn/QFwoSUOUWdWD9VVVYhwXqd3UQVaw1E9Kw1DhL1zTURwZ46p+LrkJl3D7Yoa
+56ApxPA2KWp/mbEqv3q922deYLVlM6M1kB+33shOt410LnEJOZJf6wOBlh6+0DI1
+a0WjO/rALNVcmp1xqskA23DtMv7XLmz5p143lknwO4qmz8yy+7dvJuODLkuImY+i
+Cm7oeOLrAgMBAAECggEAWrwBBtIV0eyRjaPt3FztquMi/7psPKgq1o6x9RHCz8TX
+so9cT+vMLz+nlPte72gODLg8QojYztrAziZ75zVEtsNWRHw/JhDlA6BS35r3gKeg
+OOVuUEHiLGW1Be8mQ/mseYKfnWpjV1k/AI6HX0iBpHBVPEeakrYKaosDh4XCYkZv
+Lp09X3o7f6VOozyNEq092lObFOebia5A9rxk8rsNmb7N62IfKOSFZ6QcVWikinkR
+fZQJ0CatzmOaqMMPuzqkz9ui50xVhbBNA2q3cuOYtUdQmqn70JdizdfJ11uN+Ruq
+YEC5AigvWKmIZFNAW0dni97zkSm8FOB4onMgtVIgnQKBgQD+eQzHeaasV5wy4r7g
+2QNOh8mPmussOomWs0r3MilJlHX4xajKcSTZWXbOaTEua/oPmX6ZM6kyVkdRmM2+
+Ceq9uqxpGzHbDh/YB/CXAr+KWKjK0KgkAk+x0fzLT+BNWz6prQsl0Z4bsLIOgWtK
+faqgyd+MRMRoq1SXpzDmsD5rTwKBgQC8kMPGtfGCphvms5m0NzaKbsKFvqkj+kam
+PZAllk1g3VbTVlKy6zveQ07Yr674BZpD7CM3+YgNWYXhOcnt4cZQpBhV6CSQwOPI
+CrGj7xpBy8yJzWwSy3Jy0Gt5UOTTIvUY0O/LMfKyilV/Nq8wrI+wVac17p2/KPkF
+0dWjJuR3pQKBgQDE7a6rDASlKKOTaY/n92kss76TKINIVgC2JAgmpqX28DIfk+9c
+wxSOM0LS1+scjqkUu2eSbb1JXCWTCtplb80+iKD2MfpyGEsiZnqUkqbiDFyLn9AP
+Fc7QwL2OJUFi+/LRYj3XRZHCwgn5WcRLAFc0WSVrqqgIjFZJijQ4wjl71wKBgQC6
+bX3BxjxiaQwIyORb0oKv1tWnGVtsYJLc5NzQ7IrQC8U96IiWsA9erbkUbo1UVWWx
+ZZNkUeZ7HFlK1bGY6LEDJVmSBZOxMaOCMWBzrX+OMYmlbF0/L7mVXg4DwUCapmMg
+B+IsSNOkRTRGM7B9NP5S3jwVDDcVudKKOG05gsg6qQKBgFSUhlLSf00jCD/wJ+xJ
+f1QxNIdFLrc9zxNTsuj6uIFwM4JDcqre8QGmSgL0201wTJWXOdFj6K6E1S3ENdV8
+8DRmg8MuXdaDExEsK5wiEqCd0Bva4BrGd3yVa6VKrtyE0Dc44IPTkZ5JBpPpGUPa
+IH3EjRn/FQfvOEXswFLELxHk
+-----END PRIVATE KEY-----"""
+
 task assembleSamplePlugins(type: Copy) {
     group = "verification"
     description = "Assembles the cross-plugin JPA sample plugin zips for the demo host."
@@ -112,8 +141,7 @@ task verifySamplePluginPackages {
             def packageSha256 = sha256File(pluginZip)
             writeTextIfChanged(new File(pluginZip.parentFile, pluginZip.name + ".sha256"),
                     packageSha256 + System.lineSeparator())
-            writeTextIfChanged(new File(pluginZip.parentFile, pluginZip.name + ".pf4boot-trust.json"),
-                    toJson([
+            def trustPayload = [
                             schemaVersion             : 1,
                             pluginId                  : descriptor.getProperty("plugin.id", ""),
                             pluginVersion             : descriptor.getProperty("plugin.version", ""),
@@ -124,16 +152,20 @@ task verifySamplePluginPackages {
                             pf4jVersionRange          : "[3.15.0,3.16.0)",
                             jdkVersionRange           : "[1.8,1.9)",
                             packageFormatVersionRange : "[1,2)",
-                            signature                 : [
-                                    algorithm: "SHA256withRSA",
-                                    keyId    : "sample-release-key",
-                                    value    : "sample-signature-placeholder"
-                            ],
                             capabilities              : [
                                     provides: [],
                                     requires: []
                             ]
-                    ]) + System.lineSeparator())
+                    ]
+            def trustPayloadJson = toJson(trustPayload)
+            def trustManifest = new LinkedHashMap(trustPayload)
+            trustManifest.signature = [
+                    algorithm: "SHA256withRSA",
+                    keyId    : "sample-release-key",
+                    value    : signPayload(trustPayloadJson, sampleReleasePrivateKey)
+            ]
+            writeTextIfChanged(new File(pluginZip.parentFile, pluginZip.name + ".pf4boot-trust.json"),
+                    toJson(trustManifest) + System.lineSeparator())
 
             def bundledHostApis = bundledLibs.findAll { lib ->
                 hostApiPrefixes.any { prefix -> lib.startsWith(prefix) }
@@ -293,6 +325,20 @@ private static String sha256File(File file) {
         }
     }
     digest.digest().collect { String.format("%02x", it & 0xff) }.join("")
+}
+
+private static String signPayload(String payload, String privateKeyPem) {
+    String normalized = privateKeyPem
+            .replace("-----BEGIN PRIVATE KEY-----", "")
+            .replace("-----END PRIVATE KEY-----", "")
+            .replaceAll("\\s+", "")
+    byte[] encoded = java.util.Base64.getDecoder().decode(normalized)
+    def keySpec = new java.security.spec.PKCS8EncodedKeySpec(encoded)
+    def privateKey = java.security.KeyFactory.getInstance("RSA").generatePrivate(keySpec)
+    def signature = java.security.Signature.getInstance("SHA256withRSA")
+    signature.initSign(privateKey)
+    signature.update(payload.getBytes("UTF-8"))
+    java.util.Base64.getEncoder().encodeToString(signature.sign())
 }
 
 private static Properties readPluginDescriptor(File pluginZip) {

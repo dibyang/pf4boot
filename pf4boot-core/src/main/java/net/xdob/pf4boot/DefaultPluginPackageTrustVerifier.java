@@ -13,15 +13,22 @@ import org.pf4j.PluginDescriptor;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * 默认插件包信任清单校验器。
@@ -107,7 +114,7 @@ public class DefaultPluginPackageTrustVerifier implements PluginPackageVerifier 
     if (!checksumResult.isValid() || checksumResult.isWarning()) {
       return checksumResult;
     }
-    PluginPackageVerificationResult signatureResult = verifySignatureMetadata(mode, manifest.getSignature());
+    PluginPackageVerificationResult signatureResult = verifySignatureMetadata(mode, manifest);
     if (!signatureResult.isValid() || signatureResult.isWarning()) {
       return signatureResult;
     }
@@ -157,7 +164,8 @@ public class DefaultPluginPackageTrustVerifier implements PluginPackageVerifier 
 
   private PluginPackageVerificationResult verifySignatureMetadata(
       PluginPackageVerificationMode mode,
-      PluginSignatureMetadata signature) {
+      PluginTrustManifest manifest) {
+    PluginSignatureMetadata signature = manifest.getSignature();
     if (signature == null || (isBlank(signature.getAlgorithm())
         && isBlank(signature.getKeyId()) && isBlank(signature.getValue()))) {
       if (properties.isPluginPackageSignatureRequired()) {
@@ -168,13 +176,31 @@ public class DefaultPluginPackageTrustVerifier implements PluginPackageVerifier 
     if (isBlank(signature.getAlgorithm()) || isBlank(signature.getKeyId()) || isBlank(signature.getValue())) {
       return result(mode, "PFT-003 Trust manifest signature metadata is incomplete");
     }
-    if (!hasTrustedKey(signature.getKeyId())) {
+    PublicKey publicKey;
+    try {
+      publicKey = resolvePublicKey(signature);
+    } catch (RuntimeException e) {
+      return result(mode, "PFT-004 Trust root public key is invalid for signature keyId: "
+          + signature.getKeyId());
+    }
+    if (publicKey == null && !hasTrustedRootId(signature.getKeyId())) {
       return result(mode, "PFT-004 Trust root not configured for signature keyId: " + signature.getKeyId());
+    }
+    if (publicKey == null) {
+      if (properties.isPluginPackageSignatureVerificationRequired()) {
+        return result(mode, "PFT-004 Trust root public key is required for signature keyId: "
+            + signature.getKeyId());
+      }
+      return PluginPackageVerificationResult.ok();
+    }
+    PluginPackageVerificationResult cryptographicResult = verifyCryptographicSignature(mode, manifest, publicKey);
+    if (!cryptographicResult.isValid() || cryptographicResult.isWarning()) {
+      return cryptographicResult;
     }
     return PluginPackageVerificationResult.ok();
   }
 
-  private boolean hasTrustedKey(String keyId) {
+  private boolean hasTrustedRootId(String keyId) {
     String[] trustedRootIds = properties.getPluginPackageTrustRoots();
     if (trustedRootIds != null) {
       for (String trustedRootId : trustedRootIds) {
@@ -183,16 +209,93 @@ public class DefaultPluginPackageTrustVerifier implements PluginPackageVerifier 
         }
       }
     }
+    return false;
+  }
+
+  private PublicKey resolvePublicKey(PluginSignatureMetadata signature) {
     for (PluginTrustRootProvider provider : rootProviders) {
       if (provider == null) {
         continue;
       }
-      PublicKey publicKey = provider.resolveKey(keyId);
+      PublicKey publicKey = provider.resolveKey(signature.getKeyId());
       if (publicKey != null) {
-        return true;
+        return publicKey;
       }
     }
-    return false;
+    Map<String, String> publicKeys = properties.getPluginPackageTrustRootPublicKeys();
+    if (publicKeys == null) {
+      return null;
+    }
+    String encoded = publicKeys.get(signature.getKeyId());
+    if (isBlank(encoded)) {
+      return null;
+    }
+    return decodePublicKey(signature.getAlgorithm(), encoded);
+  }
+
+  private PluginPackageVerificationResult verifyCryptographicSignature(
+      PluginPackageVerificationMode mode,
+      PluginTrustManifest manifest,
+      PublicKey publicKey) {
+    PluginSignatureMetadata signature = manifest.getSignature();
+    if (isBlank(manifest.getSignaturePayload())) {
+      return result(mode, "PFT-003 Trust manifest signature payload is missing");
+    }
+    if (!isSupportedSignatureAlgorithm(signature.getAlgorithm())) {
+      return result(mode, "PFT-003 Unsupported trust manifest signature algorithm: "
+          + signature.getAlgorithm());
+    }
+    try {
+      Signature verifier = Signature.getInstance(signature.getAlgorithm());
+      verifier.initVerify(publicKey);
+      verifier.update(manifest.getSignaturePayload().getBytes(StandardCharsets.UTF_8));
+      if (!verifier.verify(Base64.getMimeDecoder().decode(signature.getValue()))) {
+        return result(mode, "PFT-003 Trust manifest signature verification failed");
+      }
+      return PluginPackageVerificationResult.ok();
+    } catch (IllegalArgumentException e) {
+      return result(mode, "PFT-003 Trust manifest signature value is not base64");
+    } catch (GeneralSecurityException e) {
+      return result(mode, "PFT-003 Trust manifest signature verification failed: " + e.getClass().getSimpleName());
+    }
+  }
+
+  private boolean isSupportedSignatureAlgorithm(String algorithm) {
+    if (algorithm == null) {
+      return false;
+    }
+    String normalized = algorithm.trim().toUpperCase(Locale.ENGLISH);
+    return "SHA256WITHRSA".equals(normalized)
+        || "SHA384WITHRSA".equals(normalized)
+        || "SHA512WITHRSA".equals(normalized)
+        || "SHA256WITHECDSA".equals(normalized)
+        || "SHA384WITHECDSA".equals(normalized)
+        || "SHA512WITHECDSA".equals(normalized);
+  }
+
+  private PublicKey decodePublicKey(String signatureAlgorithm, String value) {
+    try {
+      String normalized = value
+          .replace("-----BEGIN PUBLIC KEY-----", "")
+          .replace("-----END PUBLIC KEY-----", "")
+          .replaceAll("\\s+", "");
+      byte[] encoded = Base64.getDecoder().decode(normalized);
+      return KeyFactory.getInstance(keyAlgorithm(signatureAlgorithm))
+          .generatePublic(new X509EncodedKeySpec(encoded));
+    } catch (IllegalArgumentException | GeneralSecurityException e) {
+      throw new IllegalArgumentException("Invalid public key", e);
+    }
+  }
+
+  private String keyAlgorithm(String signatureAlgorithm) {
+    String normalized = signatureAlgorithm == null ? "" : signatureAlgorithm.toUpperCase(Locale.ENGLISH);
+    if (normalized.contains("ECDSA") || normalized.contains("EC")) {
+      return "EC";
+    }
+    if (normalized.contains("DSA")) {
+      return "DSA";
+    }
+    return "RSA";
   }
 
   private PluginPackageVerificationResult translateTrustResult(

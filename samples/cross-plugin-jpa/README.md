@@ -75,7 +75,7 @@ samples/cross-plugin-jpa/demo-host/build/reports/plugin-package-verification/res
 *.zip.pf4boot-trust.json
 ```
 
-这些旁路文件使用示例信任根 `sample-release-key` 和兼容范围 `[3.3.0,3.4.0)`，用于演示生产 profile 下的信任链 ENFORCE。真实生产环境应由发布流水线生成 checksum、trust manifest 和签名字段。
+这些旁路文件使用示例信任根 `sample-release-key`、RSA 签名和兼容范围 `[3.3.0,3.4.0)`，用于演示生产 profile 下的信任链 ENFORCE。示例私钥只用于本地 sample 构建，真实生产环境应由发布流水线或 KMS/HSM 生成 checksum、trust manifest 和签名字段。
 
 可以生成一份包含真实插件包 sha256、trust manifest 路径和 release gate 属性的本地离线仓库：
 
@@ -165,6 +165,7 @@ $env:SPRING_PROFILES_ACTIVE="production"
 - `spring.pf4boot.production-profile-enabled=true`
 - 插件包 checksum、trust manifest、compatibility、capability 和 repository trust 的 ENFORCE 有效模式
 - `plugin-package-trust-roots: sample-release-key`
+- `plugin-package-trust-root-public-keys.sample-release-key`：用于验证 sample trust manifest 的 RSA 公钥
 - repository release gate：`attributes.releaseGate=passed`
 - 管理操作记录 file store 和 fail-closed
 

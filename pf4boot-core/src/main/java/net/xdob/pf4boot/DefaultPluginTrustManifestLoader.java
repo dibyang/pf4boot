@@ -74,6 +74,7 @@ public class DefaultPluginTrustManifestLoader implements PluginTrustManifestLoad
     manifest.setPf4bootPluginVersionRange(stringField(normalized, "pf4bootPluginVersionRange"));
     manifest.setJdkVersionRange(stringField(normalized, "jdkVersionRange"));
     manifest.setPackageFormatVersionRange(stringField(normalized, "packageFormatVersionRange"));
+    manifest.setSignaturePayload(signaturePayload(normalized));
     PluginSignatureMetadata signature = parseSignature(normalized);
     if (signature != null) {
       manifest.setSignature(signature);
@@ -171,6 +172,52 @@ public class DefaultPluginTrustManifestLoader implements PluginTrustManifestLoad
     }
     int end = matchingEnd(json, braceStart, '{', '}');
     return end < 0 ? null : json.substring(braceStart, end + 1);
+  }
+
+  private String signaturePayload(String json) {
+    int signatureStart = fieldStart(json, "signature");
+    if (signatureStart < 0) {
+      return json;
+    }
+    int objectStart = valueStart(json, "signature", '{');
+    if (objectStart < 0) {
+      return json;
+    }
+    int objectEnd = matchingEnd(json, objectStart, '{', '}');
+    if (objectEnd < 0) {
+      return json;
+    }
+    int previous = previousNonWhitespace(json, signatureStart - 1);
+    if (previous >= 0 && json.charAt(previous) == ',') {
+      return (json.substring(0, previous) + json.substring(objectEnd + 1)).trim();
+    }
+    int next = nextNonWhitespace(json, objectEnd + 1);
+    if (next >= 0 && json.charAt(next) == ',') {
+      return (json.substring(0, signatureStart) + json.substring(next + 1)).trim();
+    }
+    return (json.substring(0, signatureStart) + json.substring(objectEnd + 1)).trim();
+  }
+
+  private int fieldStart(String json, String fieldName) {
+    return json.indexOf("\"" + fieldName + "\"");
+  }
+
+  private int previousNonWhitespace(String json, int start) {
+    for (int i = start; i >= 0; i--) {
+      if (!Character.isWhitespace(json.charAt(i))) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
+  private int nextNonWhitespace(String json, int start) {
+    for (int i = start; i < json.length(); i++) {
+      if (!Character.isWhitespace(json.charAt(i))) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   private String extractArray(String json, String fieldName) {

@@ -4,6 +4,8 @@ spring:
     plugin-compatibility-pf4boot-version: 3.3.0
     plugin-package-trust-roots:
       - sample-release-key
+    plugin-package-trust-root-public-keys:
+      sample-release-key: "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu3DMFWjCUB/7sU1k8ore\nKL/PeiexhmeE6gLN5AVXTcp8rTYylOxKicCvgAJ8Fy766Q6HZ2Yog7C05IFvTcVb\nx0WiwXxkWr/oqtNNnZuNVGlpGNS8ufA6R64fWNWNWZUwIcFhxBmu5D/yAYV25/0B\ncKElDlFnVg/VVVWIcF6nd1EFWsNRPSsNQ4S9c01EcGeOqfi65CZdw+2KGuegKcTw\nNilqf5mxKr96vdtnXmC1ZTOjNZAft97ITreNdC5xCTmSX+sDgZYevtAyNWtFozv6\nwCzVXJqdcarJANtw7TL+1y5s+adeN5ZJ8DuKps/Msvu3bybjgy5LiJmPogpu6Hji\n6wIDAQAB\n-----END PUBLIC KEY-----\n"
     plugin-repository-enabled: true
     plugin-repository-location: ${PF4BOOT_PLUGIN_REPOSITORY:repository}
     plugin-repository-cache-directory: ${PF4BOOT_PLUGIN_REPOSITORY_CACHE:work/pf4boot/repository-cache}
