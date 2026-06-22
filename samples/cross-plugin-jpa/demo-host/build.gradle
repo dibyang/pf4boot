@@ -109,6 +109,32 @@ task verifySamplePluginPackages {
                 zip.close()
             }
 
+            def packageSha256 = sha256File(pluginZip)
+            writeTextIfChanged(new File(pluginZip.parentFile, pluginZip.name + ".sha256"),
+                    packageSha256 + System.lineSeparator())
+            writeTextIfChanged(new File(pluginZip.parentFile, pluginZip.name + ".pf4boot-trust.json"),
+                    toJson([
+                            schemaVersion             : 1,
+                            pluginId                  : descriptor.getProperty("plugin.id", ""),
+                            pluginVersion             : descriptor.getProperty("plugin.version", ""),
+                            packageSha256             : packageSha256,
+                            pf4bootVersionRange       : "[3.3.0,3.4.0)",
+                            pf4bootPluginVersionRange : "[1.7.0,1.8.0)",
+                            springBootVersionRange    : "[2.7.0,2.8.0)",
+                            pf4jVersionRange          : "[3.15.0,3.16.0)",
+                            jdkVersionRange           : "[1.8,1.9)",
+                            packageFormatVersionRange : "[1,2)",
+                            signature                 : [
+                                    algorithm: "SHA256withRSA",
+                                    keyId    : "sample-release-key",
+                                    value    : "sample-signature-placeholder"
+                            ],
+                            capabilities              : [
+                                    provides: [],
+                                    requires: []
+                            ]
+                    ]) + System.lineSeparator())
+
             def bundledHostApis = bundledLibs.findAll { lib ->
                 hostApiPrefixes.any { prefix -> lib.startsWith(prefix) }
             }
@@ -191,4 +217,25 @@ private static String quote(String value) {
             .replace("\"", "\\\"")
             .replace("\r", "\\r")
             .replace("\n", "\\n") + "\""
+}
+
+private static String sha256File(File file) {
+    def digest = java.security.MessageDigest.getInstance("SHA-256")
+    file.withInputStream { stream ->
+        byte[] buffer = new byte[8192]
+        int read
+        while ((read = stream.read(buffer)) > 0) {
+            digest.update(buffer, 0, read)
+        }
+    }
+    digest.digest().collect { String.format("%02x", it & 0xff) }.join("")
+}
+
+private static void writeTextIfChanged(File file, String content) {
+    if (!file.parentFile.exists()) {
+        file.parentFile.mkdirs()
+    }
+    if (!file.exists() || file.getText("UTF-8") != content) {
+        file.setText(content, "UTF-8")
+    }
 }

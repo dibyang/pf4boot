@@ -1,0 +1,19 @@
+spring:
+  pf4boot:
+    production-profile-enabled: true
+    plugin-compatibility-pf4boot-version: 3.3.0
+    plugin-package-trust-roots:
+      - sample-release-key
+    plugin-repository-enabled: true
+    plugin-repository-location: ${PF4BOOT_PLUGIN_REPOSITORY:repository}
+    plugin-repository-cache-directory: ${PF4BOOT_PLUGIN_REPOSITORY_CACHE:work/pf4boot/repository-cache}
+    plugin-repository-replace-enabled: ${PF4BOOT_REPOSITORY_REPLACE_ENABLED:false}
+    plugin-repository-release-gate-attribute: releaseGate
+    plugin-repository-release-gate-value: passed
+    management:
+      http:
+        allow-loopback-only: true
+        operation-store:
+          type: file
+          directory: work/pf4boot/operations
+          fail-closed: true

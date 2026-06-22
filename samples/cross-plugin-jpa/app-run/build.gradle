@@ -32,10 +32,13 @@ task assembleSampleRuntime(type: Copy) {
     }
     from("${project(":samples:cross-plugin-jpa:demo-host").buildDir}/sample-plugins") {
         into "plugins"
-        include "*.zip"
+        include "*.zip", "*.zip.sha256", "*.zip.pf4boot-trust.json"
     }
     from("config") {
         into "config"
+    }
+    from("../repository") {
+        into "repository"
     }
     from("bin") {
         into "bin"

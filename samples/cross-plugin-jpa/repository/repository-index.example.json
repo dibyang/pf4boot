@@ -2,6 +2,7 @@
   "schemaVersion": 1,
   "repositoryId": "cross-plugin-jpa-sample",
   "generatedAt": 1781280000000,
+  "signature": "sample-index-signature-placeholder",
   "releases": [
     {
       "pluginId": "sample-demo-jpa-domain",
@@ -13,7 +14,8 @@
       "rolloutPolicy": "manual",
       "rollbackCandidate": true,
       "attributes": {
-        "channel": "sample"
+        "channel": "sample",
+        "releaseGate": "passed"
       }
     },
     {
@@ -26,7 +28,8 @@
       "rolloutPolicy": "manual",
       "rollbackCandidate": true,
       "attributes": {
-        "channel": "sample"
+        "channel": "sample",
+        "releaseGate": "passed"
       }
     },
     {
@@ -39,7 +42,8 @@
       "rolloutPolicy": "manual",
       "rollbackCandidate": true,
       "attributes": {
-        "channel": "sample"
+        "channel": "sample",
+        "releaseGate": "passed"
       }
     }
   ]

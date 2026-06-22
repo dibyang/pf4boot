@@ -68,6 +68,14 @@ samples/cross-plugin-jpa/demo-host/build/reports/plugin-package-verification/res
 ```
 
 该报告检查 `plugin.properties` 必填字段、host API 是否被误打进插件包，以及 checksum/trust sidecar 是否存在。
+任务会为 sample 插件 zip 自动生成同名旁路文件：
+
+```text
+*.zip.sha256
+*.zip.pf4boot-trust.json
+```
+
+这些旁路文件使用示例信任根 `sample-release-key` 和兼容范围 `[3.3.0,3.4.0)`，用于演示生产 profile 下的信任链 ENFORCE。真实生产环境应由发布流水线生成 checksum、trust manifest 和签名字段。
 
 ## 运行日志
 
@@ -121,6 +129,37 @@ http://127.0.0.1:7791/
 `samples/plugin-management-console` 静态管理控制台示例；`cross-plugin-jpa` 的内置控制台作为更完整的产品化演示入口。
 
 注意：`sample-token`、`allow-loopback-only: false`、H2 文件库、固定端口 `7791` 都是演示配置。生产环境应替换为受控网络、强 token 或 `REMOTE_DELEGATED` 鉴权，并按实际部署目录设置 staging/cache 路径。
+
+## 生产 profile 示例
+
+示例宿主提供了生产 profile 配置：
+
+```text
+samples/cross-plugin-jpa/demo-host/src/main/resources/application-production.yml
+samples/cross-plugin-jpa/app-run/config/application-production.yml
+```
+
+启用方式：
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE="production"
+```
+
+生产 profile 会启用：
+
+- `spring.pf4boot.production-profile-enabled=true`
+- 插件包 checksum、trust manifest、compatibility、capability 和 repository trust 的 ENFORCE 有效模式
+- `plugin-package-trust-roots: sample-release-key`
+- repository release gate：`attributes.releaseGate=passed`
+- 管理操作记录 file store 和 fail-closed
+
+真实 repository replace 仍保持显式开关：
+
+```powershell
+$env:PF4BOOT_REPOSITORY_REPLACE_ENABLED="true"
+```
+
+不开该开关时，生产 profile 仍允许 repository plan/dry-run，但不会执行真实替换。
 
 JPA domain 的实体扫描包不在宿主配置中声明。示例由 `plugin-demo-jpa-domain` 插件主类实现
 `JpaDomainDefinitionProvider`，声明 entity packages、DataSource 和 ddl 策略，避免宿主替插件维护实体包清单。
@@ -198,7 +237,7 @@ curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" \
 samples/cross-plugin-jpa/repository/repository-index.example.json
 ```
 
-示例中的 `packageSha256` 需要替换为实际插件 zip 的小写 sha256 后才能用于 dry-run 或真实 replace。真实 repository replace 默认关闭，需要显式配置 `spring.pf4boot.plugin-repository-replace-enabled=true`，并建议配置 `spring.pf4boot.plugin-repository-cache-directory`。
+示例中的 `packageSha256` 需要替换为实际插件 zip 的小写 sha256 后才能用于 dry-run 或真实 replace。生产 profile 下还要求 index 顶层 `signature` 存在、release 指向 trust manifest，并且 release `attributes.releaseGate` 等于 `passed`。真实 repository replace 默认关闭，需要显式配置 `spring.pf4boot.plugin-repository-replace-enabled=true`，并建议配置 `spring.pf4boot.plugin-repository-cache-directory`。
 
 ## Runtime smoke 脚本
 
