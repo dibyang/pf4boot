@@ -160,6 +160,9 @@ public class DefaultPluginPackageTrustVerifier implements PluginPackageVerifier 
       PluginSignatureMetadata signature) {
     if (signature == null || (isBlank(signature.getAlgorithm())
         && isBlank(signature.getKeyId()) && isBlank(signature.getValue()))) {
+      if (properties.isPluginPackageSignatureRequired()) {
+        return result(mode, "PFT-003 Trust manifest signature metadata is required");
+      }
       return PluginPackageVerificationResult.ok();
     }
     if (isBlank(signature.getAlgorithm()) || isBlank(signature.getKeyId()) || isBlank(signature.getValue())) {
@@ -172,6 +175,14 @@ public class DefaultPluginPackageTrustVerifier implements PluginPackageVerifier 
   }
 
   private boolean hasTrustedKey(String keyId) {
+    String[] trustedRootIds = properties.getPluginPackageTrustRoots();
+    if (trustedRootIds != null) {
+      for (String trustedRootId : trustedRootIds) {
+        if (keyId != null && keyId.equals(trustedRootId)) {
+          return true;
+        }
+      }
+    }
     for (PluginTrustRootProvider provider : rootProviders) {
       if (provider == null) {
         continue;

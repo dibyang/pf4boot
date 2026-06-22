@@ -265,6 +265,66 @@ public class DefaultPluginDeploymentServiceTest {
   }
 
   @Test
+  public void productionProfileRejectsRepositoryReleaseWithoutGate() throws Exception {
+    pluginManager.addResolvedPlugin("base");
+    Path repositoryRoot = Files.createTempDirectory("pf4boot-offline-repo");
+    Path packagePath = repositoryRoot.resolve("plugins/base-2.0.0.zip");
+    Files.createDirectories(packagePath.getParent());
+    Files.write(packagePath, "base".getBytes("UTF-8"));
+    pluginManager.addStagedDescriptor(packagePath, descriptor("base", "2.0.0"));
+    writeProductionTrustManifest(packagePath, "base", "2.0.0", sha256(packagePath), "release-key");
+    writeRepositoryIndex(
+        repositoryRoot,
+        "base",
+        "2.0.0",
+        "plugins/base-2.0.0.zip",
+        sha256(packagePath),
+        "plugins/base-2.0.0.zip.pf4boot-trust.json",
+        "index-signature",
+        false);
+    Pf4bootProperties properties = productionRepositoryProperties(repositoryRoot, null);
+
+    DeploymentRecord record = service(properties).planReplacement(releaseRequest("base", "2.0.0"));
+
+    assertEquals(DeploymentState.FAILED, record.getState());
+    assertFalse(record.getPlan().isExecutable());
+    assertTrue(record.getPlan().getCheckResults().stream()
+        .anyMatch(result -> "PFR-003".equals(result.getCode())
+            && result.getMessage().contains("Repository release gate did not pass")));
+  }
+
+  @Test
+  public void repositoryReplaceCopiesSidecarsAndPassesProductionProfileWhenGatePassed() throws Exception {
+    pluginManager.addResolvedPlugin("base", PluginState.STARTED);
+    Path repositoryRoot = Files.createTempDirectory("pf4boot-offline-repo");
+    Path cacheRoot = Files.createTempDirectory("pf4boot-offline-cache");
+    Path packagePath = repositoryRoot.resolve("plugins/base-2.0.0.zip");
+    Files.createDirectories(packagePath.getParent());
+    Files.write(packagePath, "base".getBytes("UTF-8"));
+    pluginManager.addStagedDescriptor(packagePath, descriptor("base", "2.0.0"));
+    writeProductionTrustManifest(packagePath, "base", "2.0.0", sha256(packagePath), "release-key");
+    writeRepositoryIndex(
+        repositoryRoot,
+        "base",
+        "2.0.0",
+        "plugins/base-2.0.0.zip",
+        sha256(packagePath),
+        "plugins/base-2.0.0.zip.pf4boot-trust.json",
+        "index-signature",
+        true);
+    Pf4bootProperties properties = productionRepositoryProperties(repositoryRoot, cacheRoot);
+    properties.setPluginRepositoryReplaceEnabled(true);
+
+    DeploymentRecord record = service(properties).replace(releaseRequest("base", "2.0.0"));
+
+    assertEquals(DeploymentState.SUCCEEDED, record.getState());
+    assertEquals("2.0.0", pluginManager.getPlugin("base").getDescriptor().getVersion());
+    Path stagedPath = java.nio.file.Paths.get(record.getPlan().getStagedPluginPath());
+    assertTrue(Files.exists(stagedPath.resolveSibling(stagedPath.getFileName().toString() + ".sha256")));
+    assertTrue(Files.exists(stagedPath.resolveSibling(stagedPath.getFileName().toString() + ".pf4boot-trust.json")));
+  }
+
+  @Test
   public void planWarnsPf4bootVersionMismatch() throws Exception {
     pluginManager.addResolvedPlugin("base");
     Path stagedPath = stageDescriptor(descriptor("base", "2.0.0"));
@@ -696,20 +756,67 @@ public class DefaultPluginDeploymentServiceTest {
       String version,
       String packagePath,
       String sha256) throws Exception {
+    writeRepositoryIndex(root, pluginId, version, packagePath, sha256, null, null, false);
+  }
+
+  private void writeRepositoryIndex(
+      Path root,
+      String pluginId,
+      String version,
+      String packagePath,
+      String sha256,
+      String trustManifestPath,
+      String signature,
+      boolean releaseGatePassed) throws Exception {
     String json = "{"
         + "\"schemaVersion\":1,"
         + "\"repositoryId\":\"sample-repo\","
         + "\"generatedAt\":1,"
+        + (signature == null ? "" : "\"signature\":\"" + signature + "\",")
         + "\"releases\":[{"
         + "\"pluginId\":\"" + pluginId + "\","
         + "\"version\":\"" + version + "\","
         + "\"packagePath\":\"" + packagePath + "\","
         + "\"packageSha256\":\"" + sha256 + "\","
+        + (trustManifestPath == null ? "" : "\"trustManifestPath\":\"" + trustManifestPath + "\",")
         + "\"rolloutPolicy\":\"manual\","
         + "\"rollbackCandidate\":true"
+        + (releaseGatePassed ? ",\"attributes\":{\"releaseGate\":\"passed\"}" : "")
         + "}]"
         + "}";
     Files.write(root.resolve("repository-index.json"), json.getBytes("UTF-8"));
+  }
+
+  private Pf4bootProperties productionRepositoryProperties(Path repositoryRoot, Path cacheRoot) {
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setProductionProfileEnabled(true);
+    properties.setPluginRepositoryEnabled(true);
+    properties.setPluginRepositoryLocation(repositoryRoot.toString());
+    properties.setPluginPackageTrustRoots(new String[]{"release-key"});
+    if (cacheRoot != null) {
+      properties.setPluginRepositoryCacheDirectory(cacheRoot.toString());
+    }
+    return properties;
+  }
+
+  private void writeProductionTrustManifest(
+      Path pluginPath,
+      String pluginId,
+      String version,
+      String sha256,
+      String keyId) throws Exception {
+    String json = "{"
+        + "\"pluginId\":\"" + pluginId + "\","
+        + "\"pluginVersion\":\"" + version + "\","
+        + "\"packageSha256\":\"" + sha256 + "\","
+        + "\"signature\":{"
+        + "\"algorithm\":\"SHA256withRSA\","
+        + "\"keyId\":\"" + keyId + "\","
+        + "\"value\":\"signature-value\""
+        + "}"
+        + "}";
+    Files.write(pluginPath.resolveSibling(pluginPath.getFileName().toString() + ".pf4boot-trust.json"),
+        json.getBytes("UTF-8"));
   }
 
   private String sha256(Path path) throws Exception {

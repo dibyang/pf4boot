@@ -25,6 +25,11 @@ public class Pf4bootProperties {
 
   private boolean pluginAdminEnabled = true;
   /**
+   * Enables fail-closed production governance defaults for plugin package, trust,
+   * compatibility, capability, and repository release gates.
+   */
+  private boolean productionProfileEnabled = false;
+  /**
    * Plugin package verification mode before class loader creation.
    */
   private PluginPackageVerificationMode pluginPackageVerificationMode = PluginPackageVerificationMode.DISABLED;
@@ -40,6 +45,11 @@ public class Pf4bootProperties {
    * Plugin trust manifest verification mode before class loader creation.
    */
   private PluginPackageVerificationMode pluginPackageTrustMode = PluginPackageVerificationMode.DISABLED;
+  /**
+   * Requires signature metadata in trust manifests. Production profile enables
+   * this effective gate even when the raw property remains false.
+   */
+  private boolean pluginPackageSignatureRequired = false;
   /**
    * Plugin capability precheck mode before deployment replacement.
    */
@@ -88,6 +98,19 @@ public class Pf4bootProperties {
    * Repository index trust mode.
    */
   private PluginPackageVerificationMode pluginRepositoryTrustMode = PluginPackageVerificationMode.WARN;
+  /**
+   * Requires repository release metadata to carry an approval gate before real
+   * repository replacement. Production profile enables this effective gate.
+   */
+  private boolean pluginRepositoryReleaseGateEnabled = false;
+  /**
+   * Release record attribute name used as the repository release gate.
+   */
+  private String pluginRepositoryReleaseGateAttribute = "releaseGate";
+  /**
+   * Required release gate attribute value.
+   */
+  private String pluginRepositoryReleaseGateValue = "passed";
   /**
    * Local staging/cache directory for repository packages.
    */
@@ -176,8 +199,16 @@ public class Pf4bootProperties {
     this.pluginAdminEnabled = pluginAdminEnabled;
   }
 
+  public boolean isProductionProfileEnabled() {
+    return productionProfileEnabled;
+  }
+
+  public void setProductionProfileEnabled(boolean productionProfileEnabled) {
+    this.productionProfileEnabled = productionProfileEnabled;
+  }
+
   public PluginPackageVerificationMode getPluginPackageVerificationMode() {
-    return pluginPackageVerificationMode;
+    return productionMode(pluginPackageVerificationMode);
   }
 
   public void setPluginPackageVerificationMode(PluginPackageVerificationMode pluginPackageVerificationMode) {
@@ -187,7 +218,7 @@ public class Pf4bootProperties {
   }
 
   public PluginPackageVerificationMode getPluginCompatibilityVerificationMode() {
-    return pluginCompatibilityVerificationMode;
+    return productionMode(pluginCompatibilityVerificationMode);
   }
 
   public void setPluginCompatibilityVerificationMode(PluginPackageVerificationMode pluginCompatibilityVerificationMode) {
@@ -208,7 +239,7 @@ public class Pf4bootProperties {
   }
 
   public PluginPackageVerificationMode getPluginPackageTrustMode() {
-    return pluginPackageTrustMode;
+    return productionMode(pluginPackageTrustMode);
   }
 
   public void setPluginPackageTrustMode(PluginPackageVerificationMode pluginPackageTrustMode) {
@@ -217,8 +248,16 @@ public class Pf4bootProperties {
         : pluginPackageTrustMode;
   }
 
+  public boolean isPluginPackageSignatureRequired() {
+    return productionProfileEnabled || pluginPackageSignatureRequired;
+  }
+
+  public void setPluginPackageSignatureRequired(boolean pluginPackageSignatureRequired) {
+    this.pluginPackageSignatureRequired = pluginPackageSignatureRequired;
+  }
+
   public PluginPackageVerificationMode getPluginCapabilityPrecheckMode() {
-    return pluginCapabilityPrecheckMode;
+    return productionMode(pluginCapabilityPrecheckMode);
   }
 
   public void setPluginCapabilityPrecheckMode(PluginPackageVerificationMode pluginCapabilityPrecheckMode) {
@@ -228,7 +267,7 @@ public class Pf4bootProperties {
   }
 
   public PluginPackageVerificationMode getPluginCompatibilityPrecheckMode() {
-    return pluginCompatibilityPrecheckMode;
+    return productionMode(pluginCompatibilityPrecheckMode);
   }
 
   public void setPluginCompatibilityPrecheckMode(PluginPackageVerificationMode pluginCompatibilityPrecheckMode) {
@@ -329,13 +368,43 @@ public class Pf4bootProperties {
   }
 
   public PluginPackageVerificationMode getPluginRepositoryTrustMode() {
-    return pluginRepositoryTrustMode;
+    return productionMode(pluginRepositoryTrustMode);
   }
 
   public void setPluginRepositoryTrustMode(PluginPackageVerificationMode pluginRepositoryTrustMode) {
     this.pluginRepositoryTrustMode = pluginRepositoryTrustMode == null
         ? PluginPackageVerificationMode.WARN
         : pluginRepositoryTrustMode;
+  }
+
+  public boolean isPluginRepositoryReleaseGateEnabled() {
+    return productionProfileEnabled || pluginRepositoryReleaseGateEnabled;
+  }
+
+  public void setPluginRepositoryReleaseGateEnabled(boolean pluginRepositoryReleaseGateEnabled) {
+    this.pluginRepositoryReleaseGateEnabled = pluginRepositoryReleaseGateEnabled;
+  }
+
+  public String getPluginRepositoryReleaseGateAttribute() {
+    return pluginRepositoryReleaseGateAttribute;
+  }
+
+  public void setPluginRepositoryReleaseGateAttribute(String pluginRepositoryReleaseGateAttribute) {
+    this.pluginRepositoryReleaseGateAttribute = pluginRepositoryReleaseGateAttribute == null
+        || pluginRepositoryReleaseGateAttribute.trim().isEmpty()
+        ? "releaseGate"
+        : pluginRepositoryReleaseGateAttribute.trim();
+  }
+
+  public String getPluginRepositoryReleaseGateValue() {
+    return pluginRepositoryReleaseGateValue;
+  }
+
+  public void setPluginRepositoryReleaseGateValue(String pluginRepositoryReleaseGateValue) {
+    this.pluginRepositoryReleaseGateValue = pluginRepositoryReleaseGateValue == null
+        || pluginRepositoryReleaseGateValue.trim().isEmpty()
+        ? "passed"
+        : pluginRepositoryReleaseGateValue.trim();
   }
 
   public String getPluginRepositoryCacheDirectory() {
@@ -487,5 +556,12 @@ public class Pf4bootProperties {
 
   public void setSystemVersion(String systemVersion) {
     this.systemVersion = systemVersion;
+  }
+
+  private PluginPackageVerificationMode productionMode(PluginPackageVerificationMode configuredMode) {
+    if (productionProfileEnabled) {
+      return PluginPackageVerificationMode.ENFORCE;
+    }
+    return configuredMode;
   }
 }

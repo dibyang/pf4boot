@@ -81,13 +81,34 @@ public class OfflineIndexPluginRepositoryResolver implements PluginRepositoryRes
     if (trustPath != null && !Files.exists(trustPath)) {
       throw new IllegalStateException("Release trust manifest not found: " + record.getTrustManifestPath());
     }
+    verifyReleaseGate(record);
     List<String> warnings = new ArrayList<String>();
-    if (isBlank(index.getSignature())
-        && !PluginPackageVerificationMode.DISABLED.equals(properties.getPluginRepositoryTrustMode())) {
-      warnings.add("repository index signature is missing");
+    if (isBlank(index.getSignature())) {
+      if (PluginPackageVerificationMode.ENFORCE.equals(properties.getPluginRepositoryTrustMode())) {
+        throw new IllegalStateException("Repository index signature is required");
+      }
+      if (!PluginPackageVerificationMode.DISABLED.equals(properties.getPluginRepositoryTrustMode())) {
+        warnings.add("repository index signature is missing");
+      }
+    }
+    if (trustPath == null && PluginPackageVerificationMode.ENFORCE.equals(properties.getPluginRepositoryTrustMode())) {
+      throw new IllegalStateException("Release trust manifest path is required");
     }
     return new PluginRepositoryResolution(
         PluginRepositoryStatus.PACKAGE_VERIFIED, record, packagePath, trustPath, warnings);
+  }
+
+  private void verifyReleaseGate(PluginReleaseRecord record) {
+    if (!properties.isPluginRepositoryReleaseGateEnabled()) {
+      return;
+    }
+    String attribute = properties.getPluginRepositoryReleaseGateAttribute();
+    String expected = properties.getPluginRepositoryReleaseGateValue();
+    String actual = record.getAttributes().get(attribute);
+    if (!expected.equals(actual)) {
+      throw new IllegalStateException(
+          "Repository release gate did not pass: " + attribute + "=" + safe(actual));
+    }
   }
 
   private PluginReleaseRecord selectRelease(PluginRepositoryIndex index, PluginReleaseRequest request) {
@@ -384,5 +405,9 @@ public class OfflineIndexPluginRepositoryResolver implements PluginRepositoryRes
 
   private boolean isBlank(String value) {
     return value == null || value.trim().isEmpty();
+  }
+
+  private String safe(String value) {
+    return value == null ? "" : value;
   }
 }

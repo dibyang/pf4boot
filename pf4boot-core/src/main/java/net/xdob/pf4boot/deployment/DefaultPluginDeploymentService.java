@@ -36,6 +36,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -284,10 +285,33 @@ public class DefaultPluginDeploymentService implements PluginDeploymentService {
     try {
       Files.createDirectories(target.getParent());
       Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+      writeRepositoryChecksumSidecar(resolution, target);
+      copyRepositoryTrustManifestSidecar(resolution, target);
       return target;
     } catch (java.io.IOException e) {
       throw new IllegalStateException("Stage repository package failed", e);
     }
+  }
+
+  private void writeRepositoryChecksumSidecar(PluginRepositoryResolution resolution, Path target)
+      throws java.io.IOException {
+    String checksum = resolution.getReleaseRecord().getPackageSha256();
+    if (isBlank(checksum)) {
+      return;
+    }
+    Path checksumPath = target.resolveSibling(
+        target.getFileName().toString() + properties.getPluginPackageChecksumExtension());
+    Files.write(checksumPath, checksum.getBytes(StandardCharsets.UTF_8));
+  }
+
+  private void copyRepositoryTrustManifestSidecar(PluginRepositoryResolution resolution, Path target)
+      throws java.io.IOException {
+    if (resolution.getTrustManifestPath() == null) {
+      return;
+    }
+    Path trustManifestTarget = target.resolveSibling(
+        target.getFileName().toString() + properties.getPluginPackageTrustManifestExtension());
+    Files.copy(resolution.getTrustManifestPath(), trustManifestTarget, StandardCopyOption.REPLACE_EXISTING);
   }
 
   private Path repositoryCacheRoot() {

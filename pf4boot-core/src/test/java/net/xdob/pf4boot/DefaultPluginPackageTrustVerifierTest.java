@@ -112,6 +112,38 @@ public class DefaultPluginPackageTrustVerifierTest {
     assertTrue(result.isWarning());
   }
 
+  @Test
+  public void productionProfileRejectsUnsignedManifest() throws Exception {
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setProductionProfileEnabled(true);
+    Path pluginPath = Files.createTempFile("pf4boot-plugin", ".zip");
+    byte[] bytes = "plugin".getBytes("UTF-8");
+    Files.write(pluginPath, bytes);
+    writeManifest(pluginPath, "sample", "1.0.0", sha256(bytes));
+
+    PluginPackageVerificationResult result = new DefaultPluginPackageTrustVerifier(properties)
+        .verify(pluginPath, descriptor("sample", "1.0.0"));
+
+    assertFalse(result.isValid());
+  }
+
+  @Test
+  public void productionProfileAcceptsConfiguredTrustRoot() throws Exception {
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setProductionProfileEnabled(true);
+    properties.setPluginPackageTrustRoots(new String[]{"release-key"});
+    Path pluginPath = Files.createTempFile("pf4boot-plugin", ".zip");
+    byte[] bytes = "plugin".getBytes("UTF-8");
+    Files.write(pluginPath, bytes);
+    writeSignedManifest(pluginPath, "sample", "1.0.0", sha256(bytes), "release-key");
+
+    PluginPackageVerificationResult result = new DefaultPluginPackageTrustVerifier(properties)
+        .verify(pluginPath, descriptor("sample", "1.0.0"));
+
+    assertTrue(result.isValid());
+    assertFalse(result.isWarning());
+  }
+
   private DefaultPluginDescriptor descriptor(String pluginId, String version) {
     return new DefaultPluginDescriptor(pluginId, pluginId, "net.xdob.SamplePlugin",
         version, "", "test", "Apache-2.0");
@@ -130,13 +162,18 @@ public class DefaultPluginPackageTrustVerifierTest {
 
   private void writeSignedManifest(Path pluginPath, String pluginId, String version, String sha256)
       throws Exception {
+    writeSignedManifest(pluginPath, pluginId, version, sha256, "missing-key");
+  }
+
+  private void writeSignedManifest(Path pluginPath, String pluginId, String version, String sha256, String keyId)
+      throws Exception {
     String json = "{"
         + "\"pluginId\":\"" + pluginId + "\","
         + "\"pluginVersion\":\"" + version + "\","
         + "\"packageSha256\":\"" + sha256 + "\","
         + "\"signature\":{"
         + "\"algorithm\":\"SHA256withRSA\","
-        + "\"keyId\":\"missing-key\","
+        + "\"keyId\":\"" + keyId + "\","
         + "\"value\":\"signature-value\""
         + "}"
         + "}";
