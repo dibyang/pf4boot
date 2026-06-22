@@ -77,6 +77,21 @@ samples/cross-plugin-jpa/demo-host/build/reports/plugin-package-verification/res
 
 这些旁路文件使用示例信任根 `sample-release-key` 和兼容范围 `[3.3.0,3.4.0)`，用于演示生产 profile 下的信任链 ENFORCE。真实生产环境应由发布流水线生成 checksum、trust manifest 和签名字段。
 
+可以生成一份包含真实插件包 sha256、trust manifest 路径和 release gate 属性的本地离线仓库：
+
+```powershell
+.\gradlew.bat :samples:cross-plugin-jpa:demo-host:generateSampleRepositoryIndex
+```
+
+生成目录：
+
+```text
+samples/cross-plugin-jpa/demo-host/build/sample-repository/repository-index.json
+samples/cross-plugin-jpa/demo-host/build/sample-repository/plugins/
+```
+
+`app-run` 的 `assembleSampleRuntime` 会自动把该仓库复制到 runtime 的 `repository/` 目录，供生产 profile smoke 使用。
+
 ## 运行日志
 
 `app-run` 和 RPM 安装后的服务默认写文件日志：
@@ -231,13 +246,13 @@ curl -X GET -H "X-PF4Boot-Admin-Token: sample-token" \
 
 示例 UI 支持通过服务器 IP 远程访问，因此 sample 配置显式设置 `allow-loopback-only: false`。生产环境不要直接复用该演示配置，应改用受控网络、强 token 或 `REMOTE_DELEGATED` 鉴权。
 
-离线仓库索引示例位于：
+离线仓库索引模板位于：
 
 ```text
 samples/cross-plugin-jpa/repository/repository-index.example.json
 ```
 
-示例中的 `packageSha256` 需要替换为实际插件 zip 的小写 sha256 后才能用于 dry-run 或真实 replace。生产 profile 下还要求 index 顶层 `signature` 存在、release 指向 trust manifest，并且 release `attributes.releaseGate` 等于 `passed`。真实 repository replace 默认关闭，需要显式配置 `spring.pf4boot.plugin-repository-replace-enabled=true`，并建议配置 `spring.pf4boot.plugin-repository-cache-directory`。
+模板中的 `packageSha256` 只是占位符。可执行的 sample 仓库由 `generateSampleRepositoryIndex` 根据当前插件 zip 自动生成，并在生产 profile 下满足 index 顶层 `signature` 存在、release 指向 trust manifest、release `attributes.releaseGate` 等于 `passed` 等要求。真实 repository replace 默认关闭，需要显式配置 `spring.pf4boot.plugin-repository-replace-enabled=true`，并建议配置 `spring.pf4boot.plugin-repository-cache-directory`。
 
 ## Runtime smoke 脚本
 
@@ -261,11 +276,19 @@ powershell -ExecutionPolicy Bypass -File samples\cross-plugin-jpa\scripts\runtim
 .\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmoke
 ```
 
+生产 profile 的端到端验收入口会启用 `application-production.yml`，并通过生成的离线仓库执行 repository dry-run plan：
+
+```powershell
+.\gradlew.bat :samples:cross-plugin-jpa:app-run:runtimeSmokeProduction
+```
+
 Gradle smoke 会生成机器可读报告：
 
 ```text
 samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke/result.json
 samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-smoke.xml
+samples/cross-plugin-jpa/app-run/build/reports/runtime-smoke-production/result.json
+samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmokeProduction/TEST-runtime-smoke-production.xml
 ```
 
 脚本会输出以下关键证据：
@@ -287,6 +310,7 @@ samples/cross-plugin-jpa/app-run/build/test-results/runtimeSmoke/TEST-runtime-sm
 - `SMOKE_JPA_RELOAD_DRAIN_TIMEOUT_NO_MUTATION`：drain timeout 返回失败记录，且 workflow/unrelated 插件仍可访问。
 - `SMOKE_JPA_PROVIDER_ISOLATION`：停止 JPA provider 后，无关插件仍可访问。
 - `SMOKE_FAILURE_CASE`：有效插件包 + 不存在目标插件的部署预检返回失败响应，并可通过部署记录查询。
+- `SMOKE_PRODUCTION_REPOSITORY_PLAN`：生产 profile 下通过离线仓库索引、checksum、trust manifest 和 release gate 完成 repository dry-run plan。
 - `SMOKE_ACTUATOR_GOVERNANCE`：`/actuator/pf4bootgovernance` 和 management metrics 可读。
 - `SMOKE_ACTUATOR_JPA_RELOAD`：`/actuator/pf4bootjpareload` 可读。
 - `actuatorJpaReloadDrainSummary`：`runtimeSmoke` 报告中记录 Actuator JPA reload drain 摘要和文件记录仓库检查。

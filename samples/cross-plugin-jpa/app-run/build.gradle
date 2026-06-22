@@ -17,7 +17,8 @@ task assembleSampleRuntime(type: Copy) {
     description = "Assembles a runnable cross-plugin JPA sample layout."
     dependsOn(
             ":samples:cross-plugin-jpa:demo-host:jar",
-            ":samples:cross-plugin-jpa:demo-host:assembleSamplePlugins"
+            ":samples:cross-plugin-jpa:demo-host:assembleSamplePlugins",
+            ":samples:cross-plugin-jpa:demo-host:generateSampleRepositoryIndex"
     )
 
     into runtimeDir
@@ -38,6 +39,9 @@ task assembleSampleRuntime(type: Copy) {
         into "config"
     }
     from("../repository") {
+        into "repository"
+    }
+    from("${project(":samples:cross-plugin-jpa:demo-host").buildDir}/sample-repository") {
         into "repository"
     }
     from("bin") {
@@ -160,6 +164,34 @@ task runtimeSmoke(type: JavaExec) {
     main = "net.xdob.sample.smoke.RuntimeSmokeRunner"
     args "--runtime", runtimeDir.get().asFile.absolutePath,
             "--port", smokePort.toString(),
+            "--result", reportPath.absolutePath,
+            "--junit", junitPath.absolutePath
+    if (keepWorkDir.toString().toBoolean()) {
+        args "--keep-work-dir"
+    }
+}
+
+task runtimeSmokeProduction(type: JavaExec) {
+    group = "verification"
+    description = "Runs the cross-plugin JPA runtime smoke with the production profile enabled."
+    dependsOn assembleSampleRuntime, compileSmokeJava
+
+    def smokePort = project.findProperty("pf4bootProductionSmokePort") ?: "7792"
+    def keepWorkDir = project.findProperty("pf4bootSmokeKeepWorkDir") ?: "false"
+    def reportPath = layout.buildDirectory.file("reports/runtime-smoke-production/result.json").get().asFile
+    def junitPath = layout.buildDirectory.file("test-results/runtimeSmokeProduction/TEST-runtime-smoke-production.xml").get().asFile
+
+    doFirst {
+        reportPath.parentFile.mkdirs()
+        junitPath.parentFile.mkdirs()
+    }
+
+    classpath = sourceSets.smoke.runtimeClasspath
+    main = "net.xdob.sample.smoke.RuntimeSmokeRunner"
+    args "--runtime", runtimeDir.get().asFile.absolutePath,
+            "--port", smokePort.toString(),
+            "--profile", "production",
+            "--config-location", "config/application.yml,config/application-production.yml",
             "--result", reportPath.absolutePath,
             "--junit", junitPath.absolutePath
     if (keepWorkDir.toString().toBoolean()) {

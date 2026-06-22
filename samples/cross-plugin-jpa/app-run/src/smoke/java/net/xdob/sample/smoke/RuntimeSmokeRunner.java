@@ -13,9 +13,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Properties;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.ZipFile;
 
 /**
  * Cross-platform runtime smoke runner for the cross-plugin JPA sample.
@@ -29,6 +31,8 @@ public class RuntimeSmokeRunner {
   private Path junitPath;
   private int port = 7791;
   private boolean keepWorkDir;
+  private String profile;
+  private String configLocation = "config/application.yml";
   private Process process;
   private Path smokeDir;
   private String failure;
@@ -90,6 +94,10 @@ public class RuntimeSmokeRunner {
         resultPath = Paths.get(args[++i]);
       } else if ("--junit".equals(arg)) {
         junitPath = Paths.get(args[++i]);
+      } else if ("--profile".equals(arg)) {
+        profile = args[++i];
+      } else if ("--config-location".equals(arg)) {
+        configLocation = args[++i];
       } else if ("--keep-work-dir".equals(arg)) {
         keepWorkDir = true;
       }
@@ -143,7 +151,10 @@ public class RuntimeSmokeRunner {
     command.add("-cp");
     command.add("lib/*");
     command.add("net.xdob.sample.host.CrossPluginJpaSampleHost");
-    command.add("--spring.config.location=config/application.yml");
+    command.add("--spring.config.location=" + configLocation);
+    if (profile != null && profile.length() > 0) {
+      command.add("--spring.profiles.active=" + profile);
+    }
     command.add("--server.port=" + port);
     command.add("--spring.pf4boot.management.http.token=sample-token");
     command.add("--spring.pf4boot.management.http.operation-store.type=file");
@@ -259,6 +270,20 @@ public class RuntimeSmokeRunner {
     assertAdminSuccess(deployments, "deployment records");
     System.out.println("SMOKE_FAILURE_CASE code=" + stringField(badPlan.body, "code"));
     addCheck("failureCase", "PASSED", "code=" + stringField(badPlan.body, "code"));
+    if ("production".equals(profile)) {
+      checkProductionRepositoryPlan(admin);
+    }
+  }
+
+  private void checkProductionRepositoryPlan(List<Header> admin) throws Exception {
+    List<Header> planHeaders = new ArrayList<Header>(admin);
+    planHeaders.add(new Header("X-Idempotency-Key", "runtime-smoke-production-repository-plan-java"));
+    String body = "{\"pluginId\":\"sample-workflow\",\"repositoryVersion\":\""
+        + pluginZipVersion("plugin-workflow") + "\",\"dryRun\":true}";
+    HttpResult plan = request("POST", "/pf4boot/admin/deployments/plan", planHeaders, body);
+    assertAdminSuccess(plan, "production repository deployment plan");
+    System.out.println("SMOKE_PRODUCTION_REPOSITORY_PLAN status=" + plan.status);
+    addCheck("productionRepositoryPlan", "PASSED", "sample-workflow");
   }
 
   private void checkJpaProviderIsolation() throws Exception {
@@ -472,6 +497,38 @@ public class RuntimeSmokeRunner {
     return matcher.group(1);
   }
 
+  private String pluginZipVersion(String prefix) throws Exception {
+    File zip = pluginZip(prefix);
+    Properties descriptor = new Properties();
+    ZipFile archive = new ZipFile(zip);
+    try {
+      java.util.zip.ZipEntry entry = archive.getEntry("plugin.properties");
+      if (entry == null) {
+        throw new IllegalStateException("plugin.properties is missing from " + zip.getName());
+      }
+      descriptor.load(archive.getInputStream(entry));
+    } finally {
+      archive.close();
+    }
+    String version = descriptor.getProperty("plugin.version");
+    if (version == null || version.trim().isEmpty()) {
+      throw new IllegalStateException("plugin.version is missing from " + zip.getName());
+    }
+    return version;
+  }
+
+  private File pluginZip(String prefix) {
+    File[] zips = runtime.resolve("plugins").toFile()
+        .listFiles((dir, name) -> name.startsWith(prefix + "-") && name.endsWith(".zip"));
+    if (zips == null || zips.length == 0) {
+      throw new IllegalStateException("Expected plugin zip with prefix " + prefix);
+    }
+    List<File> files = new ArrayList<File>();
+    Collections.addAll(files, zips);
+    Collections.sort(files);
+    return files.get(files.size() - 1);
+  }
+
   private void addCheck(String name, String status, String message) {
     checks.add(new SmokeCheck(name, status, message));
   }
@@ -484,7 +541,9 @@ public class RuntimeSmokeRunner {
         writer.write("{\"status\":\"" + status + "\",\"startedAt\":" + startedAt
             + ",\"finishedAt\":" + System.currentTimeMillis()
             + ",\"port\":" + port
-            + ",\"checks\":[");
+            + ",\"profile\":");
+        writer.write(profile == null ? "null" : "\"" + escape(profile) + "\"");
+        writer.write(",\"checks\":[");
         for (int i = 0; i < checks.size(); i++) {
           if (i > 0) {
             writer.write(",");

@@ -80,7 +80,7 @@ task verifySamplePluginPackages {
         def packageReports = []
         packages.each { File pluginZip ->
             def rules = []
-            def descriptor = new Properties()
+            def descriptor = readPluginDescriptor(pluginZip)
             def bundledLibs = []
             def zip = new java.util.zip.ZipFile(pluginZip)
             try {
@@ -182,6 +182,70 @@ task verifySamplePluginPackages {
 
 assembleSamplePlugins.finalizedBy verifySamplePluginPackages
 
+task generateSampleRepositoryIndex {
+    group = "verification"
+    description = "Generates a local sample repository index from verified plugin packages."
+    dependsOn verifySamplePluginPackages
+
+    def pluginsDir = file("${buildDir}/sample-plugins")
+    def repositoryDir = file("${buildDir}/sample-repository")
+    def repositoryPluginsDir = new File(repositoryDir, "plugins")
+    def indexFile = new File(repositoryDir, "repository-index.json")
+
+    inputs.dir pluginsDir
+    outputs.file indexFile
+
+    doLast {
+        delete repositoryDir
+        repositoryPluginsDir.mkdirs()
+        def packages = pluginsDir.exists()
+                ? pluginsDir.listFiles({ File file -> file.name.endsWith(".zip") } as FileFilter).sort { it.name }
+                : []
+        if (packages.length == 0) {
+            throw new GradleException("No sample plugin packages found in ${pluginsDir}")
+        }
+
+        def releases = []
+        packages.each { File pluginZip ->
+            def descriptor = readPluginDescriptor(pluginZip)
+            def checksum = new File(pluginZip.parentFile, pluginZip.name + ".sha256")
+            def trust = new File(pluginZip.parentFile, pluginZip.name + ".pf4boot-trust.json")
+            if (!checksum.exists() || !trust.exists()) {
+                throw new GradleException("Missing sample repository sidecar for ${pluginZip.name}")
+            }
+            copy {
+                from pluginZip
+                from checksum
+                from trust
+                into repositoryPluginsDir
+            }
+            releases << [
+                    pluginId             : descriptor.getProperty("plugin.id", ""),
+                    version              : descriptor.getProperty("plugin.version", ""),
+                    packagePath          : "plugins/${pluginZip.name}",
+                    packageSha256        : checksum.getText("UTF-8").trim(),
+                    trustManifestPath    : "plugins/${trust.name}",
+                    compatibilityMatrixId: "pf4boot-3.3",
+                    rolloutPolicy        : "manual",
+                    rollbackCandidate    : true,
+                    attributes           : [
+                            channel    : "sample",
+                            releaseGate: "passed"
+                    ]
+            ]
+        }
+
+        writeTextIfChanged(indexFile, toJson([
+                schemaVersion: 1,
+                repositoryId : "cross-plugin-jpa-sample",
+                generatedAt  : System.currentTimeMillis(),
+                signature    : "sample-index-signature-placeholder",
+                releases     : releases
+        ]) + System.lineSeparator())
+        println "Sample repository index: ${indexFile}"
+    }
+}
+
 task runSampleHost(type: JavaExec) {
     group = "application"
     description = "Runs the cross-plugin JPA sample host with assembled plugin zips."
@@ -229,6 +293,22 @@ private static String sha256File(File file) {
         }
     }
     digest.digest().collect { String.format("%02x", it & 0xff) }.join("")
+}
+
+private static Properties readPluginDescriptor(File pluginZip) {
+    def descriptor = new Properties()
+    def zip = new java.util.zip.ZipFile(pluginZip)
+    try {
+        def descriptorEntry = zip.getEntry("plugin.properties")
+        if (descriptorEntry != null) {
+            zip.getInputStream(descriptorEntry).withCloseable { stream ->
+                descriptor.load(stream)
+            }
+        }
+    } finally {
+        zip.close()
+    }
+    descriptor
 }
 
 private static void writeTextIfChanged(File file, String content) {
