@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/xdob/pf4boot/security/advisories/new
+    about: Please report vulnerabilities privately instead of opening a public issue.
+  - name: Contribution guide
+    url: https://github.com/xdob/pf4boot/blob/master/CONTRIBUTING.md
+    about: Read this before preparing a pull request.
+
