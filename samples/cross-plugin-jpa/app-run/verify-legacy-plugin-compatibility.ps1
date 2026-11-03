@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)][string]$BaselinePlugins,
-    [string]$BaselineRevision = '81526a7',
+    [ValidatePattern('^[0-9a-fA-F]{7,40}$')][string]$BaselineRevision = '81526a7',
     [int]$Port = 7793,
     [switch]$Production
 )
@@ -10,6 +10,7 @@ $runtime = Join-Path $PSScriptRoot 'build\runtime'
 $baseline = (Resolve-Path -LiteralPath $BaselinePlugins).Path
 $work = Join-Path $PSScriptRoot ('build\compatibility-' + [Guid]::NewGuid().ToString('N'))
 $reportName = if ($Production) { 'legacy-plugin-compatibility-production' } else { 'legacy-plugin-compatibility' }
+if ($BaselineRevision -ne '81526a7') { $reportName += '-' + $BaselineRevision }
 $reports = Join-Path $PSScriptRoot ('build\reports\' + $reportName)
 $archives = @(Get-ChildItem -LiteralPath $baseline -File -Filter '*.zip')
 if ($archives.Count -ne 4) { throw 'Expected four prebuilt baseline plugin zips.' }

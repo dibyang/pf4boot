@@ -2,6 +2,15 @@
 
 [English](en/plugin-resource-cleanup.md)
 
+## 第五轮卸载边界修复设计
+
+- 完整 unload 使用现有 stateLock，与 start/stop/reload 串行化；先收集依赖方优先的去重顺序，对整个范围统一排空，再停止全部受影响插件，最后按叶子到提供者关闭 loader 和移除记录。排空失败不修改任何插件。
+- 使用现有 PluginCleanup 收集卸载通知异常，不让监听器中断其它插件的卸载和依赖图刷新。通知发生在 loader 关闭和记录移除后；调用方仍收到通知失败，但不重复销毁已卸载实例。
+- loader 关闭失败时保留 wrapper/loader，标记 FAILED 并从 resolved 列表移出，防止在可能已部分关闭的 loader 上重新启动；只允许重试 unload 后重新加载。不中断后续依赖图校正，不新增清理状态表或公共 API。
+- 兼容性：配置、插件格式及公共方法签名不变；修正卸载顺序，并发启动不会穿过卸载临界区；UNLOADED 通知现在意味着 loader 已关闭。监听器失败仍显式报告，已完成的资源清理不回滚；旧代码不得依赖通知时 loader 仍可用。关闭失败不再允许不安全的直接重启。
+- 回归覆盖三级依赖、菱形依赖、阻塞叶子无变更、并发启动、单个监听器和多插件通知失败、loader 关闭失败重试。真实 zip 插件覆盖多级依赖及并发/监听器边界；普通及 production 完整 smoke 和旧插件二进制升级验收均需通过。状态：本地验收通过，结果见第五轮验收记录。
+- 升级验收追加定位：`3a43ec2` 实际旧插件稳定留下一个旧 loader。隔离堆的强引用链为存活上下文 → parentBeanFactory → mergedBeanDefinitions → RootBeanDefinition.resolvedTargetType → 旧 CleanupProbeExtension。Spring 5.3 注销只将合并定义标记 stale，未必移除旧引用；在动态 Bean 注销后仅移除该名称的合并定义缓存，保留其它项。使用当前 Spring 字段适配，字段不兼容时显式失败，不静默跳过；不扩大为全局缓存清空。
+
 ## 第四轮局部修复设计
 
 - 卸载遇到停止/排空失败立即向调用方报告，不移除插件记录、不关闭 loader；依赖方卸载失败同样中止，不允许带着仍在运行的依赖方卸载提供者。
@@ -135,3 +144,32 @@ $baseline = "$PWD\build\compatibility-81526a7\plugins"
 - 两套 smoke 在边界验收后继续完成 20 轮启停、10 轮 reload 和 10 个旧 loader 回收，JPA、事务回滚、记录持久化、provider 替换/隔离及 Actuator 检查通过。
 - 使用第三轮记录的同一组 `81526a7` 旧 zip/sidecar 和相同脚本命令，在修复后框架的普通及 production 配置下均通过业务接口、20 轮启停、10 轮 reload、10 个旧 loader 回收及失败恢复。旧 zip 的 SHA-256 未变，报告记录的框架 JAR 与最终构建逐项校验一致。
 - 差异及严格 UTF-8 检查通过。仍未在 Java 8 JVM 上运行；旧插件验收只覆盖指定基线，不能外推至所有历史插件。插件未登记的外部资源、任意不可终止的用户线程不在自动释放保证内。
+
+## 第五轮验收记录
+
+2026-11-03，Windows / Temurin JDK 17 / `--release 8`。状态：本地验收通过，未做制品发布。
+
+- 最终执行完整 `build`、`runtimeSmoke`、`runtimeSmokeProduction`，命令同前，退出码 0。框架 JUnit XML 共 335 项，失败、错误、跳过均为 0；新增 6 项回归覆盖三级链排空无变更与恢复、菱形顺序去重、并发启动互斥、多插件通知失败不中断关闭及依赖图刷新、loader 关闭失败阻止重启并可重试，以及只移除指定动态 Bean 的 stale 合并定义。
+- 普通和 production 的真实 Tomcat 验收均通过 `unloadBoundaries`：workflow 请求阻塞时，domain/service/workflow 原实例和 loader 全部保留；释放后按 workflow → service → domain 卸载，再加载启动整条链，业务调用与事务回滚正常。该样例同时包含 workflow 对 domain 的直接依赖，覆盖共享依赖去重。
+- 两个并发调用方验证 start 等待完整 unload 临界区；卸载完成后旧实例不可重启，重新加载可启动。UNLOADED 监听器抛错后仍完成 loader 关闭、上下文/全局注册清理，重复卸载不重复销毁，并可重新加载启动。
+- 在新场景后，双配置继续通过原有异步/转发/扩展端口边界、20 轮启停、10 轮 reload 和 10 个旧 loader 回收，以及 JPA reload、持久化、provider 替换/隔离及 Actuator 回归。
+- 保留 `81526a7` 和修复前 `3a43ec2` 两组实际 zip/sidecar，均未重编译；两组各在普通及 production 下通过业务调用、20 轮启停、10 轮 reload、10 个旧 loader 回收和启动/停止失败恢复。报告为 `legacy-plugin-compatibility{,-production}/result.json` 及 `legacy-plugin-compatibility{,-production}-3a43ec2/result.json`，均相对 sample app-run 的 `build/reports`。
+- `3a43ec2` 最初与单独复验均出现 1 个旧 loader 残留；隔离堆定位到上述平台合并定义强引用。定向清理修复后，保持原 GC 次数和标准重新运行全部验收通过，不将预热后未观测到初始 loader 的 smoke 结果替代冷启动升级验收。临时堆诊断、探针和堆文件只在忽略的 build 目录，未加入提交。
+- 全部旧 zip SHA-256 未变，升级报告的框架 JAR 与最终构建逐项哈希一致；差异和严格 UTF-8 检查通过。未在 Java 8 JVM、其它操作系统或所有历史插件上验证，自管资源仍适用前述边界。
+
+新增旧包基线的复验命令（前述 `81526a7` 命令仍适用）：
+
+```powershell
+$baseline = "$PWD\build\compatibility-3a43ec2\plugins"
+& .\samples\cross-plugin-jpa\app-run\verify-legacy-plugin-compatibility.ps1 -BaselinePlugins $baseline -BaselineRevision 3a43ec2
+& .\samples\cross-plugin-jpa\app-run\verify-legacy-plugin-compatibility.ps1 -BaselinePlugins $baseline -BaselineRevision 3a43ec2 -Production
+```
+
+`3a43ec2` 旧 zip 的 SHA-256（版本 `3.3.0-SNAPSHOT`）：
+
+| 插件 | SHA-256 |
+| --- | --- |
+| plugin-demo-jpa-domain | `90B16514393F3A2BF975645C53999D808C15CBF2A82E047062C73F4167488B6A` |
+| plugin-unrelated-service | `0C7CF4D3CF5B9A9C7F3EDD4FBA790DC156EBD061FDB946C7D58A4475730C3340` |
+| plugin-user-book-service | `E672B5ED88A99836687D90CCF4D571259E7ACBDD15FFE49038926685D30822B2` |
+| plugin-workflow | `E3B2F9393A469970F7C6F316FB3ACDA619BA74989DD30341AC52DF9D25495E77` |

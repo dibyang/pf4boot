@@ -17,6 +17,7 @@ import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.beans.factory.support.AbstractBeanFactory;
 import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.ApplicationContext;
@@ -27,6 +28,7 @@ import org.springframework.core.type.classreading.MetadataReaderFactory;
 import org.springframework.core.type.classreading.SimpleMetadataReaderFactory;
 import org.springframework.scheduling.concurrent.CustomizableThreadFactory;
 import org.springframework.util.Assert;
+import org.springframework.util.ReflectionUtils;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -34,6 +36,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
@@ -844,9 +847,20 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     if (beanFactory.containsBeanDefinition(beanName)) {
       beanFactory.removeBeanDefinition(beanName);
     }
+    removeMergedBeanDefinition(beanFactory, beanName);
 
     BeanUnregisterEvent unRegisterBeanEvent = new BeanUnregisterEvent(scope, context, beanName, bean);
     publishEvent(unRegisterBeanEvent);
+  }
+
+  /** Spring 5.3 的 stale 合并定义仍可持有旧类型和 supplier，只移除已注销的动态项。 */
+  private void removeMergedBeanDefinition(DefaultListableBeanFactory beanFactory, String beanName) {
+    Field field = ReflectionUtils.findField(AbstractBeanFactory.class, "mergedBeanDefinitions");
+    Assert.state(field != null, "Unsupported Spring merged bean definition metadata");
+    ReflectionUtils.makeAccessible(field);
+    Map<?, ?> definitions = (Map<?, ?>) ReflectionUtils.getField(field, beanFactory);
+    Assert.state(definitions != null, "Missing Spring merged bean definition metadata");
+    definitions.remove(beanName);
   }
 
   private void removeBeanDefinition(String beanName) {
@@ -1325,63 +1339,65 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   @Override
   protected boolean unloadPlugin(String pluginId, boolean unloadDependents, boolean resolveDependencies) {
-    if (unloadDependents) {
-      List<String> dependents = dependencyResolver.getDependents(pluginId);
-      while (!dependents.isEmpty()) {
-        String dependent = dependents.remove(0);
-        if (!unloadPlugin(dependent, false, false)) {
-          return false;
-        }
-        dependents.addAll(0, dependencyResolver.getDependents(dependent));
-      }
-    }
-
-    if (!plugins.containsKey(pluginId)) {
-      // nothing to do
-      return false;
-    }
-
-    PluginWrapper pluginWrapper = getPlugin(pluginId);
-    PluginState pluginState;
-    try {
-      pluginState = stopPlugin(pluginId, false);
-      if (pluginState.isStarted()) {
+    try (AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      if (!plugins.containsKey(pluginId)) {
         return false;
       }
-
-      LOG.info("Unload plugin '{}'", getPluginLabel(pluginWrapper.getDescriptor()));
-    } catch (Exception e) {
-      LOG.error("Cannot stop plugin '{}'", getPluginLabel(pluginWrapper.getDescriptor()), e);
-      throw new PluginRuntimeException(e, "Cannot unload plugin before cleanup succeeds: %s", pluginId);
+      LinkedHashSet<String> affected = new LinkedHashSet<>();
+      collectUnloadOrder(pluginId, unloadDependents, affected);
+      try (PluginDrainScope drain = drainPlugins(affected)) {
+        doStopPlugin(pluginId, unloadDependents, null);
+        PluginCleanup cleanup = new PluginCleanup();
+        cleanup.run("unload resources", () -> {
+          for (String id : affected) {
+            unloadStoppedPlugin(id, cleanup);
+          }
+        });
+        if (resolveDependencies) {
+          cleanup.run("resolve dependencies", this::resolveDependencies);
+        }
+        cleanup.throwIfFailed();
+        return true;
+      }
     }
+  }
 
-    // remove the plugin
+  /** PF4J 依赖图已排除环；后序去重保证菱形依赖中消费者也先于所有提供者卸载。 */
+  private void collectUnloadOrder(String pluginId, boolean dependents, Set<String> order) {
+    if (order.contains(pluginId)) {
+      return;
+    }
+    if (dependents) {
+      for (String dependent : dependencyResolver.getDependents(pluginId)) {
+        collectUnloadOrder(dependent, true, order);
+      }
+    }
+    order.add(pluginId);
+  }
+
+  /** 已排空并停止；先完成可能失败的关闭，成功后才提交卸载记录并通知观察者。 */
+  private void unloadStoppedPlugin(String pluginId, PluginCleanup cleanup) {
+    PluginWrapper pluginWrapper = getPlugin(pluginId);
+    PluginState previousState = pluginWrapper.getPluginState();
+    ClassLoader classLoader = getPluginClassLoaders().get(pluginId);
+    if (classLoader instanceof Closeable) {
+      try {
+        ((Closeable) classLoader).close();
+      } catch (IOException failure) {
+        pluginWrapper.setPluginState(PluginState.FAILED);
+        pluginWrapper.setFailedException(failure);
+        getResolvedPlugins().remove(pluginWrapper);
+        throw new PluginRuntimeException(failure, "Cannot close classloader for plugin: %s", pluginId);
+      }
+    }
+    LOG.info("Unload plugin '{}'", getPluginLabel(pluginWrapper.getDescriptor()));
     pluginWrapper.setPluginState(PluginState.UNLOADED);
     plugins.remove(pluginId);
     getResolvedPlugins().remove(pluginWrapper);
     getUnresolvedPlugins().remove(pluginWrapper);
-
-    firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, pluginState));
-
-    // remove the classloader
-    Map<String, ClassLoader> pluginClassLoaders = getPluginClassLoaders();
-    if (pluginClassLoaders.containsKey(pluginId)) {
-      ClassLoader classLoader = pluginClassLoaders.remove(pluginId);
-      if (classLoader instanceof Closeable) {
-        try {
-          ((Closeable) classLoader).close();
-        } catch (IOException e) {
-          throw new PluginRuntimeException(e, "Cannot close classloader");
-        }
-      }
-    }
-
-    // resolve the plugins again (update plugins graph)
-    if (resolveDependencies) {
-      resolveDependencies();
-    }
-
-    return true;
+    getPluginClassLoaders().remove(pluginId);
+    cleanup.run("unload notification " + pluginId,
+        () -> firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, previousState)));
   }
 
 

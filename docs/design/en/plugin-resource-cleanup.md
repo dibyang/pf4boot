@@ -2,6 +2,15 @@
 
 [中文](../plugin-resource-cleanup.md)
 
+## Fifth Follow-up Unload Design
+
+- Hold the existing stateLock for the entire unload, serialized with start/stop/reload. Collect a deduplicated dependents-first order, drain the entire scope before any mutation, stop all affected plugins, then close loaders and remove records from leaves to providers.
+- Aggregate unload notification failures with existing PluginCleanup so listeners cannot skip remaining unloads or dependency-graph refresh. Notify only after loader close and record removal. Report listener failure without repeating completed destruction.
+- On loader close failure, retain the wrapper/loader, mark FAILED and remove it from resolved plugins to prevent restart on a possibly partly closed loader. Retry unload before loading a replacement; still refresh the dependency graph. Add no cleanup registry or public API.
+- Compatibility: signatures, defaults and plugin formats remain unchanged. Unload ordering is corrected and concurrent start cannot cross the unload critical section. UNLOADED now means the loader is closed; listeners must not rely on a usable loader at that point. Notification failures remain explicit without rolling back completed cleanup. Close failure no longer permits unsafe direct restart.
+- Test three-level/diamond dependencies, blocked-leaf no-mutation, concurrent start, single/multiple notification failures and loader-close retry. Real zips exercise dependencies and concurrency/listener boundaries; both smoke profiles and unchanged old-binary upgrade acceptance must pass. Status: locally verified; see fifth follow-up acceptance below.
+- Upgrade acceptance additionally reproduced one retained old loader with actual `3a43ec2` zips. The isolated heap shows live context -> parentBeanFactory -> mergedBeanDefinitions -> RootBeanDefinition.resolvedTargetType -> old CleanupProbeExtension. Spring 5.3 can mark removed merged definitions stale without releasing their references. Evict only the removed dynamic bean's merged definition; retain unrelated entries and fail explicitly on unsupported Spring metadata rather than clearing global caches.
+
 ## Fourth Follow-up Design
 
 - Abort unload on stop/drain failure without removing the plugin or closing its loader. Dependent unload failure also aborts provider unload.
@@ -133,3 +142,32 @@ Old zip SHA-256 values (all file versions are `3.3.0-SNAPSHOT`):
 - Both profiles subsequently pass 20 restarts, 10 reloads and collection of ten old loaders, plus JPA, rollback, persisted records, provider replacement/isolation and Actuator checks.
 - The same preserved `81526a7` zips/sidecars and script commands recorded above pass business calls, 20 restarts, 10 reloads, ten collected loaders and failure recovery on the new framework in both ordinary and production profiles. Old zip SHA-256 values remain unchanged; every framework JAR hash in the reports matches the final build.
 - Diff and strict UTF-8 checks pass. No Java 8 JVM execution was performed. Old-binary coverage is limited to the specified baseline, not every historical plugin. Unregistered external resources and arbitrary non-terminating user threads remain outside automatic cleanup guarantees.
+
+## Fifth Follow-up Acceptance
+
+2026-11-03, Windows / Temurin JDK 17 / `--release 8`. Status: locally verified, no artifact release performed.
+
+- The final full `build`, `runtimeSmoke` and `runtimeSmokeProduction` command shown above exits with code 0. Framework JUnit XML totals 335 tests with zero failures, errors or skips. Six new regressions cover blocked three-level drain preservation/recovery, diamond ordering/deduplication, concurrent start serialization, multi-plugin notification failures with close/graph refresh, loader-close failure blocking restart with unload retry, and selective stale merged-definition eviction.
+- Both Tomcat profiles pass `unloadBoundaries`: blocked workflow work preserves the domain/service/workflow instances and loaders. After drain, unload follows workflow -> service -> domain; loading and starting the chain restores business calls and rollback. Workflow also directly depends on the domain, exercising shared-dependency deduplication.
+- Two concurrent callers verify that start waits for complete unload and cannot restart the removed instance on its old loader; a freshly loaded instance starts. A throwing UNLOADED listener cannot skip loader/context/global-registration cleanup. Repeated unload does not repeat destruction, and loading/starting a replacement succeeds.
+- Both profiles retain passing async/forward/extension-port boundaries, 20 restarts, 10 reloads, collection of ten old loaders, JPA reload, persistence, provider replacement/isolation and Actuator checks after the new scenarios.
+- Preserved actual `81526a7` and pre-fix `3a43ec2` zips/sidecars run without recompilation. Each baseline passes business requests, 20 restarts, 10 reloads, collection of ten old loaders and start/stop failure recovery in both ordinary and production profiles. Reports are `legacy-plugin-compatibility{,-production}/result.json` and `legacy-plugin-compatibility{,-production}-3a43ec2/result.json`, relative to sample app-run `build/reports`.
+- Initial and isolated `3a43ec2` runs retained one old loader. An isolated heap identified the platform merged-definition strong reference described above. After selective cleanup, all acceptance reruns pass with the original GC count and criteria. Warmed smoke that did not observe the initial loader is not substituted for cold-start upgrade acceptance. Temporary heap diagnostics, probes and dumps remain only in ignored build output, outside the commit.
+- Old zip SHA-256 values are unchanged and every reported framework JAR hash matches the final build. Diff and strict UTF-8 checks pass. No Java 8 JVM, other operating-system or exhaustive historical-plugin acceptance was performed; external-resource limits still apply.
+
+Additional baseline commands (the earlier `81526a7` commands remain valid):
+
+```powershell
+$baseline = "$PWD\build\compatibility-3a43ec2\plugins"
+& .\samples\cross-plugin-jpa\app-run\verify-legacy-plugin-compatibility.ps1 -BaselinePlugins $baseline -BaselineRevision 3a43ec2
+& .\samples\cross-plugin-jpa\app-run\verify-legacy-plugin-compatibility.ps1 -BaselinePlugins $baseline -BaselineRevision 3a43ec2 -Production
+```
+
+`3a43ec2` old zip SHA-256 values (version `3.3.0-SNAPSHOT`):
+
+| Plugin | SHA-256 |
+| --- | --- |
+| plugin-demo-jpa-domain | `90B16514393F3A2BF975645C53999D808C15CBF2A82E047062C73F4167488B6A` |
+| plugin-unrelated-service | `0C7CF4D3CF5B9A9C7F3EDD4FBA790DC156EBD061FDB946C7D58A4475730C3340` |
+| plugin-user-book-service | `E672B5ED88A99836687D90CCF4D571259E7ACBDD15FFE49038926685D30822B2` |
+| plugin-workflow | `E3B2F9393A469970F7C6F316FB3ACDA619BA74989DD30341AC52DF9D25495E77` |

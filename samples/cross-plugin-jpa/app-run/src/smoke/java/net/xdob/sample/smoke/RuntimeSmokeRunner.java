@@ -62,6 +62,7 @@ public class RuntimeSmokeRunner {
       checkManagement();
       checkCleanupBoundaries();
       checkDispatchBoundaries();
+      checkUnloadBoundaries();
       checkPluginLifecycleCleanup();
       String reloadId = checkJpaReload();
       checkJpaReloadRecordPersistence(reloadId);
@@ -236,6 +237,21 @@ public class RuntimeSmokeRunner {
     System.out.println("SMOKE_DISPATCH_BOUNDARIES " + result.body);
     addCheck("dispatchBoundaries", "PASSED", result.body);
     checkWorkflow();
+  }
+
+  private void checkUnloadBoundaries() throws Exception {
+    List<Header> admin = new ArrayList<Header>();
+    admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult result = request("POST", "/api/sample/unload-boundaries", admin, "{}");
+    assertStatus(result, 200, "unload boundary probe");
+    if (!result.body.contains("\"multiLevelUnload\":\"PASSED\"")
+        || !result.body.contains("\"concurrentStart\":\"PASSED\"")
+        || !result.body.contains("\"listenerFailure\":\"PASSED\"")) {
+      throw new IllegalStateException("unload checks incomplete: " + result.body);
+    }
+    System.out.println("SMOKE_UNLOAD_BOUNDARIES " + result.body);
+    addCheck("unloadBoundaries", "PASSED", result.body);
+    checkWorkflow(); checkUnrelated();
   }
 
   private void checkUnrelated() throws Exception {
