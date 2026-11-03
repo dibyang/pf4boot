@@ -32,6 +32,7 @@ import org.springframework.web.context.request.async.WebAsyncUtils;
 import java.util.concurrent.Callable;
 import javax.servlet.AsyncEvent;
 import javax.servlet.AsyncListener;
+import javax.servlet.DispatcherType;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import javax.servlet.http.HttpServletRequest;
@@ -400,6 +401,9 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     private final String pluginId;
     private final Object controller;
     private final Map<HandlerInterceptor, String> owned;
+    // 每次构建执行链都会创建本拦截器；完成时只操作自己持有的分派计数。
+    private RequestWork work;
+    private Object previousWork;
 
     private PluginDrainInterceptor(String pluginId, Object controller, Map<HandlerInterceptor, String> owned) {
       this.pluginId = pluginId;
@@ -413,17 +417,20 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
         HttpServletResponse response,
         Object handler) throws Exception {
       Object existing = request.getAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
-      if (existing instanceof RequestWork && !((RequestWork) existing).released) { return true; }
+      previousWork = existing;
       Set<String> ids = new LinkedHashSet<>(owned.values());
       if (pluginId != null) { ids.add(pluginId); }
       List<String> entered = new ArrayList<>();
       synchronized (workTracker) {
+        RequestWork continuation = request.getDispatcherType() == DispatcherType.ASYNC
+            && existing instanceof RequestWork && !((RequestWork) existing).released ? (RequestWork) existing : null;
         boolean live = pluginId == null || pluginId.equals(pluginIdsByHandler.get(controller));
         for (Map.Entry<HandlerInterceptor, String> entry : owned.entrySet()) {
           live &= entry.getValue().equals(pluginIdsByInterceptor.get(entry.getKey()));
         }
         if (live) {
           for (String id : ids) {
+            if (continuation != null && continuation.contains(id)) { continue; }
             if (!workTracker.tryEnter(id)) { live = false; break; }
             entered.add(id);
           }
@@ -433,16 +440,17 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
           response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Plugin work is unavailable");
           return false;
         }
+        work = continuation != null ? continuation : new RequestWork(entered);
+        if (continuation != null) { work.ids.addAll(entered); }
       }
-      RequestWork work = new RequestWork(entered);
       request.setAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE, work);
-      WebAsyncUtils.getAsyncManager(request).registerCallableInterceptor(IN_FLIGHT_PLUGIN_ATTRIBUTE,
+      WebAsyncUtils.getAsyncManager(request).registerCallableInterceptor(work,
           new CallableProcessingInterceptor() {
             public <T> void preProcess(NativeWebRequest req, Callable<T> task) { work.beginWorker(); }
             public <T> void postProcess(NativeWebRequest req, Callable<T> task, Object result) { work.endWorker(); }
             public <T> void afterCompletion(NativeWebRequest req, Callable<T> task) { work.complete(); }
           });
-      WebAsyncUtils.getAsyncManager(request).registerDeferredResultInterceptor(IN_FLIGHT_PLUGIN_ATTRIBUTE,
+      WebAsyncUtils.getAsyncManager(request).registerDeferredResultInterceptor(work,
           new DeferredResultProcessingInterceptor() {
             public <T> void afterCompletion(NativeWebRequest req, DeferredResult<T> result) { work.complete(); }
           });
@@ -451,7 +459,6 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
 
     @Override
     public void afterConcurrentHandlingStarted(HttpServletRequest request, HttpServletResponse response, Object handler) {
-      RequestWork work = (RequestWork) request.getAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
       request.getAsyncContext().addListener(new AsyncListener() {
         public void onComplete(AsyncEvent event) { work.complete(); }
         public void onTimeout(AsyncEvent event) { }
@@ -466,35 +473,45 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
         HttpServletResponse response,
         Object handler,
         Exception ex) {
-      Object value = request.getAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
-      if (value instanceof RequestWork) { ((RequestWork) value).complete(); }
+      if (work != null) {
+        work.complete();
+        if (request.getAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE) == work && previousWork != work) {
+          if (previousWork == null) { request.removeAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE); }
+          else { request.setAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE, previousWork); }
+        }
+      }
     }
   }
 
-  /** 请求终结且 Callable 工作线程已退出后，才释放计数。 */
+  /** 请求终结且 Callable 工作线程已退出后才释放；所有状态与准入共用 workTracker 锁。 */
   private class RequestWork {
     private final List<String> ids;
     private boolean completed;
     private int workers;
-    private volatile boolean released;
-    private RequestWork(List<String> ids) { this.ids = ids; }
-    private synchronized void beginWorker() {
-      if (completed) { throw new IllegalStateException("Request already completed"); }
-      workers++;
+    private boolean released;
+    private RequestWork(List<String> ids) { this.ids = new ArrayList<>(ids); }
+    private boolean contains(String id) { return ids.contains(id); }
+    private void beginWorker() {
+      synchronized (workTracker) {
+        if (completed) { throw new IllegalStateException("Request already completed"); }
+        workers++;
+      }
     }
     private void endWorker() {
-      synchronized (this) { if (workers > 0) { workers--; } }
-      releaseIfReady();
+      synchronized (workTracker) {
+        if (workers > 0) { workers--; }
+        releaseIfReady();
+      }
     }
     private void complete() {
-      synchronized (this) { completed = true; }
-      releaseIfReady();
+      synchronized (workTracker) {
+        completed = true;
+        releaseIfReady();
+      }
     }
     private void releaseIfReady() {
-      synchronized (this) {
-        if (!completed || workers != 0 || released) { return; }
-        released = true;
-      }
+      if (!completed || workers != 0 || released) { return; }
+      released = true;
       ids.forEach(workTracker::exit);
     }
   }

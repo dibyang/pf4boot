@@ -33,6 +33,12 @@ These constraints apply before design and implementation work.
 - Treat class loader behavior as a compatibility-sensitive area.
 - Treat public annotations and event types as API contracts.
 
+## Upgrade Compatibility
+
+- Evaluate upgrade compatibility for every feature and bug fix, including public APIs, configuration defaults, lifecycle behavior, plugin packaging and persisted data.
+- Preserve existing contracts where possible. Document intentional behavior corrections and any breaking change with its migration or rollback path in the design note.
+- For API, lifecycle, class loading or packaging changes, verify preserved pre-upgrade plugin binaries on the new framework without recompiling them; record the tested baseline and limits. Keep verification proportional to the change, without introducing a new process framework.
+
 ## Verification
 
 - Prefer targeted Gradle commands while iterating.

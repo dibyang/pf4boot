@@ -40,6 +40,26 @@ public class CleanupProbeFixtures {
   @RestController
   @ConditionalOnProperty(name = "sample.cleanup-probe-enabled", havingValue = "true")
   public static class ProbeController {
+    @GetMapping("/api/sample/unrelated/async-dispatch")
+    public void asyncDispatch(javax.servlet.http.HttpServletRequest request) {
+      request.startAsync().dispatch("/api/sample/workflow/dispatch-target");
+    }
+    @GetMapping("/api/sample/unrelated/forward")
+    public void forward(javax.servlet.http.HttpServletRequest request,
+        javax.servlet.http.HttpServletResponse response) throws Exception {
+      request.getRequestDispatcher("/api/sample/workflow/dispatch-target").forward(request, response);
+      waitForOuterRelease();
+    }
+    @GetMapping("/api/sample/unrelated/include")
+    public void include(javax.servlet.http.HttpServletRequest request,
+        javax.servlet.http.HttpServletResponse response) throws Exception {
+      request.getRequestDispatcher("/api/sample/workflow/dispatch-target").include(request, response);
+      waitForOuterRelease();
+    }
+    private void waitForOuterRelease() throws Exception {
+      System.setProperty("sample.dispatch.outer-entered", "true");
+      waitForRelease("sample.dispatch.outer-block");
+    }
     @GetMapping("/api/sample/unrelated/async")
     public Callable<String> async() { return () -> "async-ok"; }
     @GetMapping("/api/sample/unrelated/deferred")

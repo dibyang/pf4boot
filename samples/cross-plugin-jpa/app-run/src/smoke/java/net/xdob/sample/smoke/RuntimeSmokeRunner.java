@@ -61,6 +61,7 @@ public class RuntimeSmokeRunner {
       checkWorkflow();
       checkManagement();
       checkCleanupBoundaries();
+      checkDispatchBoundaries();
       checkPluginLifecycleCleanup();
       String reloadId = checkJpaReload();
       checkJpaReloadRecordPersistence(reloadId);
@@ -213,12 +214,28 @@ public class RuntimeSmokeRunner {
     HttpResult result = request("POST", "/api/sample/lifecycle-boundaries", admin, "{}");
     assertStatus(result, 200, "cleanup boundary probe");
     if (!result.body.contains("\"socketRecovery\":\"PASSED\"")
-        || !result.body.contains("\"timeoutWorkerDrain\":\"PASSED\"")) {
+        || !result.body.contains("\"timeoutWorkerDrain\":\"PASSED\"")
+        || !result.body.contains("\"unloadRetention\":\"PASSED\"")
+        || !result.body.contains("\"extensionDestruction\":\"PASSED\"")) {
       throw new IllegalStateException("cleanup boundary checks incomplete: " + result.body);
     }
     System.out.println("SMOKE_CLEANUP_BOUNDARIES " + result.body);
     addCheck("cleanupBoundaries", "PASSED", result.body);
     checkUnrelated();
+  }
+
+  private void checkDispatchBoundaries() throws Exception {
+    List<Header> admin = new ArrayList<Header>();
+    admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult result = request("POST", "/api/sample/dispatch-boundaries", admin, "{}");
+    assertStatus(result, 200, "dispatch boundary probe");
+    if (!result.body.contains("\"pluginDestroyOnce\":\"PASSED\"")
+        || !result.body.contains("\"asyncDispatches\":20")) {
+      throw new IllegalStateException("dispatch checks incomplete: " + result.body);
+    }
+    System.out.println("SMOKE_DISPATCH_BOUNDARIES " + result.body);
+    addCheck("dispatchBoundaries", "PASSED", result.body);
+    checkWorkflow();
   }
 
   private void checkUnrelated() throws Exception {

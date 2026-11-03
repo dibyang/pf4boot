@@ -49,15 +49,19 @@ public class SampleCleanupBoundaryProbe {
       properties.setPluginDrainTimeoutMillis(50);
       verifyBlockedInterceptor(base);
       verifyTimedOutWorker(base);
+      verifyUnloadWhileBlocked(base);
+      verifyExtensionDestruction();
       verifyDestruction();
       Map<String, Object> result = new LinkedHashMap<>();
       result.put("asyncRequests", 20); result.put("interceptorDrain", "PASSED");
       result.put("timeoutWorkerDrain", "PASSED"); result.put("socketRecovery", "PASSED");
+      result.put("unloadRetention", "PASSED"); result.put("extensionDestruction", "PASSED");
       return result;
     } finally {
       properties.setPluginDrainTimeoutMillis(timeout);
       for (String key : Arrays.asList("sample.cleanup.interceptor-block", "sample.cleanup.interceptor-entered",
-          "sample.cleanup.async-block", "sample.cleanup.async-entered", "sample.cleanup.fail-close")) {
+          "sample.cleanup.async-block", "sample.cleanup.async-entered", "sample.cleanup.fail-close",
+          "sample.extension.fail-close")) {
         System.clearProperty(key);
       }
     }
@@ -86,10 +90,127 @@ public class SampleCleanupBoundaryProbe {
     restartAfterDrain();
   }
   private void expectDrainRejection() {
-    try { manager.stopPlugin(ID); throw new IllegalStateException("stop ignored active plugin work"); }
-    catch (PluginRuntimeException expected) {
-      require(manager.getPlugin(ID).getPluginState() == PluginState.STARTED, "timeout changed plugin state");
+    expectDrainRejection(ID);
+  }
+
+  private void verifyUnloadWhileBlocked(String base) throws Exception {
+    System.clearProperty("sample.cleanup.interceptor-entered");
+    System.setProperty("sample.cleanup.interceptor-block", "true");
+    org.pf4j.PluginWrapper original = manager.getPlugin(ID);
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    Future<String> response = executor.submit(() -> get(base + "/api/sample/lifecycle-host-block"));
+    try {
+      awaitProperty("sample.cleanup.interceptor-entered");
+      try { manager.unloadPlugin(ID); throw new IllegalStateException("unload ignored active plugin work"); }
+      catch (PluginRuntimeException expected) { }
+      require(manager.getPlugin(ID) == original, "failed unload removed plugin");
+      require(original.getPluginState() == PluginState.STARTED, "failed unload changed state");
+      require(((net.xdob.pf4boot.Pf4bootPlugin) original.getPlugin()).getPluginContext().isActive(), "failed unload closed context");
+      require(original.getPluginClassLoader().loadClass("net.xdob.sample.unrelated.CleanupProbeExtension") != null, "loader unavailable");
+    } finally {
+      System.clearProperty("sample.cleanup.interceptor-block");
+      try { require("host-ok".equals(response.get(3, TimeUnit.SECONDS)), "blocked unload response"); }
+      finally { executor.shutdownNow(); }
     }
+    require(mapping.awaitDrain(Collections.singletonList(ID), 2000), "unload work did not drain");
+    java.nio.file.Path path = original.getPluginPath();
+    require(manager.unloadPlugin(ID), "unload retry failed");
+    require(manager.getPlugin(ID) == null, "unload retry retained plugin");
+    require(ID.equals(manager.loadPlugin(path)), "reload after unload failed");
+    require(manager.startPlugin(ID) == PluginState.STARTED, "restart after unload failed");
+  }
+
+  private void verifyExtensionDestruction() throws Exception {
+    int port = Integer.parseInt(System.getProperty("sample.extension.port"));
+    int destroyed = Integer.getInteger("sample.extension.destroys", 0);
+    org.pf4j.PluginWrapper original = manager.getPlugin(ID);
+    System.setProperty("sample.extension.fail-close", "true");
+    try {
+      try { manager.unloadPlugin(ID); throw new IllegalStateException("extension failure ignored during unload"); }
+      catch (PluginRuntimeException expected) { }
+      require(manager.getPlugin(ID) == original && original.getPluginState() == PluginState.FAILED, "extension failure lost retry context");
+      try (ServerSocket unexpected = new ServerSocket(port)) { throw new IllegalStateException("extension socket unexpectedly released"); }
+      catch (BindException expected) { }
+      require(manager.startPlugin(ID) == PluginState.FAILED, "extension failure bypassed on start");
+    } finally { System.clearProperty("sample.extension.fail-close"); }
+    require(manager.stopPlugin(ID) == PluginState.STOPPED, "extension cleanup retry failed");
+    require(Integer.getInteger("sample.extension.destroys", 0) == destroyed + 1, "extension close not exactly once");
+    try (ServerSocket released = new ServerSocket(port)) { require(released.isBound(), "extension port retained"); }
+    require(manager.startPlugin(ID) == PluginState.STARTED, "extension restart failed");
+    require(Integer.parseInt(System.getProperty("sample.extension.port")) == port, "extension restart did not reuse port");
+  }
+  private void expectDrainRejection(String pluginId) {
+    try { manager.stopPlugin(pluginId); throw new IllegalStateException("stop ignored active plugin work"); }
+    catch (PluginRuntimeException expected) {
+      require(manager.getPlugin(pluginId).getPluginState() == PluginState.STARTED, "timeout changed plugin state");
+    }
+  }
+
+  /** 两个实际插件之间的 Servlet 分派及直接插件销毁验收。 */
+  @PostMapping("/api/sample/dispatch-boundaries")
+  public synchronized Map<String, Object> verifyDispatch(@RequestHeader("X-PF4Boot-Admin-Token") String supplied,
+      HttpServletRequest request) throws Exception {
+    if (token.isEmpty() || !token.equals(supplied)) { throw new ResponseStatusException(HttpStatus.FORBIDDEN); }
+    String base = "http://127.0.0.1:" + request.getLocalPort();
+    long timeout = properties.getPluginDrainTimeoutMillis();
+    try {
+      properties.setPluginDrainTimeoutMillis(50);
+      verifyDispatchMode(base, "forward");
+      verifyDispatchMode(base, "include");
+      for (int i = 0; i < 20; i++) {
+        require("target-ok".equals(get(base + "/api/sample/unrelated/async-dispatch")), "async cross-plugin dispatch");
+      }
+      require(mapping.awaitDrain(Arrays.asList(ID, "sample-workflow"), 2000), "cross-plugin async count leaked");
+      restartAfterDrain();
+      require(manager.stopPlugin("sample-workflow") == PluginState.STOPPED, "async target stop failed");
+      require(manager.startPlugin("sample-workflow") == PluginState.STARTED, "async target restart failed");
+      Map<String, Object> result = new LinkedHashMap<>();
+      result.put("forward", "PASSED"); result.put("include", "PASSED");
+      result.put("outerDrain", "PASSED"); result.put("pluginDestroyOnce", "PASSED");
+      result.put("asyncDispatches", 20);
+      return result;
+    } finally {
+      properties.setPluginDrainTimeoutMillis(timeout);
+      clearDispatchFlags();
+    }
+  }
+
+  private void verifyDispatchMode(String base, String mode) throws Exception {
+    clearDispatchFlags();
+    System.setProperty("sample.dispatch.inner-block", "true");
+    System.setProperty("sample.dispatch.outer-block", "true");
+    ExecutorService executor = Executors.newSingleThreadExecutor();
+    Future<String> response = executor.submit(() -> get(base + "/api/sample/unrelated/" + mode));
+    try {
+      awaitProperty("sample.dispatch.inner-entered");
+      require(mapping.getInFlightRequestCount(ID) > 0, "outer plugin not tracked");
+      require(mapping.getInFlightRequestCount("sample-workflow") > 0, "inner plugin not tracked");
+      expectDrainRejection("sample-workflow");
+      expectDrainRejection(ID);
+      System.clearProperty("sample.dispatch.inner-block");
+      awaitProperty("sample.dispatch.outer-entered");
+      require(mapping.getInFlightRequestCount("sample-workflow") == 0, "inner dispatch not released");
+      require(mapping.getInFlightRequestCount(ID) > 0, "inner dispatch released outer work");
+      expectDrainRejection(ID);
+      require(manager.stopPlugin("sample-workflow") == PluginState.STOPPED, "completed inner plugin cannot stop");
+      require(manager.startPlugin("sample-workflow") == PluginState.STARTED, "inner plugin restart failed");
+    } finally {
+      clearDispatchFlags();
+      try { require("target-ok".equals(response.get(4, TimeUnit.SECONDS)), "dispatch response"); }
+      finally { executor.shutdownNow(); }
+    }
+    require(mapping.awaitDrain(Collections.singletonList(ID), 2000), "outer work did not finish");
+    int previous = Integer.getInteger("sample.dispatch.plugin-destroys", 0);
+    int port = Integer.parseInt(System.getProperty("sample.dispatch.plugin-port"));
+    require(manager.stopPlugin(ID) == PluginState.STOPPED, "direct plugin stop failed");
+    require(Integer.getInteger("sample.dispatch.plugin-destroys", 0) == previous + 1, "plugin destroyed more than once");
+    try (ServerSocket released = new ServerSocket(port)) { require(released.isBound(), "plugin port not released"); }
+    require(manager.startPlugin(ID) == PluginState.STARTED, "direct plugin restart failed");
+  }
+
+  private void clearDispatchFlags() {
+    for (String key : Arrays.asList("sample.dispatch.inner-block", "sample.dispatch.outer-block",
+        "sample.dispatch.inner-entered", "sample.dispatch.outer-entered")) { System.clearProperty(key); }
   }
   private void restartAfterDrain() throws Exception {
     require(mapping.awaitDrain(Collections.singletonList(ID), 2000), "work did not finish");

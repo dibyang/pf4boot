@@ -58,4 +58,13 @@ public class PluginDestructionTest {
     assertEquals(Integer.valueOf(1), calls.get("deduplicated"));
     assertEquals(Integer.valueOf(1), calls.get("custom-processor"));
   }
+
+  @Test public void directInstanceDoesNotGainAnInferredCloseCallbackDuringUpgrade() {
+    PluginListableBeanFactory factory = new PluginListableBeanFactory(getClass().getClassLoader());
+    java.util.concurrent.atomic.AtomicInteger closes = new java.util.concurrent.atomic.AtomicInteger();
+    AutoCloseable direct = closes::incrementAndGet;
+    factory.destroyBean(direct);
+    factory.verifyDestruction();
+    assertEquals("preserve Spring direct-instance destruction selection", 0, closes.get());
+  }
 }

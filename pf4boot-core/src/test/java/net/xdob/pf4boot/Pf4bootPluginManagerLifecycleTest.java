@@ -215,6 +215,71 @@ public class Pf4bootPluginManagerLifecycleTest {
   }
 
   @Test
+  public void unloadKeepsBlockedPluginAndLoaderUntilDrainSucceeds() throws Exception {
+    BlockingTask.entered = new CountDownLatch(1);
+    BlockingTask.release = new CountDownLatch(1);
+    pluginManager.testProperties.setPluginDrainTimeoutMillis(30);
+    pluginManager.addResolvedPlugin("blocked-unload", BlockingPlugin.class);
+    pluginManager.startPlugin("blocked-unload");
+    PluginWrapper wrapper = pluginManager.getPlugin("blocked-unload");
+    TestPluginClassLoader loader = (TestPluginClassLoader) wrapper.getPluginClassLoader();
+    try {
+      assertTrue(BlockingTask.entered.await(2, TimeUnit.SECONDS));
+      expectUnloadFailure("blocked-unload");
+      assertTrue(wrapper == pluginManager.getPlugin("blocked-unload"));
+      assertEquals(PluginState.STARTED, wrapper.getPluginState());
+      assertTrue(((Pf4bootPlugin) wrapper.getPlugin()).getPluginContext().isActive());
+      assertFalse(loader.isClosed());
+    } finally { BlockingTask.release.countDown(); }
+    pluginManager.testProperties.setPluginDrainTimeoutMillis(2000);
+    assertTrue(pluginManager.unloadPlugin("blocked-unload"));
+    assertNull(pluginManager.getPlugin("blocked-unload"));
+    assertTrue(loader.isClosed());
+  }
+
+  @Test
+  public void unloadRetainsFailedCleanupForRetry() {
+    pluginManager.addResolvedPlugin("failed-unload", StopFailurePlugin.class);
+    pluginManager.startPlugin("failed-unload");
+    PluginWrapper wrapper = pluginManager.getPlugin("failed-unload");
+    StopFailurePlugin plugin = (StopFailurePlugin) wrapper.getPlugin();
+    TestPluginClassLoader loader = (TestPluginClassLoader) wrapper.getPluginClassLoader();
+    plugin.fail = true;
+    expectUnloadFailure("failed-unload");
+    assertTrue(wrapper == pluginManager.getPlugin("failed-unload"));
+    assertEquals(PluginState.FAILED, wrapper.getPluginState());
+    assertFalse(loader.isClosed());
+    plugin.fail = false;
+    assertTrue(pluginManager.unloadPlugin("failed-unload"));
+    assertTrue(loader.isClosed());
+  }
+
+  @Test
+  public void dependentCleanupFailurePreventsProviderUnload() {
+    pluginManager.addResolvedPlugin("provider", LifecyclePlugin.class);
+    pluginManager.addResolvedPlugin("dependent", StopFailurePlugin.class, "provider");
+    pluginManager.startPlugin("dependent");
+    StopFailurePlugin dependent = (StopFailurePlugin) pluginManager.getPlugin("dependent").getPlugin();
+    dependent.fail = true;
+    expectUnloadFailure("provider");
+    assertEquals(PluginState.STARTED, pluginManager.getPlugin("provider").getPluginState());
+    assertEquals(PluginState.FAILED, pluginManager.getPlugin("dependent").getPluginState());
+    assertFalse(((TestPluginClassLoader) pluginManager.getPlugin("provider").getPluginClassLoader()).isClosed());
+    dependent.fail = false;
+    assertTrue(pluginManager.unloadPlugin("provider"));
+    assertNull(pluginManager.getPlugin("dependent"));
+  }
+
+  private void expectUnloadFailure(String id) {
+    try {
+      pluginManager.unloadPlugin(id);
+      throw new AssertionError("unload should preserve a plugin whose stop failed");
+    } catch (org.pf4j.PluginRuntimeException expected) {
+      assertFalse(expected.getMessage().isEmpty());
+    }
+  }
+
+  @Test
   public void repeatedStartFailuresDoNotGrowGlobalRegistry() {
     int contexts = ApplicationContextProvider.getRegisteredContextCount();
     pluginManager.addResolvedPlugin("failing", FailingPlugin.class);

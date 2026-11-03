@@ -34,7 +34,16 @@ public final class PluginDisposableBeanAdapter {
   /** 为直接注册、没有 BeanDefinition 的实例执行标准销毁选择。 */
   public static void destroyInstance(Object bean, List<DestructionAwareBeanPostProcessor> processors,
       AccessControlContext context, PluginCleanup failures) {
-    destroy(new DisposableBeanAdapter(bean, processors, context), failures);
+    RootBeanDefinition definition = new RootBeanDefinition(bean.getClass());
+    definition.setDestroyMethodName("");
+    String name = bean.getClass().getName();
+    // 直接注册的插件没有普通 BeanDefinition，也必须登记注解销毁方法以避免重复调用 destroy。
+    for (DestructionAwareBeanPostProcessor processor : processors) {
+      if (processor instanceof MergedBeanDefinitionPostProcessor) {
+        ((MergedBeanDefinitionPostProcessor) processor).postProcessMergedBeanDefinition(definition, bean.getClass(), name);
+      }
+    }
+    destroy(new DisposableBeanAdapter(bean, name, definition, processors, context), failures);
   }
 
   @SuppressWarnings("unchecked")

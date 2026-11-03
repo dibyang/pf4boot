@@ -1329,7 +1329,9 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       List<String> dependents = dependencyResolver.getDependents(pluginId);
       while (!dependents.isEmpty()) {
         String dependent = dependents.remove(0);
-        unloadPlugin(dependent, false, false);
+        if (!unloadPlugin(dependent, false, false)) {
+          return false;
+        }
         dependents.addAll(0, dependencyResolver.getDependents(dependent));
       }
     }
@@ -1350,7 +1352,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       LOG.info("Unload plugin '{}'", getPluginLabel(pluginWrapper.getDescriptor()));
     } catch (Exception e) {
       LOG.error("Cannot stop plugin '{}'", getPluginLabel(pluginWrapper.getDescriptor()), e);
-      pluginState = PluginState.FAILED;
+      throw new PluginRuntimeException(e, "Cannot unload plugin before cleanup succeeds: %s", pluginId);
     }
 
     // remove the plugin

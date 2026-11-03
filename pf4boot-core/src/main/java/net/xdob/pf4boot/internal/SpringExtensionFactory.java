@@ -8,6 +8,7 @@ import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.NoSuchBeanDefinitionException;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ConfigurableApplicationContext;
 
 /**
@@ -36,8 +37,11 @@ public class SpringExtensionFactory implements ExtensionFactory {
     } // do nothing
     if (extension == null) {
       Object extensionBean = createWithoutSpring(extensionClass);
-      pluginApplicationContext.getBeanFactory().registerSingleton(
-          extensionClass.getName(), extensionBean);
+      DefaultListableBeanFactory factory = (DefaultListableBeanFactory) pluginApplicationContext.getBeanFactory();
+      String name = extensionClass.getName();
+      factory.registerSingleton(name, extensionBean);
+      // 手工单例不会自动登记销毁；仍由所属插件上下文负责释放和失败重试。
+      factory.registerDisposableBean(name, () -> factory.destroyBean(extensionBean));
       extension = extensionBean;
     }
     //noinspection unchecked

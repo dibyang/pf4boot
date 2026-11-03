@@ -2,6 +2,28 @@
 
 [English](en/plugin-resource-cleanup.md)
 
+## 第四轮局部修复设计
+
+- 卸载遇到停止/排空失败立即向调用方报告，不移除插件记录、不关闭 loader；依赖方卸载失败同样中止，不允许带着仍在运行的依赖方卸载提供者。
+- SpringExtensionFactory 回退创建的扩展保留原有构造和单例注册方式，补充 DisposableBean 登记，交由 PluginListableBeanFactory 的现有销毁观察及失败重试处理；不新增自动注入或初始化动作。
+- Web RequestWork 的续接选择、计数加入、工作退出和完成释放统一使用已有 workTracker 监视器，避免向已释放对象追加计数；不增加新的状态机、配置或依赖。
+- 升级兼容：公共 API、配置、插件描述符和存储格式不变。卸载失败现在显式失败而不是伪装成功；原先遗漏的扩展销毁回调会执行，属于资源所有权修正。不得依赖错误的强制卸载或漏销毁行为；回滚仍须先成功停止，不能通过回滚绕过资源关闭失败。
+- 验证：覆盖阻塞工作/销毁失败后的卸载保留与恢复、依赖方失败、扩展关闭及失败重试、异步续接竞争和排空拒绝；两个实际 zip 插件验证跨插件 ASYNC 分派、阻塞时卸载拒绝、扩展真实端口释放及恢复。最终执行全量构建、双 profile smoke 和未重编译旧插件双 profile 升级验收。状态：本地验收通过，结果见第四轮验收记录。
+
+## 第三轮局部修复设计
+
+- 普通 forward/include 分派独立准入并持有自己的工作计数，内层完成只释放内层；异步续接复用仍在途的计数，并为新进入的插件补充准入。每个分派拦截器保存自己持有的工作对象，不通过共享请求属性猜测完成对象；同步内层完成后恢复外层属性。
+- 异步回调以工作对象为 key，避免跨插件分派覆盖彼此的完成回调；保持响应完成后仍等待实际 Callable 退出的保护。
+- 为直接注册的插件实例准备 Spring RootBeanDefinition，并让现有销毁处理器登记受管方法，再创建标准销毁适配器。沿用 Spring 的注解/DisposableBean 去重，不新增回调去重规则；禁用额外的推断 close，保持直接实例原有销毁选择。
+- 验证分派计数、内外层完成、异步续接及重复销毁；真实 Tomcat 使用两个实际 zip 插件进行 forward/include、内层和外层阻塞验证，并检查插件销毁一次后可重启。状态：本地验收通过，结果见第三轮验收记录。
+
+### 升级兼容性
+
+- 不改公共方法签名、配置项默认值、管理 API JSON/错误码、插件描述符、信任清单和持久化格式，不要求已有插件重编译或迁移数据。
+- 普通同步请求和已准入异步续接仍保持原计数语义；嵌套分派的在途值会正确反映多层工作，同插件嵌套可大于 1。监控应将其视为在途工作数量，而非去重后的 HTTP 请求总数。
+- 同一插件销毁方法同时标注 PreDestroy 并实现 DisposableBean 时只执行一次；不兼容此前错误的重复调用依赖。直接实例不会因此新增推断 close，普通 Spring Bean 的销毁选择及失败重试语义保持原有规则。
+- 验收使用修复前已构建的 81526a7 插件 zip 和 sidecar，保存 SHA-256 后，以修复后框架直接加载并执行业务、启停和 reload；新版夹具不代替旧二进制兼容性验收。
+
 ## 第二轮边界修复设计
 
 复审确认 Callable 异步分派重复计数、宿主请求执行的插件拦截器未计数，以及 Spring 内部吞掉销毁异常三个缺口。本轮保持现有配置与 SPI：
@@ -74,3 +96,42 @@ Java 8、模块边界、配置名及正常回调顺序不变。stop 现在可能
 - 真实插件持有的 ServerSocket 在注入关闭失败后仍占用原端口，框架报告 FAILED 且拒绝直接重启；关闭恢复后清理重试成功，新上下文可重新绑定原端口。
 - 在上述异常恢复后，两套 smoke 各继续完成 20 轮启停、10 轮 reload 和 10 个旧 loader 回收；原有 JPA、业务事务、幂等、持久化、隔离及 Actuator 检查通过。
 - 机器可读报告新增 `cleanupBoundaries=PASSED`；差异与 UTF-8 检查通过。未在 Java 8 JVM 上执行本轮测试，外部自管资源仍适用前述边界。
+
+## 第三轮验收记录
+
+2026-11-03，Windows / Temurin JDK 17 / `--release 8`。沿用上方完整构建和双 profile smoke 命令。状态：本地验收通过，未做制品发布。
+
+- 框架 JUnit XML 共 321 项，失败、错误、跳过均为 0。新增 7 项回归覆盖直接插件销毁一次、跨插件 forward、内层完成保护外层、include 异常、同插件嵌套及两种异步续接；另有直接实例不新增推断 close 的升级回归。
+- 普通和 production 的真实 Tomcat/zip 插件验收均通过 forward/include。内层阻塞时两个插件均不可停止；内层结束后外层仍不可停止，内层插件可独立重启；外层返回后插件销毁一次、原端口可重新绑定，插件可重启。报告包含 `dispatchBoundaries=PASSED`。
+- 两套 smoke 的异步排空、销毁失败恢复、20 轮启停、10 轮 reload、10 个旧 loader 回收，以及 JPA、业务事务、持久化、隔离和 Actuator 原有检查继续通过。
+- 修复前 `81526a7` 的四个实际插件 zip/sidecar 未重编译，直接加载修复后框架；普通和 production 各通过业务接口、20 轮启停、10 轮 reload、10 个旧 loader 回收和启动/停止失败恢复。脚本记录旧插件类签名以及插件/框架 SHA-256，报告为 `build/reports/legacy-plugin-compatibility{,-production}/result.json`（相对 sample app-run）。
+- 差异与严格 UTF-8 检查通过。旧二进制验收只覆盖上述基线，不代表所有历史插件或第三方 Spring 扩展；未在 Java 8 JVM 上执行，外部自管资源仍适用前述边界。
+
+复验需提供升级前留存的插件目录，不以重编译目录代替；以下基线位于仓库忽略的 `build` 中，不属于发布制品：
+
+```powershell
+$baseline = "$PWD\build\compatibility-81526a7\plugins"
+& .\samples\cross-plugin-jpa\app-run\verify-legacy-plugin-compatibility.ps1 -BaselinePlugins $baseline
+& .\samples\cross-plugin-jpa\app-run\verify-legacy-plugin-compatibility.ps1 -BaselinePlugins $baseline -Production
+```
+
+本轮旧 zip 的 SHA-256（文件版本均为 `3.3.0-SNAPSHOT`）：
+
+| 插件 | SHA-256 |
+| --- | --- |
+| plugin-demo-jpa-domain | `6F8A886667E724323515B4DE26DA31B7491BCAB535CF9E757C1B76D1CED6FF04` |
+| plugin-unrelated-service | `8482FC7A6189BDF3F0C18C5CE8F83CBB262D1B4A73B40D255E0BF07A8CA58F6E` |
+| plugin-user-book-service | `C6707C64839B9C7B7AA458A6542B1FAFAA8BEF9AE55514528A31A17F6382A2C8` |
+| plugin-workflow | `864BC0C8C112511EFAF586739006EEB9FA045C8C19B53E3C6726D878781CC2AB` |
+
+## 第四轮验收记录
+
+2026-11-03，Windows / Temurin JDK 17 / `--release 8`。状态：本地验收通过，未做制品发布。
+
+- 执行上方完整构建和双 profile smoke 命令，并在保留全部原有测试后再次执行 `.\gradlew.bat build --quiet`，退出码均为 0。最终框架 JUnit XML 共 329 项，失败、错误、跳过均为 0。
+- 新增 8 项回归：阻塞卸载保留并可恢复、清理失败卸载保留并可重试、依赖方失败阻止提供者卸载；扩展标准销毁/端口释放、失败动作单独重试、原有 Spring Bean 不重复销毁；两种异步完成与续接竞争（正常准入及排空拒绝）。保留直接实例原有初始化选择，不增加 PostConstruct 调用。
+- 普通和 production 的真实 Tomcat/zip 插件验收均通过：拦截器阻塞时 unload 拒绝且原插件和上下文保留，释放后 unload/load/start 成功；非 Spring 扫描的 PF4J 扩展占有真实端口，销毁失败时 unload/start 不得绕过 FAILED，恢复后只成功关闭一次，端口可重新绑定并在新实例复用。报告新增 `unloadRetention` 与 `extensionDestruction`。
+- 两套 smoke 各完成 20 次跨插件 Servlet ASYNC 分派，随后两个插件均可停止重启；前轮 forward/include、异步超时工作排空、销毁去重及关闭失败恢复继续通过。竞争窗口使用定向回归精确控制时序，不将普通 HTTP 重复请求冒充确定性竞争复现。
+- 两套 smoke 在边界验收后继续完成 20 轮启停、10 轮 reload 和 10 个旧 loader 回收，JPA、事务回滚、记录持久化、provider 替换/隔离及 Actuator 检查通过。
+- 使用第三轮记录的同一组 `81526a7` 旧 zip/sidecar 和相同脚本命令，在修复后框架的普通及 production 配置下均通过业务接口、20 轮启停、10 轮 reload、10 个旧 loader 回收及失败恢复。旧 zip 的 SHA-256 未变，报告记录的框架 JAR 与最终构建逐项校验一致。
+- 差异及严格 UTF-8 检查通过。仍未在 Java 8 JVM 上运行；旧插件验收只覆盖指定基线，不能外推至所有历史插件。插件未登记的外部资源、任意不可终止的用户线程不在自动释放保证内。
