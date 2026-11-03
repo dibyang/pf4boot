@@ -26,7 +26,12 @@ public class ApplicationContextProvider {
   }
 
   public static void unregisterApplicationContext(ApplicationContext ctx) {
-    ctxCache.remove(ctx.getClassLoader());
+    if (ctx != null) {
+      synchronized (ctxCache) {
+        // close 后 classloader 可能已清空，按上下文身份移除原始注册。
+        ctxCache.values().removeIf(value -> value == ctx);
+      }
+    }
   }
 
   public static boolean containsApplicationContext(ClassLoader classLoader) {

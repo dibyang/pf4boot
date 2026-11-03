@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -138,12 +139,29 @@ public class DefaultShareBeanMgrTest {
 
   @Test
   public void dynamicBeanNameConflictIsRejectedByDefault() {
-    pluginManager.registerBeanToRootContext("rootService", new Object());
+    Object hostBean = new Object();
+    pluginManager.registerBeanToRootContext("rootService", hostBean);
     pluginManager.addResolvedPlugin("conflict", SharingPlugin.class);
 
     assertEquals(PluginState.FAILED, pluginManager.startPlugin("conflict"));
     assertTrue(pluginManager.getPlugin("conflict").getFailedException()
         instanceof IllegalStateException);
+    assertSame(hostBean, pluginManager.getRootContext().getBean("rootService"));
+    assertEquals(0, pluginManager.shareBeanMgr.getRegisteredSharingBeanCount("conflict"));
+  }
+
+  @Test
+  public void registrationEventFailureRollsBackPartialSharedBeans() {
+    applicationContext.addApplicationListener(event -> {
+      if (event instanceof net.xdob.pf4boot.spring.boot.BeanRegisterEvent) {
+        throw new IllegalStateException("registration event failed");
+      }
+    });
+    pluginManager.addResolvedPlugin("partial", SharingPlugin.class);
+    assertEquals(PluginState.FAILED, pluginManager.startPlugin("partial"));
+    assertEquals(0, pluginManager.shareBeanMgr.getRegisteredSharingBeanCount("partial"));
+    assertFalse(pluginManager.getRootContext().containsBean("rootService"));
+    assertNull(((Pf4bootPlugin) pluginManager.getPlugin("partial").getPlugin()).getPluginContext());
   }
 
   private static class TestPluginManager extends Pf4bootPluginManagerImpl {

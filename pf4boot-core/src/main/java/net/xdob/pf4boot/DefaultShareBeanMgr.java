@@ -1,6 +1,7 @@
 package net.xdob.pf4boot;
 
 import net.xdob.pf4boot.annotation.AutoExports;
+import net.xdob.pf4boot.util.PluginCleanup;
 import net.xdob.pf4boot.annotation.Export;
 import net.xdob.pf4boot.annotation.ExportBeans;
 import net.xdob.pf4boot.annotation.PluginStarter;
@@ -170,6 +171,7 @@ public class DefaultShareBeanMgr
     Set<String> extensionClassNames = pluginManager.getExtensionClassNames(wrapper.getPluginId());
     String group = pf4bootPlugin.getGroup();
     Set<String> registeredBeanNames = ConcurrentHashMap.newKeySet();
+    pluginExtensionBeans.put(wrapper.getPluginId(), registeredBeanNames);
 
     for (String extensionClassName : extensionClassNames) {
       try {
@@ -182,8 +184,14 @@ public class DefaultShareBeanMgr
         Object bean = extensionFactory.create(extensionClass);
         String beanName = extensionFactory.getExtensionBeanName(extensionClass);
 
-        pluginManager.registerBeanToPlatformContext(group, beanName, bean);
-        registeredBeanNames.add(beanName);
+        try {
+          pluginManager.registerBeanToPlatformContext(group, beanName, bean);
+        } finally {
+          ConfigurableApplicationContext platform = pluginManager.getPlatformContext(group);
+          if (platform.containsLocalBean(beanName) && platform.getBean(beanName) == bean) {
+            registeredBeanNames.add(beanName);
+          }
+        }
       } catch (ClassNotFoundException e) {
         throw new IllegalArgumentException(e.getMessage(), e);
       }
@@ -198,7 +206,10 @@ public class DefaultShareBeanMgr
     Class<?> primarySource = pf4bootPlugin.getClass();
     ConfigurableApplicationContext context = pf4bootPlugin.getPluginContext();
 
-    return registerShareServices(pluginManager, primarySource, context);
+    SharingBeans beans = getExportBeans(primarySource, context);
+    // 先记录候选项，注册中途失败也能回滚；注销时核对对象身份，保留冲突的宿主 Bean。
+    pluginSharingBeans.put(pf4bootPlugin.getPluginId(), beans);
+    return registerShareServices(pluginManager, beans);
   }
 
   private SharingBeans registerShareServices(
@@ -206,7 +217,10 @@ public class DefaultShareBeanMgr
       Class<?> primarySource,
       ConfigurableApplicationContext context) {
 
-    SharingBeans sharingBeans = getExportBeans(primarySource, context);
+    return registerShareServices(pluginManager, getExportBeans(primarySource, context));
+  }
+
+  private SharingBeans registerShareServices(Pf4bootPluginManager pluginManager, SharingBeans sharingBeans) {
 
     sharingBeans.getRootBeans().forEach(bean -> {
       pluginManager.registerBeanToRootContext(bean.getBeanName(), bean.getBean());
@@ -305,26 +319,28 @@ public class DefaultShareBeanMgr
 
   @Override
   public void stopPlugin(Pf4bootPlugin pf4bootPlugin) {
+    PluginCleanup cleanup = new PluginCleanup();
     /*
      * 1. 先停止定时任务，避免后续注销 Bean 时任务还在执行。
      */
-    scheduledMgr.unregisterScheduledTasks(pf4bootPlugin);
+    cleanup.run("scheduled tasks", () -> scheduledMgr.unregisterScheduledTasks(pf4bootPlugin));
 
     /*
      * 2. 注销扩展 Bean。
      */
-    unregisterExtensions(pf4bootPlugin);
+    cleanup.run("extensions", () -> unregisterExtensions(pf4bootPlugin));
 
     /*
      * 3. 注销共享 Bean。
      *    注意：这里按 startedPlugin() 时记录的 SharingBeans 注销，不再重新扫描插件 Context。
      */
-    unregisterShareServices(pf4bootPlugin);
+    cleanup.run("shared beans", () -> unregisterShareServices(pf4bootPlugin));
 
     /*
      * 4. 最后注销自动导出规则。
      */
-    unregisterAutoExports(pf4bootPlugin);
+    cleanup.run("auto exports", () -> unregisterAutoExports(pf4bootPlugin));
+    cleanup.throwIfFailed();
   }
 
   private void unregisterAutoExports(Pf4bootPlugin pf4bootPlugin) {
@@ -342,39 +358,28 @@ public class DefaultShareBeanMgr
 
   private void unregisterExtensions(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
-    PluginWrapper wrapper = pf4bootPlugin.getWrapper();
-    Set<String> extensionClassNames = pluginManager.getExtensionClassNames(wrapper.getPluginId());
+    String pluginId = pf4bootPlugin.getPluginId();
+    Set<String> beanNames = pluginExtensionBeans.get(pluginId);
+    if (beanNames == null) { return; }
     String group = pf4bootPlugin.getGroup();
-
-    for (String extensionClassName : extensionClassNames) {
-      try {
-        logger.debug("unregister extension <{}> to platform [{}]", extensionClassName, group);
-
-        Class<?> extensionClass = wrapper.getPluginClassLoader().loadClass(extensionClassName);
-        SpringExtensionFactory extensionFactory =
-            (SpringExtensionFactory) wrapper.getPluginManager().getExtensionFactory();
-
-        String beanName = extensionFactory.getExtensionBeanName(extensionClass);
+    PluginCleanup cleanup = new PluginCleanup();
+    for (String beanName : new ArrayList<>(beanNames)) {
+      cleanup.run("extension " + beanName, () -> {
         pluginManager.unregisterBeanFromPlatformContext(group, beanName);
-        Set<String> beanNames = pluginExtensionBeans.get(wrapper.getPluginId());
-        if (beanNames != null) {
-          beanNames.remove(beanName);
-        }
-      } catch (Exception e) {
-        logger.warn("unregister extension <{}> to platform [{}] failed", extensionClassName, group, e);
-      }
+        beanNames.remove(beanName);
+      });
     }
-    Set<String> beanNames = pluginExtensionBeans.get(wrapper.getPluginId());
-    if (beanNames == null || beanNames.isEmpty()) {
-      pluginExtensionBeans.remove(wrapper.getPluginId());
+    if (beanNames.isEmpty()) {
+      pluginExtensionBeans.remove(pluginId);
     }
+    cleanup.throwIfFailed();
   }
 
   private void unregisterShareServices(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     String pluginId = pf4bootPlugin.getWrapper().getPluginId();
 
-    SharingBeans sharingBeans = pluginSharingBeans.remove(pluginId);
+    SharingBeans sharingBeans = pluginSharingBeans.get(pluginId);
     if (sharingBeans == null) {
       logger.debug("no sharing beans registered for plugin {}", pluginId);
       return;
@@ -384,46 +389,60 @@ public class DefaultShareBeanMgr
      * 注销顺序和注册顺序反过来：
      * application -> platform -> root
      */
+    PluginCleanup cleanup = new PluginCleanup();
     sharingBeans.getAppBeans().forEach(bean ->
-        unregisterAppBean(pluginManager, bean));
+        cleanup.run("application bean", () -> unregisterAppBean(pluginManager, bean)));
 
     sharingBeans.getPlatformBeans().forEach(bean ->
-        unregisterPlatformBean(pluginManager, bean));
+        cleanup.run("platform bean", () -> unregisterPlatformBean(pluginManager, bean)));
 
     sharingBeans.getRootBeans().forEach(bean ->
-        unregisterRootBean(pluginManager, bean));
+        cleanup.run("root bean", () -> unregisterRootBean(pluginManager, bean)));
+    cleanup.throwIfFailed();
+    pluginSharingBeans.remove(pluginId);
   }
 
   private void unregisterAppBean(Pf4bootPluginManager pluginManager, SharingBean bean) {
     try {
+      if (!ownsBean(pluginManager.getApplicationContext(), bean)) { return; }
       pluginManager.unregisterBeanFromApplicationContext(bean.getBeanName());
       logger.info("unregister export bean {} from application.", bean.getBeanName());
     } catch (BeansException e) {
       logger.warn("unregister export bean {} from application failed", bean.getBeanName(), e);
+      throw e;
     }
   }
 
   private void unregisterPlatformBean(Pf4bootPluginManager pluginManager, SharingBean bean) {
     try {
+      if (!ownsBean(pluginManager.getPlatformContext(bean.getGroup()), bean)) { return; }
       pluginManager.unregisterBeanFromPlatformContext(bean.getGroup(), bean.getBeanName());
       logger.info("unregister export bean {} from platform [{}].", bean.getBeanName(), bean.getGroup());
     } catch (BeansException e) {
       logger.warn("unregister export bean {} from platform failed", bean.getBeanName(), e);
+      throw e;
     }
   }
 
   private void unregisterRootBean(Pf4bootPluginManager pluginManager, SharingBean bean) {
     try {
+      if (!ownsBean(pluginManager.getRootContext(), bean)) { return; }
       pluginManager.unregisterBeanFromRootContext(bean.getBeanName());
       logger.info("unregister export bean {} from root.", bean.getBeanName());
     } catch (BeansException e) {
       logger.warn("unregister export bean {} from root failed", bean.getBeanName(), e);
+      throw e;
     }
   }
 
   @Override
   public void beginDrain(Collection<String> pluginIds) {
     scheduledMgr.beginDrain(pluginIds);
+  }
+
+  private boolean ownsBean(ConfigurableApplicationContext context, SharingBean bean) {
+    return context.getBeanFactory().containsLocalBean(bean.getBeanName())
+        && context.getBeanFactory().getBean(bean.getBeanName()) == bean.getBean();
   }
 
   @Override

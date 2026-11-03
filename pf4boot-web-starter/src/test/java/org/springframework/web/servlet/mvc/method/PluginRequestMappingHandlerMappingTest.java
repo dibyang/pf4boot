@@ -185,6 +185,72 @@ public class PluginRequestMappingHandlerMappingTest {
     mapping.registerControllers(plugin);
   }
 
+  @Test
+  public void unregisterUsesOwnershipEvenAfterPluginContextCloses() {
+    mapping.registerControllers(plugin);
+    mapping.registerInterceptors(plugin);
+    plugin.getPluginContext().close();
+    mapping.unregisterControllers(plugin);
+    mapping.unregisterInterceptors(plugin);
+    assertEquals(0, mapping.getRegisteredHandlerCount("web-plugin"));
+    assertEquals(0, mapping.getRegisteredInterceptorCount("web-plugin"));
+    assertFalse(webContext.containsBean("testController"));
+    assertFalse(webContext.containsBean("testInterceptor"));
+  }
+
+  @Test
+  public void innerDrainCompletionPreservesOuterBarrier() throws Exception {
+    mapping.registerControllers(plugin);
+    java.util.List<String> ids = java.util.Collections.singletonList("web-plugin");
+    mapping.beginDrain(ids);
+    mapping.beginDrain(ids);
+    mapping.endDrain(ids);
+    assertTrue(mapping.isDraining("web-plugin"));
+    MockHttpServletRequest request = request("/plugin/ping");
+    MockHttpServletResponse response = new MockHttpServletResponse();
+    HandlerExecutionChain chain = mapping.getHandler(request);
+    assertFalse(chain.getInterceptors()[0].preHandle(request, response, chain.getHandler()));
+    mapping.endDrain(ids);
+    assertFalse(mapping.isDraining("web-plugin"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void clearsOnlyPluginOwnedMvcMethodCacheEntries() {
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter adapter =
+        new org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter();
+    webContext.getBeanFactory().registerSingleton("testAdapter", adapter);
+    java.lang.reflect.Field field = org.springframework.util.ReflectionUtils.findField(
+        adapter.getClass(), "sessionAttributesHandlerCache");
+    org.springframework.util.ReflectionUtils.makeAccessible(field);
+    java.util.Map<Class<?>, Object> cache = (java.util.Map<Class<?>, Object>)
+        org.springframework.util.ReflectionUtils.getField(field, adapter);
+    cache.put(TestController.class, new Object());
+    cache.put(String.class, new Object());
+    net.xdob.pf4boot.internal.PluginWebCacheCleaner.clear(webContext, TestController.class.getClassLoader());
+    assertFalse(cache.containsKey(TestController.class));
+    assertTrue(cache.containsKey(String.class));
+  }
+
+  @Test
+  public void webCleanupWorksDuringHostDestruction() {
+    mapping.registerControllers(plugin);
+    mapping.registerInterceptors(plugin);
+    java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
+    webContext.getBeanFactory().registerSingleton("cleanupProbe", new Object());
+    webContext.getDefaultListableBeanFactory().registerDisposableBean("cleanupProbe", () -> {
+      try {
+        mapping.unregisterControllers(plugin);
+        mapping.unregisterInterceptors(plugin);
+        net.xdob.pf4boot.internal.PluginWebCacheCleaner.clear(webContext, TestController.class.getClassLoader());
+      } catch (Throwable error) { failure.set(error); }
+    });
+    webContext.close();
+    assertNull(failure.get());
+    assertEquals(0, mapping.getRegisteredHandlerCount("web-plugin"));
+    assertEquals(0, mapping.getRegisteredInterceptorCount("web-plugin"));
+  }
+
   private HandlerExecutionChain handlerFor(String path) throws Exception {
     return mapping.getHandler(request(path));
   }

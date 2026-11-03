@@ -1,6 +1,8 @@
 package net.xdob.pf4boot.scheduling;
 
 import net.xdob.pf4boot.Pf4bootPlugin;
+import net.xdob.pf4boot.deployment.PluginWorkTracker;
+import net.xdob.pf4boot.util.PluginCleanup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.AopProxyUtils;
@@ -24,17 +26,13 @@ import org.springframework.util.StringValueResolver;
 import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class DefaultScheduledMgr implements ScheduledMgr {
 	static final Logger logger = LoggerFactory.getLogger(DefaultScheduledMgr.class);
-	private final Set<Class<?>> nonAnnotatedClasses = Collections.newSetFromMap(new ConcurrentHashMap<>(64));
 
 	private final Map<String, PluginScheduledTasks> scheduledTasks = new HashMap<>(16);
-	private final Set<String> drainingPluginIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
-	private final Map<String, AtomicInteger> runningTasks = new ConcurrentHashMap<>();
+	private final PluginWorkTracker workTracker = new PluginWorkTracker();
 	//private final ScheduledTaskRegistrar registrar;
 
 	private StringValueResolver embeddedValueResolver;
@@ -52,16 +50,19 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 	}
 
 	private void unregisterScheduledTasks4Plugin(String pluginId) {
-		PluginScheduledTasks pluginScheduledTasks = this.scheduledTasks.remove(pluginId);
+		PluginScheduledTasks pluginScheduledTasks = this.scheduledTasks.get(pluginId);
 		if(pluginScheduledTasks!=null){
+			PluginCleanup cleanup = new PluginCleanup();
 			for (Set<ScheduledTask> tasks : pluginScheduledTasks.getScheduledTasks().values()) {
 				for (ScheduledTask task : tasks) {
-					task.cancel(false);
+					cleanup.run("cancel task", () -> task.cancel(false));
 					logger.info("cancel scheduled task {}", task);
 				}
 			}
+			cleanup.run("destroy registrar", () -> pluginScheduledTasks.getRegistrar().destroy());
+			cleanup.throwIfFailed();
 			pluginScheduledTasks.getScheduledTasks().clear();
-			pluginScheduledTasks.getRegistrar().destroy();
+			this.scheduledTasks.remove(pluginId);
 			logger.info("unregister scheduled tasks for plugin {}", pluginId);
 		}
 	}
@@ -69,6 +70,7 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 
 	@Override
 	public void registerScheduledTasks(Pf4bootPlugin pf4bootPlugin) {
+		synchronized (this.scheduledTasks) {
 		String pluginId = pf4bootPlugin.getPluginId();
 		ConfigurableApplicationContext context = pf4bootPlugin.getPluginContext();
     ScheduledTaskRegistrar scheduledTaskRegistrar = new ScheduledTaskRegistrar();
@@ -82,8 +84,7 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 			String beanName = entry.getKey();
 			Object bean = entry.getValue();
 			Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
-			if (!this.nonAnnotatedClasses.contains(targetClass) &&
-					AnnotationUtils.isCandidateClass(targetClass, Arrays.asList(Scheduled.class, Schedules.class))) {
+			if (AnnotationUtils.isCandidateClass(targetClass, Arrays.asList(Scheduled.class, Schedules.class))) {
 				Map<Method, Set<Scheduled>> annotatedMethods = MethodIntrospector.selectMethods(targetClass,
 						(MethodIntrospector.MetadataLookup<Set<Scheduled>>) method -> {
 							Set<Scheduled> scheduledAnnotations = AnnotatedElementUtils.getMergedRepeatableAnnotations(
@@ -92,7 +93,6 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 						});
 
 				if (annotatedMethods.isEmpty()) {
-					this.nonAnnotatedClasses.add(targetClass);
 					if (logger.isTraceEnabled()) {
 						logger.trace("No @Scheduled annotations found on bean class: " + targetClass);
 					}
@@ -111,6 +111,7 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 		if(!pluginScheduledTasks.getScheduledTasks().isEmpty()){
 			logger.info("register scheduled tasks for plugin {}", pluginId);
 			pluginScheduledTasks.getRegistrar().afterPropertiesSet();
+		}
 		}
 	}
 
@@ -268,42 +269,22 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 	}
 
 	public int getRunningTaskCount(String pluginId) {
-		AtomicInteger count = runningTasks.get(pluginId);
-		return count == null ? 0 : count.get();
+		return workTracker.getRunningCount(pluginId);
 	}
 
 	@Override
 	public void beginDrain(Collection<String> pluginIds) {
-		if (pluginIds != null) {
-			drainingPluginIds.addAll(pluginIds);
-		}
+		workTracker.beginDrain(pluginIds);
 	}
 
 	@Override
 	public boolean awaitDrain(Collection<String> pluginIds, long timeoutMillis) throws InterruptedException {
-		long deadline = System.currentTimeMillis() + Math.max(timeoutMillis, 0);
-		while (true) {
-			int running = 0;
-			if (pluginIds != null) {
-				for (String pluginId : pluginIds) {
-					running += getRunningTaskCount(pluginId);
-				}
-			}
-			if (running == 0) {
-				return true;
-			}
-			if (System.currentTimeMillis() >= deadline) {
-				return false;
-			}
-			TimeUnit.MILLISECONDS.sleep(20);
-		}
+		return workTracker.awaitDrain(pluginIds, timeoutMillis);
 	}
 
 	@Override
 	public void endDrain(Collection<String> pluginIds) {
-		if (pluginIds != null) {
-			drainingPluginIds.removeAll(pluginIds);
-		}
+		workTracker.endDrain(pluginIds);
 	}
 
 	protected ScheduledMethodRunnable createRunnable(Object target, Method method) {
@@ -323,18 +304,14 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 
 		@Override
 		public void run() {
-			if (drainingPluginIds.contains(pluginId)) {
+			if (!workTracker.tryEnter(pluginId)) {
 				logger.debug("skip scheduled task for draining plugin {}", pluginId);
 				return;
 			}
-			AtomicInteger count = runningTasks.computeIfAbsent(pluginId, key -> new AtomicInteger());
-			count.incrementAndGet();
 			try {
 				delegate.run();
 			} finally {
-				if (count.decrementAndGet() < 0) {
-					count.set(0);
-				}
+				workTracker.exit(pluginId);
 			}
 		}
 	}

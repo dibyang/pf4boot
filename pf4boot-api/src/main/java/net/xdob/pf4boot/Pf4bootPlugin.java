@@ -1,8 +1,8 @@
 package net.xdob.pf4boot;
 
 import net.xdob.pf4boot.annotation.PluginStarter;
+import net.xdob.pf4boot.util.PluginCleanup;
 
-import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.context.support.Pf4bootAnnotationConfigApplicationContext;
 import org.pf4j.Plugin;
 import org.pf4j.PluginWrapper;
@@ -14,8 +14,6 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.io.support.SpringFactoriesLoaderHelp;
 
-import java.io.Closeable;
-import java.io.IOException;
 import java.util.*;
 import java.util.function.Consumer;
 
@@ -149,7 +147,7 @@ public class Pf4bootPlugin extends Plugin {
     }
     synchronized (lock) {
 			if (pluginContext == null) {
-        DelegatingPluginClassLoader classLoader = new DelegatingPluginClassLoader(this.getPluginId(), this.pluginClassLoader);
+        ClassLoader classLoader = this.pluginClassLoader;
 
         DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(classLoader);
 
@@ -172,17 +170,16 @@ public class Pf4bootPlugin extends Plugin {
 	public void closePluginContext(){
 		synchronized (lock) {
 			if (pluginContext != null){
-        DefaultListableBeanFactory beanFactory = pluginContext.getDefaultListableBeanFactory();
-        try {
-					beanFactory.destroyBean(BEAN_PLUGIN);
-				} catch (Exception e) {
-					LOG.warn("[PF4BOOT] destroy bean error", e);
-				}
-        freeContext(pluginContext);
+        PluginCleanup cleanup = new PluginCleanup();
+        cleanup.run("destroy plugin bean", () ->
+            pluginContext.getDefaultListableBeanFactory().destroyBean(BEAN_PLUGIN));
+        cleanup.run("close context", () -> freeContext(pluginContext));
+        cleanup.run("clear properties", this::clearAllProperties);
+        // 失败时保留上下文以便再次清理，禁止把关闭失败伪装成已释放。
+        cleanup.throwIfFailed();
         //释放插件上下文
 				pluginContext = null;
 
-				clearAllProperties();
 				LOG.info("[PF4BOOT] close plugin context for {}", getPluginId());
 			}
 		}
@@ -190,46 +187,14 @@ public class Pf4bootPlugin extends Plugin {
 
   private void freeContext( AnnotationConfigApplicationContext context) {
     DefaultListableBeanFactory beanFactory = context.getDefaultListableBeanFactory();
+    PluginCleanup cleanup = new PluginCleanup();
+    cleanup.run("close Spring context", context::close);
+    cleanup.run("clear metadata", beanFactory::clearMetadataCache);
 
-    try {
-      for (String name : beanFactory.getBeanDefinitionNames()) {
-        BeanDefinition bd = beanFactory.getBeanDefinition(name);
-        String beanClassName = bd.getBeanClassName();
-        if (beanClassName != null &&
-            beanClassName.startsWith("com.sun.proxy.$Proxy")) {
-          beanFactory.removeBeanDefinition(name);
-          LOG.info("[PF4BOOT] remove BeanDefinition for {}, beanClassName = {}", name, beanClassName);
-        }
-      }
-    } catch (Exception e) {
-      LOG.warn("[PF4BOOT] remove BeanDefinition error", e);
-    }
-
-    try {
-      context.close();
-    } catch (Exception e) {
-      LOG.warn("[PF4BOOT] close plugin context error", e);
-    }
-
-    try {
-      beanFactory.clearMetadataCache();
-    } catch (Exception e) {
-      LOG.warn("[PF4BOOT] clearMetadataCache error", e);
-    }
-
-    ClassLoader classLoader = context.getClassLoader();
-    context.setClassLoader( null);
-    if(classLoader!=null){
-      if(classLoader instanceof Closeable){
-        try {
-          ((Closeable) classLoader).close();
-        } catch (IOException e) {
-          LOG.warn("[PF4BOOT] close plugin classloader error", e);
-        }
-      }
-    }
-
-    SpringFactoriesLoaderHelp.clearCache();
+    // stop 后还会复用原始 loader；只有 unload 才关闭它，保留 CGLIB 类命名缓存。
+    cleanup.run("clear Spring factories cache", SpringFactoriesLoaderHelp::clearCache);
+    cleanup.throwIfFailed();
+    context.setClassLoader(null);
   }
 
 

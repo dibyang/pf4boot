@@ -2,6 +2,7 @@ package net.xdob.pf4boot.spring.boot;
 
 
 import net.xdob.pf4boot.annotation.Export;
+import net.xdob.pf4boot.util.PluginCleanup;
 import net.xdob.pf4boot.deployment.DefaultPluginDeploymentService;
 import net.xdob.pf4boot.deployment.DefaultPluginDeploymentRecorder;
 import net.xdob.pf4boot.deployment.PluginCleanupVerifier;
@@ -142,6 +143,25 @@ public class Pf4bootAutoConfiguration {
       return supports.get(0);
     }
     return new Pf4bootPluginSupport() {
+      private final Map<String, PluginCleanup> pending = new HashMap<>();
+
+      private void cleanupSupports(Pf4bootPlugin plugin, String phase,
+          Consumer<Pf4bootPluginSupport> action) {
+        String key = plugin.getPluginId() + ":" + phase;
+        PluginCleanup cleanup = pending.get(key);
+        if (cleanup != null) {
+          cleanup.retry();
+        } else {
+          cleanup = new PluginCleanup();
+          pending.put(key, cleanup);
+          for (Pf4bootPluginSupport support : supports) {
+            cleanup.run(phase, () -> action.accept(support));
+          }
+          cleanup.throwIfFailed();
+        }
+        pending.remove(key);
+      }
+
       @Override
       public int getPriority() {
         return Pf4bootPluginSupport.DEFAULT_PRIORITY;
@@ -169,17 +189,17 @@ public class Pf4bootAutoConfiguration {
 
       @Override
       public void stopPlugin(Pf4bootPlugin pf4bootPlugin) {
-        supports.forEach(support -> support.stopPlugin(pf4bootPlugin));
+        cleanupSupports(pf4bootPlugin, "stop", support -> support.stopPlugin(pf4bootPlugin));
       }
 
       @Override
       public void stoppedPlugin(Pf4bootPlugin pf4bootPlugin) {
-        supports.forEach(support -> support.stoppedPlugin(pf4bootPlugin));
+        cleanupSupports(pf4bootPlugin, "stopped", support -> support.stoppedPlugin(pf4bootPlugin));
       }
 
       @Override
       public void releasePlugin(Pf4bootPlugin pf4bootPlugin) {
-        supports.forEach(support -> support.releasePlugin(pf4bootPlugin));
+        cleanupSupports(pf4bootPlugin, "release", support -> support.releasePlugin(pf4bootPlugin));
       }
 
       @Override

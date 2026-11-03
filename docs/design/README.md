@@ -59,6 +59,7 @@
 - [next-version-production-design.md](next-version-production-design.md)：下一版本生产化实施设计。
 - [plugin-hot-replacement-deployment-improvement.md](plugin-hot-replacement-deployment-improvement.md)：插件热替换部署改进。
 - [runtime-safety-phase3.md](runtime-safety-phase3.md)：运行时安全增强。
+- [plugin-resource-cleanup.md](plugin-resource-cleanup.md)：停止与启动失败清理、排空和类加载器回收。
 - [verification-foundation.md](verification-foundation.md)：验证基础设施。
 - [production-profile-and-release-gates.md](production-profile-and-release-gates.md)：生产 profile、信任链 ENFORCE 和仓库 release gate。
 - [decisions/plugin-repository-governance-decision.md](decisions/plugin-repository-governance-decision.md)：插件仓库治理决策。

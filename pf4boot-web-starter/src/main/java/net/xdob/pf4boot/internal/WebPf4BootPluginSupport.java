@@ -4,6 +4,7 @@ package net.xdob.pf4boot.internal;
 import net.xdob.pf4boot.Pf4bootPlugin;
 import net.xdob.pf4boot.Pf4bootPluginManager;
 import net.xdob.pf4boot.Pf4bootPluginSupport;
+import net.xdob.pf4boot.util.PluginCleanup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.ReflectionUtils;
@@ -44,13 +45,16 @@ public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
   public void stopPlugin(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     //unregister controllers
-    getMainRequestMapping(pluginManager).unregisterControllers(pf4bootPlugin);
+    PluginCleanup cleanup = new PluginCleanup();
+    cleanup.run("controllers", () -> getMainRequestMapping(pluginManager).unregisterControllers(pf4bootPlugin));
     //unregister Interceptor
-    getMainRequestMapping(pluginManager).unregisterInterceptors(pf4bootPlugin);
+    cleanup.run("interceptors", () -> getMainRequestMapping(pluginManager).unregisterInterceptors(pf4bootPlugin));
+    cleanup.run("MVC caches", () -> PluginWebCacheCleaner.clear(
+        pluginManager.getApplicationContext(), pf4bootPlugin.getWrapper().getPluginClassLoader()));
 
     try {
       MethodValidationPostProcessor p =
-          pluginManager.getApplicationContext().getBeanProvider(MethodValidationPostProcessor.class)
+          pluginManager.getApplicationContext().getBeanFactory().getBeanProvider(MethodValidationPostProcessor.class)
               .getIfAvailable();
       if (p != null) {
         Field field = p.getClass().getDeclaredField("validator");
@@ -66,6 +70,7 @@ public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
     } catch (Exception e) {
       LOG.warn("unregister validator error", e);
     }
+    cleanup.throwIfFailed();
   }
 
   @Override
@@ -75,6 +80,6 @@ public class WebPf4BootPluginSupport implements Pf4bootPluginSupport {
 
   private PluginRequestMappingHandlerMapping getMainRequestMapping(Pf4bootPluginManager pluginManager) {
     return (PluginRequestMappingHandlerMapping)
-        pluginManager.getApplicationContext().getBean(REQUEST_MAPPING_HANDLER_MAPPING);
+        pluginManager.getApplicationContext().getBeanFactory().getBean(REQUEST_MAPPING_HANDLER_MAPPING);
   }
 }

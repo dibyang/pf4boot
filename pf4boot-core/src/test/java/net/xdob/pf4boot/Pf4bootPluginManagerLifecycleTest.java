@@ -27,6 +27,12 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
 import java.util.stream.Collectors;
 
 import static org.junit.Assert.assertEquals;
@@ -107,6 +113,7 @@ public class Pf4bootPluginManagerLifecycleTest {
 
   @Test
   public void failedStartClosesPluginContext() {
+    int contextsBefore = ApplicationContextProvider.getRegisteredContextCount();
     pluginManager.addResolvedPlugin("failing", FailingPlugin.class);
 
     assertEquals(PluginState.FAILED, pluginManager.startPlugin("failing"));
@@ -114,6 +121,169 @@ public class Pf4bootPluginManagerLifecycleTest {
     FailingPlugin plugin = (FailingPlugin) pluginManager.getPlugin("failing").getPlugin();
     assertNull(plugin.getPluginContext());
     assertTrue(FailingPlugin.events.contains("failing:start"));
+    assertEquals(contextsBefore, ApplicationContextProvider.getRegisteredContextCount());
+  }
+
+  @Test
+  public void fiftyRestartsReleaseContextsAndDestroyBeans() {
+    int contextsBefore = ApplicationContextProvider.getRegisteredContextCount();
+    Resource.closed.set(0);
+    pluginManager.addResolvedPlugin("repeat", ResourcePlugin.class);
+    for (int i = 0; i < 50; i++) {
+      assertEquals(PluginState.STARTED, pluginManager.startPlugin("repeat"));
+      Pf4bootPlugin plugin = (Pf4bootPlugin) pluginManager.getPlugin("repeat").getPlugin();
+      ClassLoader loader = plugin.getPluginContext().getClassLoader();
+      assertEquals(PluginState.STOPPED, pluginManager.stopPlugin("repeat"));
+      assertNull(plugin.getPluginContext());
+      assertFalse(ApplicationContextProvider.containsApplicationContext(loader));
+      assertEquals(contextsBefore, ApplicationContextProvider.getRegisteredContextCount());
+      assertEquals(i + 1, Resource.closed.get());
+    }
+  }
+
+  @Test
+  public void stopFailureStillClosesContextAndRetriesOnlyFailedStep() {
+    pluginManager.addResolvedPlugin("stop-failure", StopFailurePlugin.class);
+    pluginManager.startPlugin("stop-failure");
+    StopFailurePlugin plugin = (StopFailurePlugin) pluginManager.getPlugin("stop-failure").getPlugin();
+    ClassLoader loader = plugin.getPluginContext().getClassLoader();
+    AtomicInteger releases = new AtomicInteger();
+    plugin.addReleaseHook(ignored -> releases.incrementAndGet());
+    plugin.fail = true;
+    expectStopFailure("stop-failure");
+    assertEquals(PluginState.FAILED, plugin.getWrapper().getPluginState());
+    assertNull(plugin.getPluginContext());
+    assertFalse(ApplicationContextProvider.containsApplicationContext(loader));
+    assertEquals(1, releases.get());
+    assertEquals(PluginState.FAILED, pluginManager.startPlugin("stop-failure"));
+    plugin.fail = false;
+    assertEquals(PluginState.STARTED, pluginManager.startPlugin("stop-failure"));
+    assertEquals(1, releases.get());
+  }
+
+  @Test
+  public void releaseHookFailureDoesNotSkipOtherHooksOrContextClose() {
+    pluginManager.addResolvedPlugin("hook-failure", LifecyclePlugin.class);
+    pluginManager.startPlugin("hook-failure");
+    Pf4bootPlugin plugin = (Pf4bootPlugin) pluginManager.getPlugin("hook-failure").getPlugin();
+    AtomicInteger attempts = new AtomicInteger();
+    AtomicInteger successes = new AtomicInteger();
+    plugin.addReleaseHook(ignored -> {
+      if (attempts.incrementAndGet() == 1) {
+        throw new IllegalStateException("first release fails");
+      }
+    });
+    plugin.addReleaseHook(ignored -> successes.incrementAndGet());
+    expectStopFailure("hook-failure");
+    assertNull(plugin.getPluginContext());
+    assertEquals(1, successes.get());
+    assertEquals(PluginState.STARTED, pluginManager.startPlugin("hook-failure"));
+    assertEquals(2, attempts.get());
+    assertEquals(1, successes.get());
+    assertTrue(plugin.getReleaseHooks().isEmpty());
+  }
+
+  @Test
+  public void blockedTaskPreventsAnyDependentFromStoppingUntilDrained() throws Exception {
+    BlockingTask.entered = new CountDownLatch(1);
+    BlockingTask.release = new CountDownLatch(1);
+    pluginManager.testProperties.setPluginDrainTimeoutMillis(30);
+    pluginManager.addResolvedPlugin("blocked", BlockingPlugin.class);
+    pluginManager.addResolvedPlugin("consumer", LifecyclePlugin.class, "blocked");
+    pluginManager.startPlugin("consumer");
+    assertTrue(BlockingTask.entered.await(2, TimeUnit.SECONDS));
+    try {
+      expectStopFailure("blocked");
+      assertEquals(PluginState.STARTED, pluginManager.getPlugin("blocked").getPluginState());
+      assertEquals(PluginState.STARTED, pluginManager.getPlugin("consumer").getPluginState());
+      assertTrue(((Pf4bootPlugin) pluginManager.getPlugin("blocked").getPlugin()).getPluginContext().isActive());
+    } finally {
+      BlockingTask.release.countDown();
+    }
+    pluginManager.testProperties.setPluginDrainTimeoutMillis(2000);
+    assertEquals(PluginState.STOPPED, pluginManager.stopPlugin("blocked"));
+    assertEquals(PluginState.FAILED, pluginManager.getPlugin("consumer").getPluginState());
+  }
+
+  private void expectStopFailure(String pluginId) {
+    try {
+      pluginManager.stopPlugin(pluginId);
+      throw new AssertionError("stop should fail");
+    } catch (org.pf4j.PluginRuntimeException expected) {
+      assertTrue(expected.getMessage() != null);
+    }
+  }
+
+  @Test
+  public void repeatedStartFailuresDoNotGrowGlobalRegistry() {
+    int contexts = ApplicationContextProvider.getRegisteredContextCount();
+    pluginManager.addResolvedPlugin("failing", FailingPlugin.class);
+    for (int i = 0; i < 20; i++) {
+      assertEquals(PluginState.FAILED, pluginManager.startPlugin("failing"));
+      assertEquals(contexts, ApplicationContextProvider.getRegisteredContextCount());
+      assertNull(((Pf4bootPlugin) pluginManager.getPlugin("failing").getPlugin()).getPluginContext());
+    }
+  }
+
+  @Test
+  public void initializationFailureClearsPropertiesBeforeContextExists() {
+    pluginManager.addResolvedPlugin("init-failure", InitFailurePlugin.class);
+    assertEquals(PluginState.FAILED, pluginManager.startPlugin("init-failure"));
+    assertNull(System.getProperty("pf4boot.test.init-failure"));
+    assertNull(((Pf4bootPlugin) pluginManager.getPlugin("init-failure").getPlugin()).getPluginContext());
+  }
+
+  @Test
+  public void failedStartKeepsContextUntilRunningWorkCanDrain() throws Exception {
+    pluginManager.close();
+    Pf4bootProperties properties = new Pf4bootProperties();
+    properties.setPluginDrainTimeoutMillis(30);
+    BlockingTask.entered = new CountDownLatch(1);
+    BlockingTask.release = new CountDownLatch(1);
+    AtomicInteger starts = new AtomicInteger();
+    pluginManager = new TestPluginManager(applicationContext, pluginsRoot, properties, new Pf4bootPluginSupport() {
+      public void startedPlugin(Pf4bootPlugin plugin) {
+        try {
+          assertTrue(BlockingTask.entered.await(2, TimeUnit.SECONDS));
+        } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException(e); }
+        if (starts.getAndIncrement() == 0) { throw new IllegalStateException("after scheduling"); }
+      }
+    });
+    pluginManager.addResolvedPlugin("blocked-start", BlockingPlugin.class);
+    try {
+      assertEquals(PluginState.FAILED, pluginManager.startPlugin("blocked-start"));
+      Pf4bootPlugin plugin = (Pf4bootPlugin) pluginManager.getPlugin("blocked-start").getPlugin();
+      assertTrue(plugin.getPluginContext().isActive());
+    } finally {
+      BlockingTask.release.countDown();
+    }
+    properties.setPluginDrainTimeoutMillis(2000);
+    assertEquals(PluginState.STARTED, pluginManager.startPlugin("blocked-start"));
+    assertEquals(PluginState.STOPPED, pluginManager.stopPlugin("blocked-start"));
+  }
+
+  @Test
+  public void preStopEventFailureDoesNotSkipCleanup() {
+    pluginManager.addResolvedPlugin("event-failure", LifecyclePlugin.class);
+    pluginManager.startPlugin("event-failure");
+    AtomicInteger attempts = new AtomicInteger();
+    org.springframework.context.ApplicationListener<org.springframework.context.ApplicationEvent> listener = event -> {
+      if (event instanceof net.xdob.pf4boot.spring.boot.PreStopPluginEvent
+          && attempts.incrementAndGet() == 1) {
+        throw new IllegalStateException("event failure");
+      }
+    };
+    applicationContext.addApplicationListener(listener);
+    int contexts = ApplicationContextProvider.getRegisteredContextCount();
+    try {
+      expectStopFailure("event-failure");
+      assertEquals(contexts - 1, ApplicationContextProvider.getRegisteredContextCount());
+      assertNull(((Pf4bootPlugin) pluginManager.getPlugin("event-failure").getPlugin()).getPluginContext());
+      assertEquals(PluginState.STARTED, pluginManager.startPlugin("event-failure"));
+    } finally {
+      applicationContext.getBean("applicationEventMulticaster",
+          org.springframework.context.event.ApplicationEventMulticaster.class).removeApplicationListener(listener);
+    }
   }
 
   @Test
@@ -218,16 +388,21 @@ public class Pf4bootPluginManagerLifecycleTest {
   }
 
   private static class TestPluginManager extends Pf4bootPluginManagerImpl {
+    private final Pf4bootProperties testProperties;
 
     TestPluginManager(AnnotationConfigApplicationContext applicationContext, Path pluginsRoot) {
-      super(applicationContext, new Pf4bootProperties(), new Pf4bootPluginSupport() {
-      }, new DefaultShareBeanMgr(new DefaultAutoExportMgr()), pluginsRoot);
+      this(applicationContext, pluginsRoot, new Pf4bootProperties());
     }
 
     TestPluginManager(AnnotationConfigApplicationContext applicationContext, Path pluginsRoot,
         Pf4bootProperties properties) {
-      super(applicationContext, properties, new Pf4bootPluginSupport() {
-      }, new DefaultShareBeanMgr(new DefaultAutoExportMgr()), pluginsRoot);
+      this(applicationContext, pluginsRoot, properties, new Pf4bootPluginSupport() { });
+    }
+
+    TestPluginManager(AnnotationConfigApplicationContext applicationContext, Path pluginsRoot,
+        Pf4bootProperties properties, Pf4bootPluginSupport support) {
+      super(applicationContext, properties, support, new DefaultShareBeanMgr(new DefaultAutoExportMgr()), pluginsRoot);
+      testProperties = properties;
     }
 
     TestPluginManager(AnnotationConfigApplicationContext applicationContext, Path pluginsRoot,
@@ -235,6 +410,7 @@ public class Pf4bootPluginManagerLifecycleTest {
       super(applicationContext, new Pf4bootProperties(), new Pf4bootPluginSupport() {
       }, new DefaultShareBeanMgr(new DefaultAutoExportMgr()),
           Collections.singletonList(pluginPackageVerifier), pluginsRoot);
+      testProperties = null;
     }
 
     void addResolvedPlugin(String pluginId, Class<? extends Pf4bootPlugin> pluginClass, String... dependencies) {
@@ -376,6 +552,56 @@ public class Pf4bootPluginManagerLifecycleTest {
     public void start() {
       events.add(getPluginId() + ":start");
       throw new IllegalStateException("boom");
+    }
+  }
+
+  @PluginStarter(ResourceConfig.class)
+  public static class ResourcePlugin extends LifecyclePlugin {
+    public ResourcePlugin(PluginWrapper wrapper) { super(wrapper); }
+  }
+
+  public static class ResourceConfig {
+    @Bean(destroyMethod = "close")
+    public Resource resource() { return new Resource(); }
+  }
+
+  public static class Resource implements AutoCloseable {
+    static final AtomicInteger closed = new AtomicInteger();
+    public void close() { closed.incrementAndGet(); }
+  }
+
+  @PluginStarter(LifecycleConfig.class)
+  public static class StopFailurePlugin extends LifecyclePlugin {
+    boolean fail;
+    public StopFailurePlugin(PluginWrapper wrapper) { super(wrapper); }
+    public void stop() {
+      if (fail) { throw new AssertionError("stop failure"); }
+      super.stop();
+    }
+  }
+
+  @PluginStarter(LifecycleConfig.class)
+  public static class InitFailurePlugin extends LifecyclePlugin {
+    public InitFailurePlugin(PluginWrapper wrapper) { super(wrapper); }
+    public void initiate() {
+      setProperty("pf4boot.test.init-failure", "temporary");
+      throw new IllegalStateException("init failure");
+    }
+  }
+
+  @PluginStarter(BlockingTask.class)
+  public static class BlockingPlugin extends LifecyclePlugin {
+    public BlockingPlugin(PluginWrapper wrapper) { super(wrapper); }
+  }
+
+  @Component
+  public static class BlockingTask {
+    static CountDownLatch entered;
+    static CountDownLatch release;
+    @Scheduled(fixedDelay = 1000000)
+    public void run() throws InterruptedException {
+      entered.countDown();
+      release.await();
     }
   }
 

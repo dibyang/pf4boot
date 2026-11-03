@@ -11,6 +11,8 @@ import net.xdob.pf4boot.modal.DynamicBeanConflictPolicy;
 import net.xdob.pf4boot.modal.SharingScope;
 import net.xdob.pf4boot.spring.boot.*;
 import net.xdob.pf4boot.util.AutoCloseableLock;
+import net.xdob.pf4boot.util.PluginCleanup;
+import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
 import org.pf4j.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +87,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   private ScheduledFuture<?> autoStartFuture;
 	private final ShareBeanMgr shareBeanMgr;
   private final List<PluginPackageVerifier> pluginPackageVerifiers;
+  private final Map<String, PluginCleanup> pendingCleanup = new HashMap<>();
 
   public Pf4bootPluginManagerImpl(ApplicationContext applicationContext, Pf4bootProperties properties,
 																	Pf4bootPluginSupport pluginSupport, ShareBeanMgr shareBeanMgr, Path... pluginsRoots) {
@@ -304,8 +307,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 	@Override
 	public void releasePlugin(Pf4bootPlugin plugin) {
-		shareBeanMgr.stopPlugin(plugin);
-    clearMetadataCache();
+    PluginCleanup cleanup = new PluginCleanup();
+    cleanup.run("shared resources", () -> shareBeanMgr.stopPlugin(plugin));
+    cleanup.run("metadata caches", this::clearMetadataCache);
+    cleanup.throwIfFailed();
   }
 
   private void clearMetadataCache() {
@@ -697,6 +702,13 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     // stop started plugins in reverse order, but do not mutate startedPlugins ordering directly
     List<PluginWrapper> pluginsToStop = new ArrayList<>(startedPlugins);
     Collections.reverse(pluginsToStop);
+    for (PluginWrapper wrapper : getPlugins()) {
+      if (!pluginsToStop.contains(wrapper) && (pendingCleanup.containsKey(wrapper.getPluginId())
+          || (wrapper.getPluginState() == PluginState.FAILED
+              && ((Pf4bootPlugin) wrapper.getPlugin()).getPluginContext() != null))) {
+        pluginsToStop.add(wrapper);
+      }
+    }
     for (PluginWrapper pluginWrapper : pluginsToStop) {
       PluginState pluginState = pluginWrapper.getPluginState();
       if (PluginState.STOPPED != pluginState) {
@@ -713,14 +725,14 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
    * Release plugin holding release on stop.
    */
   public void releaseResource(Pf4bootPlugin pf4bootPlugin) {
-    for (Consumer<Pf4bootPlugin> releaseHook : pf4bootPlugin.getReleaseHooks()) {
-      try{
+    PluginCleanup cleanup = new PluginCleanup();
+    for (Consumer<Pf4bootPlugin> releaseHook : new ArrayList<>(pf4bootPlugin.getReleaseHooks())) {
+      cleanup.run("release hook", () -> {
         releaseHook.accept(pf4bootPlugin);
-      } catch (Exception e) {
-        LOG.warn("releaseHook {} failed", releaseHook, e);
-      }
+        pf4bootPlugin.getReleaseHooks().remove(releaseHook);
+      });
     }
-
+    cleanup.throwIfFailed();
   }
 
   @Override
@@ -824,7 +836,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     Assert.notNull(beanName, "beanName must not be null");
     ConfigurableApplicationContext context = getContext(group, scope);
     DefaultListableBeanFactory beanFactory = (DefaultListableBeanFactory) context.getBeanFactory();
-    Object bean = context.containsBean(beanName) ? context.getBean(beanName) : null;
+    Object bean = beanFactory.containsLocalBean(beanName) ? beanFactory.getBean(beanName) : null;
 
     if (beanFactory.containsSingleton(beanName)) {
       beanFactory.destroySingleton(beanName);
@@ -903,6 +915,13 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       return;
     }
 
+    Pf4bootPlugin plugin = (Pf4bootPlugin) pluginWrapper.getPlugin();
+    if (pendingCleanup.containsKey(pluginWrapper.getPluginId())
+        || (pluginState == PluginState.FAILED && plugin.getPluginContext() != null)) {
+      stopPlugin(pluginWrapper.getPluginId(), false);
+      pluginState = pluginWrapper.getPluginState();
+    }
+
     if (!resolvedPlugins.contains(pluginWrapper)) {
       LOG.warn("Cannot start an unresolved plugin '{}'", getPluginLabel(pluginDescriptor));
       return;
@@ -929,7 +948,6 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 
 
-    Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
     ClassLoader oldClassLoader = replaceClassLoader(plugin.getWrapper().getPluginClassLoader());
 		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock, 10, TimeUnit.SECONDS)) {
 			for (PluginDependency dependency : pluginDescriptor.getDependencies()) {
@@ -992,9 +1010,21 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, PluginState.STARTED));
       publishEvent(pluginContext, new StartedPluginEvent(plugin));
 			notifyAppCacheFree();
-    } catch (Exception e) {
-			plugin.closePluginContext();
-			throw e;
+    } catch (Throwable e) {
+      pluginWrapper.setPluginState(PluginState.FAILED);
+      try (PluginDrainScope drain = drainPlugins(Collections.singletonList(pluginWrapper.getPluginId()))) {
+        cleanupPlugin(plugin);
+      } catch (Throwable cleanupFailure) {
+        e.addSuppressed(cleanupFailure);
+      }
+      getStartedPlugins().remove(pluginWrapper);
+      if (e instanceof RuntimeException) {
+        throw (RuntimeException) e;
+      }
+      if (e instanceof Error) {
+        throw (Error) e;
+      }
+      throw new PluginRuntimeException(e, "Plugin start failed: %s", pluginWrapper.getPluginId());
 		}finally {
       replaceClassLoader(oldClassLoader);
     }
@@ -1047,47 +1077,105 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
       checkPluginId(pluginId);
 
-      // test for started plugin
-      if (!checkPluginState(pluginId, PluginState.STARTED)) {
-        // do nothing
-        LOG.debug("Plugin '{}' is not started, nothing to stop", getPluginLabel(pluginId));
-        return getPlugin(pluginId).getPluginState();
+      LinkedHashSet<String> affected = new LinkedHashSet<>();
+      collectStopScope(pluginId, stopDependents, affected);
+      try (PluginDrainScope drain = drainPlugins(affected)) {
+        return doStopPlugin(pluginId, stopDependents, culpritDependency);
       }
-
-
-      return doStopPlugin(pluginId, stopDependents, culpritDependency);
     }
 	}
+
+  /** 在修改运行态之前排空整个依赖影响范围。 */
+  private void collectStopScope(String pluginId, boolean dependents, Set<String> affected) {
+    if (!affected.add(pluginId)) {
+      return;
+    }
+    if (dependents) {
+      for (String dependent : dependencyResolver.getDependents(pluginId)) {
+        collectStopScope(dependent, true, affected);
+      }
+    }
+  }
+
+  private PluginDrainScope drainPlugins(Collection<String> pluginIds) {
+    Set<PluginTrafficDrainer> drainers = new LinkedHashSet<>();
+    if (shareBeanMgr instanceof PluginTrafficDrainer) {
+      drainers.add((PluginTrafficDrainer) shareBeanMgr);
+    }
+    // 宿主销毁期间不创建新 Bean，也不调用已标记关闭的 ApplicationContext 查询入口。
+    DefaultListableBeanFactory factory = (DefaultListableBeanFactory) applicationContext.getBeanFactory();
+    for (String name : factory.getBeanNamesForType(PluginTrafficDrainer.class, false, false)) {
+      Object drainer = applicationContext.isActive() ? factory.getBean(name) : factory.getSingleton(name);
+      if (drainer instanceof PluginTrafficDrainer) {
+        drainers.add((PluginTrafficDrainer) drainer);
+      }
+    }
+    return PluginDrainScope.open(drainers, pluginIds, properties.getPluginDrainTimeoutMillis());
+  }
+
+  /** 逐项清理并只保留失败步骤供下次 stop/start 重试。 */
+  private void cleanupPlugin(Pf4bootPlugin plugin) {
+    String id = plugin.getPluginId();
+    PluginCleanup previous = pendingCleanup.get(id);
+    if (previous != null) {
+      previous.retry();
+      pendingCleanup.remove(id);
+      return;
+    }
+    PluginCleanup cleanup = new PluginCleanup();
+    pendingCleanup.put(id, cleanup);
+    ConfigurableApplicationContext context = plugin.getPluginContext();
+    cleanup.run("pre-stop event", () -> publishCleanupEvent(plugin, new PreStopPluginEvent(plugin)));
+    cleanup.run("support stop", () -> pluginSupport.stopPlugin(plugin));
+    cleanup.run("stopping event", () -> publishCleanupEvent(plugin, new StoppingPluginEvent(plugin)));
+    cleanup.run("plugin stop", plugin::stop);
+    cleanup.run("support stopped", () -> pluginSupport.stoppedPlugin(plugin));
+    cleanup.run("stopped event", () -> publishCleanupEvent(plugin, new StoppedPluginEvent(plugin)));
+    cleanup.run("release hooks", () -> releaseResource(plugin));
+    cleanup.run("shared resources", () -> releasePlugin(plugin));
+    cleanup.run("support release", () -> pluginSupport.releasePlugin(plugin));
+    cleanup.run("unregister context", () -> ApplicationContextProvider.unregisterApplicationContext(context));
+    cleanup.run("close context", plugin::closePluginContext);
+    cleanup.run("clear plugin properties", plugin::clearAllProperties);
+    cleanup.run("plugin closed", plugin::closed);
+    cleanup.throwIfFailed();
+    pendingCleanup.remove(id);
+  }
+
+  private void publishCleanupEvent(Pf4bootPlugin plugin, Object event) {
+    ConfigurableApplicationContext context = plugin.getPluginContext();
+    publishEvent(context != null && context.isActive() ? context : null, event);
+  }
 
 	protected PluginState doStopPlugin(String pluginId, boolean stopDependents, String culpritDependency) {
 		//停止依赖于我的插件（是否是自动停止）
 		if (stopDependents) {
 			List<String> dependents = dependencyResolver.getDependents(pluginId);
 			for (String dependent : dependents) {
-				stopPlugin(dependent, true, pluginId);
+				doStopPlugin(dependent, true, pluginId);
 			}
 		}
 		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock, 10, TimeUnit.SECONDS)){
 			stopping.set( true);
 			Pf4bootPluginWrapper pluginWrapper = (Pf4bootPluginWrapper)getPlugin(pluginId);
 			PluginState pluginState = pluginWrapper.getPluginState();
-			if(!pluginState.isStarted()){
-				pluginWrapper.setPluginState(PluginState.STOPPED);
-				pluginWrapper.setFailedException(null);
-				pluginWrapper.getStartFailed().set(0);
+			Pf4bootPlugin plugin = (Pf4bootPlugin) pluginWrapper.getPlugin();
+			if(!pluginState.isStarted() && !pendingCleanup.containsKey(pluginId)
+          && plugin.getPluginContext() == null){
 				return pluginState;
 			}
 			LOG.info("Stop plugin '{}'", getPluginLabel(pluginId));
-			Pf4bootPlugin plugin = (Pf4bootPlugin)pluginWrapper.getPlugin();
-			ConfigurableApplicationContext pluginContext = plugin.getPluginContext();
-			publishEvent(pluginContext, new PreStopPluginEvent(plugin));
-			//插件停止前置处理
-			pluginSupport.stopPlugin(plugin);
-			publishEvent(pluginContext, new StoppingPluginEvent(plugin));
-			plugin.stop();
-
-			//插件停止后置处理
-			pluginSupport.stoppedPlugin(plugin);
+      if (culpritDependency == null) {
+        pluginWrapper.getStopped().set(true);
+      }
+      try {
+        cleanupPlugin(plugin);
+      } catch (Throwable failure) {
+        pluginWrapper.setPluginState(PluginState.FAILED);
+        pluginWrapper.setFailedException(failure);
+        getStartedPlugins().remove(pluginWrapper);
+        throw new PluginRuntimeException(failure, "Plugin stop cleanup failed: %s", pluginId);
+      }
 			if(culpritDependency !=null&&!culpritDependency.isEmpty()){
 				pluginWrapper.setPluginState(PluginState.FAILED);
 				pluginWrapper.setFailedException(new DependencyNotStartedException(culpritDependency));
@@ -1097,14 +1185,6 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			}
 			getStartedPlugins().remove(pluginWrapper);
 			firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, pluginWrapper.getPluginState()));
-			publishEvent(pluginContext, new StoppedPluginEvent(plugin));
-
-			releaseResource(plugin);
-			releasePlugin(plugin);
-			pluginSupport.releasePlugin(plugin);
-			ApplicationContextProvider.unregisterApplicationContext(pluginContext);
-			plugin.closePluginContext();
-			plugin.closed();
 			if(culpritDependency==null){
 				((Pf4bootPluginWrapper)pluginWrapper).getStopped().set(true);
 			}

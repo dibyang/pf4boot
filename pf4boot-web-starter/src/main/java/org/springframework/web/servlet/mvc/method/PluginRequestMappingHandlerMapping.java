@@ -7,6 +7,8 @@ import net.xdob.pf4boot.deployment.PluginCleanupVerifier;
 import net.xdob.pf4boot.deployment.PluginHealthContext;
 import net.xdob.pf4boot.deployment.PluginHealthVerifier;
 import net.xdob.pf4boot.deployment.PluginTrafficDrainer;
+import net.xdob.pf4boot.deployment.PluginWorkTracker;
+import net.xdob.pf4boot.util.PluginCleanup;
 import org.pf4j.PluginWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,10 +29,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * PluginRequestMappingHandlerMapping
@@ -49,8 +48,9 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
       Collections.synchronizedMap(new IdentityHashMap<>());
   private final Map<HandlerInterceptor, String> pluginIdsByInterceptor =
       Collections.synchronizedMap(new IdentityHashMap<>());
-  private final Set<String> drainingPluginIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
-  private final Map<String, AtomicInteger> inFlightRequests = new ConcurrentHashMap<>();
+  private final PluginWorkTracker workTracker = new PluginWorkTracker();
+  private final Map<Object, String> registeredBeanNames =
+      Collections.synchronizedMap(new IdentityHashMap<>());
 
   public void addDynamicInterceptor(HandlerInterceptor interceptor) {
     dynamicInterceptors.add(interceptor);
@@ -94,6 +94,7 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     registerBeanToMainContext(beanName, interceptor);
     dynamicInterceptors.add(interceptor);
     pluginIdsByInterceptor.put(interceptor, pluginId);
+    registeredBeanNames.put(interceptor, beanName);
     logger.info("register interceptor=" + interceptor);
   }
 
@@ -103,13 +104,25 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   }
 
   public void unregisterInterceptors(Pf4bootPlugin pf4BootPlugin) {
-    getInterceptorBeans(pf4BootPlugin).forEach(this::unregisterInterceptor);
+    PluginCleanup cleanup = new PluginCleanup();
+    Map<HandlerInterceptor, String> owned;
+    synchronized (pluginIdsByInterceptor) {
+      owned = new IdentityHashMap<>(pluginIdsByInterceptor);
+    }
+    owned.forEach((interceptor, id) -> {
+      if (pf4BootPlugin.getPluginId().equals(id)) {
+        cleanup.run("interceptor", () -> unregisterInterceptor(registeredBeanNames.get(interceptor), interceptor));
+      }
+    });
+    cleanup.throwIfFailed();
   }
 
   private void unregisterInterceptor(String beanName, final HandlerInterceptor interceptor) {
-    if(dynamicInterceptors.removeIf(e -> e == interceptor)) {
-      pluginIdsByInterceptor.remove(interceptor);
+    if(dynamicInterceptors.contains(interceptor) || pluginIdsByInterceptor.containsKey(interceptor)) {
       unregisterBeanFromMainContext(beanName, interceptor);
+      dynamicInterceptors.removeIf(e -> e == interceptor);
+      pluginIdsByInterceptor.remove(interceptor);
+      registeredBeanNames.remove(interceptor);
       logger.info("unregister interceptor=" + interceptor);
     }
   }
@@ -142,14 +155,22 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
 
     registerBeanToMainContext(beanName, controller);
     pluginIdsByHandler.put(controller, pluginId);
+    registeredBeanNames.put(controller, beanName);
     detectHandlerMethods(controller);
   }
 
   public void unregisterControllers(Pf4bootPlugin pf4BootPlugin) {
-    //this.logger.info("unregister controller=" + controller);
-    getControllerBeans(pf4BootPlugin).forEach(this::unregisterController);
-		PluginWrapper pluginWrapper = pf4BootPlugin.getPluginManager().getPlugin(pf4BootPlugin.getPluginId());
-		unregisterPluginControllers(pluginWrapper.getPluginClassLoader());
+    PluginCleanup cleanup = new PluginCleanup();
+    Map<Object, String> owned;
+    synchronized (pluginIdsByHandler) {
+      owned = new IdentityHashMap<>(pluginIdsByHandler);
+    }
+    owned.forEach((controller, id) -> {
+      if (pf4BootPlugin.getPluginId().equals(id)) {
+        cleanup.run("controller", () -> unregisterController(registeredBeanNames.get(controller), controller));
+      }
+    });
+    cleanup.throwIfFailed();
   }
 
 	public void unregisterPluginControllers(ClassLoader cl) {
@@ -178,8 +199,9 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
       }
     });
     mappings.forEach(this::unregisterMapping);
-    pluginIdsByHandler.remove(controller);
     unregisterBeanFromMainContext(beanName, controller);
+    pluginIdsByHandler.remove(controller);
+    registeredBeanNames.remove(controller);
   }
 
   public void registerBeanToMainContext(String beanName, Object bean) {
@@ -213,8 +235,8 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   public void unregisterBeanFromMainContext(String beanName, Object bean) {
     Assert.notNull(bean, "bean must not be null");
     AutowireCapableBeanFactory beanFactory = this.obtainApplicationContext().getAutowireCapableBeanFactory();
-    if (this.obtainApplicationContext().containsBean(beanName)
-        && this.obtainApplicationContext().getBean(beanName) == bean) {
+    DefaultListableBeanFactory factory = (DefaultListableBeanFactory) beanFactory;
+    if (factory.containsSingleton(beanName) && factory.getSingleton(beanName) == bean) {
       ((AbstractAutowireCapableBeanFactory)beanFactory).destroySingleton(beanName);
     }
   }
@@ -224,21 +246,12 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     if (pluginIds == null) {
       return;
     }
-    drainingPluginIds.addAll(pluginIds);
+    workTracker.beginDrain(pluginIds);
   }
 
   @Override
   public boolean awaitDrain(Collection<String> pluginIds, long timeoutMillis) throws InterruptedException {
-    long deadline = System.currentTimeMillis() + Math.max(timeoutMillis, 0);
-    while (true) {
-      if (inFlightRequestCount(pluginIds) == 0) {
-        return true;
-      }
-      if (System.currentTimeMillis() >= deadline) {
-        return false;
-      }
-      TimeUnit.MILLISECONDS.sleep(20);
-    }
+    return workTracker.awaitDrain(pluginIds, timeoutMillis);
   }
 
   @Override
@@ -246,7 +259,7 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     if (pluginIds == null) {
       return;
     }
-    drainingPluginIds.removeAll(pluginIds);
+    workTracker.endDrain(pluginIds);
   }
 
   @Override
@@ -291,12 +304,11 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   }
 
   public boolean isDraining(String pluginId) {
-    return drainingPluginIds.contains(pluginId);
+    return workTracker.isDraining(pluginId);
   }
 
   public int getInFlightRequestCount(String pluginId) {
-    AtomicInteger count = inFlightRequests.get(pluginId);
-    return count == null ? 0 : count.get();
+    return workTracker.getRunningCount(pluginId);
   }
 
   public int getRegisteredHandlerCount(String pluginId) {
@@ -352,11 +364,10 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
         HttpServletRequest request,
         HttpServletResponse response,
         Object handler) throws Exception {
-      if (drainingPluginIds.contains(pluginId)) {
+      if (!workTracker.tryEnter(pluginId)) {
         response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Plugin is draining: " + pluginId);
         return false;
       }
-      inFlightRequests.computeIfAbsent(pluginId, key -> new AtomicInteger()).incrementAndGet();
       request.setAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE, pluginId);
       return true;
     }
@@ -369,10 +380,8 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
         Exception ex) {
       Object value = request.getAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
       if (Objects.equals(pluginId, value)) {
-        AtomicInteger count = inFlightRequests.get(pluginId);
-        if (count != null && count.decrementAndGet() < 0) {
-          count.set(0);
-        }
+        request.removeAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
+        workTracker.exit(pluginId);
       }
     }
   }

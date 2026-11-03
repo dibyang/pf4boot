@@ -59,6 +59,7 @@ For new development work, read these first:
 - [next-version-production-design.md](next-version-production-design.md): next-version production implementation design.
 - [plugin-hot-replacement-deployment-improvement.md](plugin-hot-replacement-deployment-improvement.md): plugin hot replacement deployment improvements.
 - [runtime-safety-phase3.md](runtime-safety-phase3.md): runtime safety hardening.
+- [plugin-resource-cleanup.md](plugin-resource-cleanup.md): stop/failure cleanup, draining and classloader release.
 - [verification-foundation.md](verification-foundation.md): verification foundation.
 - [production-profile-and-release-gates.md](production-profile-and-release-gates.md): production profile, trust-chain ENFORCE, and repository release gates.
 - [decisions/plugin-repository-governance-decision.md](decisions/plugin-repository-governance-decision.md): plugin repository governance decision.

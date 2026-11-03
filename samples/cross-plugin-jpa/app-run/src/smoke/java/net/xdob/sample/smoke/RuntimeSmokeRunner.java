@@ -60,6 +60,7 @@ public class RuntimeSmokeRunner {
       checkUnrelated();
       checkWorkflow();
       checkManagement();
+      checkPluginLifecycleCleanup();
       String reloadId = checkJpaReload();
       checkJpaReloadRecordPersistence(reloadId);
       checkJpaProviderReplacementPath();
@@ -147,6 +148,8 @@ public class RuntimeSmokeRunner {
         isWindows() ? "java.exe" : "java").toString();
     List<String> command = new ArrayList<String>();
     command.add(java);
+    // 验收强引用泄漏，避免第三方软引用缓存等待内存压力才回收。
+    command.add("-XX:SoftRefLRUPolicyMSPerMB=0");
     command.add("-Duser.home=" + smokeDir.resolve("home"));
     command.add("-cp");
     command.add("lib/*");
@@ -157,6 +160,7 @@ public class RuntimeSmokeRunner {
     }
     command.add("--server.port=" + port);
     command.add("--spring.pf4boot.management.http.token=sample-token");
+    command.add("--sample.lifecycle-probe-enabled=true");
     command.add("--spring.pf4boot.management.http.operation-store.type=file");
     command.add("--spring.pf4boot.management.http.operation-store.directory=" + smokeDir.resolve("operations"));
     command.add("--spring.pf4boot.jpa.reload.mode=" + jpaReloadMode);
@@ -181,6 +185,21 @@ public class RuntimeSmokeRunner {
       Thread.sleep(1000L);
     }
     throw new IllegalStateException("PFS-001 host not ready within 120 seconds");
+  }
+
+  private void checkPluginLifecycleCleanup() throws Exception {
+    List<Header> admin = new ArrayList<Header>();
+    admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult result = request("POST", "/api/sample/lifecycle-probe", admin, "{}");
+    assertStatus(result, 200, "plugin lifecycle cleanup");
+    if (!result.body.contains("\"collectedLoaders\":10")
+        || !result.body.contains("\"failureRecovery\":\"PASSED\"")) {
+      throw new IllegalStateException("lifecycle probe did not complete: " + result.body);
+    }
+    checkUnrelated();
+    checkWorkflow();
+    System.out.println("SMOKE_LIFECYCLE_CLEANUP " + result.body);
+    addCheck("pluginLifecycleCleanup", "PASSED", "20 restarts, 10 reloads/loaders collected, start/stop failures recovered");
   }
 
   private void checkUnrelated() throws Exception {
@@ -442,7 +461,7 @@ public class RuntimeSmokeRunner {
       HttpURLConnection connection = (HttpURLConnection) new URL("http://127.0.0.1:" + port + path).openConnection();
       connection.setRequestMethod(method);
       connection.setConnectTimeout(5000);
-      connection.setReadTimeout(20000);
+      connection.setReadTimeout("/api/sample/lifecycle-probe".equals(path) ? 120000 : 20000);
       if (headers != null) {
         for (Header header : headers) {
           connection.setRequestProperty(header.name, header.value);
