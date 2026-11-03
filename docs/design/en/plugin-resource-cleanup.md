@@ -2,6 +2,21 @@
 
 [中文](../plugin-resource-cleanup.md)
 
+## Follow-up Boundary Fix
+
+Review reproduced double counting on Callable redispatch, uncounted plugin interceptors on host requests, and destruction failures swallowed inside Spring. Keep existing configuration and SPIs:
+
+- One request work lease covers its controller and plugin interceptors. Async redispatch reuses it; async completion, timeout and error release it exactly once. Drain rejects new plugin work but allows admitted async requests to finish.
+- Callable work remains counted after response completion until the actual worker exits. Work not yet started is rejected after request completion. DeferredResult producer threads remain plugin-owned.
+- Registered handler methods retain plugin IDs. Admission validates live ownership under the work-tracker lock, rejecting previously matched but removed handlers. Snapshot interceptors together with their ownership.
+- Respect dynamic MappedInterceptor path rules. The existing management base-path bypasses plugin dynamic interceptors to avoid stop waiting for its own control request. Host interceptors remain in place.
+- The existing PluginListableBeanFactory observes Spring 5.3 destruction adapters using their selected annotation, DisposableBean, AutoCloseable and custom callbacks. Record failures with PluginCleanup, attempt remaining callbacks, and report after close. Retain only failed callbacks for retry; fail explicitly on incompatible metadata.
+- Register destruction for the directly registered plugin object; remove the erroneous destroyBean call passing a bean-name string as an instance.
+- Failed destruction retains FAILED and the cleanup context, blocking a fresh context until failed callbacks succeed. Persistent plugin close errors cannot be force-repaired.
+- The adapter targets current Spring 5.3 destruction metadata. Tests cover four standard callback kinds, inheritance, duplicate exclusion and custom processor overrides. Third-party processors swallowing their own failures and external custom-scope destruction must report failures themselves; no global log interception is used.
+
+Verification covers real MockMvc redispatch, blocked global interceptors, port release failures and recovery, plus real zip plugins in Tomcat. Status: locally verified; follow-up acceptance results are recorded below.
+
 ## Problem and Scope
 
 Stop exceptions skip cleanup, failed starts leave global registrations, ordinary stops do not drain work, and scheduling caches retain plugin classes.
@@ -33,7 +48,7 @@ Builds on JDK 9+ use `--release 8`; core explicitly declares JSR-250 annotations
 - Run real packaged-plugin runtime smoke for host/MVC/JPA/reload and failure regressions, plus a full build with explicit test result inspection.
 - Record final-code commands, results and limitations; fake-loader tests do not establish real class unloading.
 
-## Local Acceptance
+## Initial Acceptance (Historical Baseline)
 
 2026-11-03, Windows / Temurin JDK 17, compiled with `--release 8`. Status: locally verified, not released.
 
@@ -47,3 +62,13 @@ Builds on JDK 9+ use `--release 8`; core explicitly declares JSR-250 annotations
 - Existing transaction rollback, JPA reload and persisted record recovery, provider replacement, drain timeout without mutation, unrelated-plugin isolation and Actuator checks pass.
 - Machine-readable reports are in sample app-run `build/reports/runtime-smoke/result.json` and `build/reports/runtime-smoke-production/result.json`, with matching JUnit XML.
 - Diff whitespace and strict UTF-8/replacement-character checks pass. This acceptance did not run on a Java 8 JVM. Unmanaged external resources without registered destruction remain the plugin author's responsibility.
+
+## Follow-up Acceptance
+
+2026-11-03, Windows / Temurin JDK 17 / `--release 8`. The complete build and both profile smoke tasks shown above exit with code 0. Status: locally verified, no artifact release performed.
+
+- Framework JUnit XML totals 313 tests with zero failures, errors or skips. New destruction tests cover standard callbacks, inheritance/deduplication, custom processor overrides and failed-action-only retry. Nine MVC/real-port regression tests cover the reviewed boundaries.
+- Ordinary and production Tomcat smoke each complete 20 Callable/DeferredResult requests. A plugin interceptor blocked on a host route prevents stop. A timed-out response with a still-running Callable also rejects stop and preserves STARTED. Stop/start succeeds once the work exits.
+- Injected ServerSocket close failure leaves the original port occupied; the framework reports FAILED and blocks a fresh start. After the close action recovers, cleanup retry succeeds and a new context binds the original port.
+- After these recovery scenarios, both profiles complete 20 restarts, 10 reloads and collection of all ten old loaders. Existing JPA, transactions, idempotency, persistence, isolation and Actuator checks pass.
+- Reports include `cleanupBoundaries=PASSED`; diff and UTF-8 checks pass. No Java 8 JVM execution was performed; the external-resource limitations above still apply.

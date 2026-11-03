@@ -22,6 +22,16 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerExecutionChain;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.AsyncHandlerInterceptor;
+import org.springframework.web.servlet.handler.MappedInterceptor;
+import org.springframework.web.context.request.NativeWebRequest;
+import org.springframework.web.context.request.async.CallableProcessingInterceptor;
+import org.springframework.web.context.request.async.DeferredResultProcessingInterceptor;
+import org.springframework.web.context.request.async.DeferredResult;
+import org.springframework.web.context.request.async.WebAsyncUtils;
+import java.util.concurrent.Callable;
+import javax.servlet.AsyncEvent;
+import javax.servlet.AsyncListener;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import javax.servlet.http.HttpServletRequest;
@@ -70,14 +80,27 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
       return null;
     }
     String pluginId = pluginIdForHandler(handler);
+    Map<HandlerInterceptor, String> owned = new IdentityHashMap<>();
+    String path = getUrlPathHelper().getPathWithinApplication(request);
+    String admin = obtainApplicationContext().getEnvironment()
+        .getProperty("spring.pf4boot.management.http.base-path", "/pf4boot/admin");
+    while (admin.length() > 1 && admin.endsWith("/")) { admin = admin.substring(0, admin.length() - 1); }
+    boolean controlPlane = path.equals(admin) || path.startsWith(admin + "/");
     // 添加动态拦截器到执行链的最前面
-    if (!dynamicInterceptors.isEmpty()) {
+    synchronized (pluginIdsByInterceptor) {
       for (HandlerInterceptor dynamicInterceptor : dynamicInterceptors) {
+        String owner = pluginIdsByInterceptor.get(dynamicInterceptor);
+        // 管理入口不能参与待停止插件自己的请求链，否则同步 stop 必然等待自身。
+        if (controlPlane && owner != null) { continue; }
+        if (dynamicInterceptor instanceof MappedInterceptor
+            && !((MappedInterceptor) dynamicInterceptor).matches(request)) { continue; }
         chain.addInterceptor(0, dynamicInterceptor);
+        if (owner != null) { owned.put(dynamicInterceptor, owner); }
       }
     }
-    if (pluginId != null) {
-      chain.addInterceptor(0, new PluginDrainInterceptor(pluginId));
+    if (pluginId != null || !owned.isEmpty()) {
+      Object controller = handler instanceof HandlerMethod ? ((HandlerMethod) handler).getBean() : handler;
+      chain.addInterceptor(0, new PluginDrainInterceptor(pluginId, controller, owned));
     }
     return chain;
   }
@@ -92,10 +115,12 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   private void registerInterceptor(String pluginId, String beanName, final HandlerInterceptor interceptor) {
     unregisterInterceptor(beanName, interceptor);
     registerBeanToMainContext(beanName, interceptor);
+    synchronized (pluginIdsByInterceptor) {
     dynamicInterceptors.add(interceptor);
     pluginIdsByInterceptor.put(interceptor, pluginId);
     registeredBeanNames.put(interceptor, beanName);
     logger.info("register interceptor=" + interceptor);
+    }
   }
 
   public Map<String, HandlerInterceptor> getInterceptorBeans(Pf4bootPlugin pf4BootPlugin) {
@@ -120,10 +145,28 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   private void unregisterInterceptor(String beanName, final HandlerInterceptor interceptor) {
     if(dynamicInterceptors.contains(interceptor) || pluginIdsByInterceptor.containsKey(interceptor)) {
       unregisterBeanFromMainContext(beanName, interceptor);
+      synchronized (pluginIdsByInterceptor) {
       dynamicInterceptors.removeIf(e -> e == interceptor);
       pluginIdsByInterceptor.remove(interceptor);
       registeredBeanNames.remove(interceptor);
       logger.info("unregister interceptor=" + interceptor);
+    }
+    }
+  }
+
+  @Override
+  protected HandlerMethod createHandlerMethod(Object handler, Method method) {
+    HandlerMethod original = super.createHandlerMethod(handler, method);
+    String owner = pluginIdsByHandler.get(handler);
+    return owner == null ? original : new OwnedHandlerMethod(original, owner);
+  }
+
+  /** 匹配后即使路由被注销，仍保留所有者用于准入时拒绝旧 handler。 */
+  private static final class OwnedHandlerMethod extends HandlerMethod {
+    private final String pluginId;
+    private OwnedHandlerMethod(HandlerMethod original, String pluginId) {
+      super(original);
+      this.pluginId = pluginId;
     }
   }
 
@@ -344,6 +387,7 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
   }
 
   private String pluginIdForHandler(Object handler) {
+    if (handler instanceof OwnedHandlerMethod) { return ((OwnedHandlerMethod) handler).pluginId; }
     if (handler instanceof HandlerMethod) {
       Object bean = ((HandlerMethod) handler).getBean();
       return pluginIdsByHandler.get(bean);
@@ -351,12 +395,16 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
     return pluginIdsByHandler.get(handler);
   }
 
-  private class PluginDrainInterceptor implements HandlerInterceptor {
+  private class PluginDrainInterceptor implements AsyncHandlerInterceptor {
 
     private final String pluginId;
+    private final Object controller;
+    private final Map<HandlerInterceptor, String> owned;
 
-    private PluginDrainInterceptor(String pluginId) {
+    private PluginDrainInterceptor(String pluginId, Object controller, Map<HandlerInterceptor, String> owned) {
       this.pluginId = pluginId;
+      this.controller = controller;
+      this.owned = owned;
     }
 
     @Override
@@ -364,12 +412,52 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
         HttpServletRequest request,
         HttpServletResponse response,
         Object handler) throws Exception {
-      if (!workTracker.tryEnter(pluginId)) {
-        response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Plugin is draining: " + pluginId);
-        return false;
+      Object existing = request.getAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
+      if (existing instanceof RequestWork && !((RequestWork) existing).released) { return true; }
+      Set<String> ids = new LinkedHashSet<>(owned.values());
+      if (pluginId != null) { ids.add(pluginId); }
+      List<String> entered = new ArrayList<>();
+      synchronized (workTracker) {
+        boolean live = pluginId == null || pluginId.equals(pluginIdsByHandler.get(controller));
+        for (Map.Entry<HandlerInterceptor, String> entry : owned.entrySet()) {
+          live &= entry.getValue().equals(pluginIdsByInterceptor.get(entry.getKey()));
+        }
+        if (live) {
+          for (String id : ids) {
+            if (!workTracker.tryEnter(id)) { live = false; break; }
+            entered.add(id);
+          }
+        }
+        if (!live) {
+          entered.forEach(workTracker::exit);
+          response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Plugin work is unavailable");
+          return false;
+        }
       }
-      request.setAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE, pluginId);
+      RequestWork work = new RequestWork(entered);
+      request.setAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE, work);
+      WebAsyncUtils.getAsyncManager(request).registerCallableInterceptor(IN_FLIGHT_PLUGIN_ATTRIBUTE,
+          new CallableProcessingInterceptor() {
+            public <T> void preProcess(NativeWebRequest req, Callable<T> task) { work.beginWorker(); }
+            public <T> void postProcess(NativeWebRequest req, Callable<T> task, Object result) { work.endWorker(); }
+            public <T> void afterCompletion(NativeWebRequest req, Callable<T> task) { work.complete(); }
+          });
+      WebAsyncUtils.getAsyncManager(request).registerDeferredResultInterceptor(IN_FLIGHT_PLUGIN_ATTRIBUTE,
+          new DeferredResultProcessingInterceptor() {
+            public <T> void afterCompletion(NativeWebRequest req, DeferredResult<T> result) { work.complete(); }
+          });
       return true;
+    }
+
+    @Override
+    public void afterConcurrentHandlingStarted(HttpServletRequest request, HttpServletResponse response, Object handler) {
+      RequestWork work = (RequestWork) request.getAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
+      request.getAsyncContext().addListener(new AsyncListener() {
+        public void onComplete(AsyncEvent event) { work.complete(); }
+        public void onTimeout(AsyncEvent event) { }
+        public void onError(AsyncEvent event) { }
+        public void onStartAsync(AsyncEvent event) { event.getAsyncContext().addListener(this); }
+      });
     }
 
     @Override
@@ -379,10 +467,35 @@ public class PluginRequestMappingHandlerMapping extends RequestMappingHandlerMap
         Object handler,
         Exception ex) {
       Object value = request.getAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
-      if (Objects.equals(pluginId, value)) {
-        request.removeAttribute(IN_FLIGHT_PLUGIN_ATTRIBUTE);
-        workTracker.exit(pluginId);
+      if (value instanceof RequestWork) { ((RequestWork) value).complete(); }
+    }
+  }
+
+  /** 请求终结且 Callable 工作线程已退出后，才释放计数。 */
+  private class RequestWork {
+    private final List<String> ids;
+    private boolean completed;
+    private int workers;
+    private volatile boolean released;
+    private RequestWork(List<String> ids) { this.ids = ids; }
+    private synchronized void beginWorker() {
+      if (completed) { throw new IllegalStateException("Request already completed"); }
+      workers++;
+    }
+    private void endWorker() {
+      synchronized (this) { if (workers > 0) { workers--; } }
+      releaseIfReady();
+    }
+    private void complete() {
+      synchronized (this) { completed = true; }
+      releaseIfReady();
+    }
+    private void releaseIfReady() {
+      synchronized (this) {
+        if (!completed || workers != 0 || released) { return; }
+        released = true;
       }
+      ids.forEach(workTracker::exit);
     }
   }
 }

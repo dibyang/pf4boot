@@ -149,7 +149,7 @@ public class Pf4bootPlugin extends Plugin {
 			if (pluginContext == null) {
         ClassLoader classLoader = this.pluginClassLoader;
 
-        DefaultListableBeanFactory beanFactory = new PluginListableBeanFactory(classLoader);
+        PluginListableBeanFactory beanFactory = new PluginListableBeanFactory(classLoader);
 
 				beanFactory.setParentBeanFactory(platformContext.getBeanFactory());
 				pluginContext = new Pf4bootAnnotationConfigApplicationContext(beanFactory, this);
@@ -160,6 +160,7 @@ public class Pf4bootPlugin extends Plugin {
 				//pluginContext.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
 				pluginContext.register(primarySources);
 				pluginContext.getBeanFactory().registerSingleton(BEAN_PLUGIN, this);
+        beanFactory.registerDisposableBean(BEAN_PLUGIN, () -> beanFactory.destroyBean(this));
 				pluginContext.getBeanFactory().autowireBean(this);
 				LOG.info("[PF4BOOT] create plugin context for {} context parent = {}", getPluginId(), platformContext.getId());
 			}
@@ -171,8 +172,6 @@ public class Pf4bootPlugin extends Plugin {
 		synchronized (lock) {
 			if (pluginContext != null){
         PluginCleanup cleanup = new PluginCleanup();
-        cleanup.run("destroy plugin bean", () ->
-            pluginContext.getDefaultListableBeanFactory().destroyBean(BEAN_PLUGIN));
         cleanup.run("close context", () -> freeContext(pluginContext));
         cleanup.run("clear properties", this::clearAllProperties);
         // 失败时保留上下文以便再次清理，禁止把关闭失败伪装成已释放。
@@ -188,7 +187,13 @@ public class Pf4bootPlugin extends Plugin {
   private void freeContext( AnnotationConfigApplicationContext context) {
     DefaultListableBeanFactory beanFactory = context.getDefaultListableBeanFactory();
     PluginCleanup cleanup = new PluginCleanup();
+    if (!context.isActive() && beanFactory instanceof PluginListableBeanFactory) {
+      cleanup.run("retry destruction", () -> ((PluginListableBeanFactory) beanFactory).retryDestruction());
+    }
     cleanup.run("close Spring context", context::close);
+    if (beanFactory instanceof PluginListableBeanFactory) {
+      cleanup.run("verify destruction", () -> ((PluginListableBeanFactory) beanFactory).verifyDestruction());
+    }
     cleanup.run("clear metadata", beanFactory::clearMetadataCache);
 
     // stop 后还会复用原始 loader；只有 unload 才关闭它，保留 CGLIB 类命名缓存。

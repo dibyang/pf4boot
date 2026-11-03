@@ -60,6 +60,7 @@ public class RuntimeSmokeRunner {
       checkUnrelated();
       checkWorkflow();
       checkManagement();
+      checkCleanupBoundaries();
       checkPluginLifecycleCleanup();
       String reloadId = checkJpaReload();
       checkJpaReloadRecordPersistence(reloadId);
@@ -150,6 +151,7 @@ public class RuntimeSmokeRunner {
     command.add(java);
     // 验收强引用泄漏，避免第三方软引用缓存等待内存压力才回收。
     command.add("-XX:SoftRefLRUPolicyMSPerMB=0");
+    command.add("-Dsample.cleanup-probe-enabled=true");
     command.add("-Duser.home=" + smokeDir.resolve("home"));
     command.add("-cp");
     command.add("lib/*");
@@ -176,6 +178,9 @@ public class RuntimeSmokeRunner {
   private void waitHostReady() throws Exception {
     long deadline = System.currentTimeMillis() + 120000L;
     while (System.currentTimeMillis() < deadline) {
+      if (process != null && !process.isAlive()) {
+        throw new IllegalStateException("Host exited before readiness; inspect " + smokeDir.resolve("logs"));
+      }
       HttpResult result = request("GET", "/api/sample/workflow/summary", null, null);
       if (result.status == 200) {
         System.out.println("SMOKE_HOST_READY port=" + port);
@@ -200,6 +205,20 @@ public class RuntimeSmokeRunner {
     checkWorkflow();
     System.out.println("SMOKE_LIFECYCLE_CLEANUP " + result.body);
     addCheck("pluginLifecycleCleanup", "PASSED", "20 restarts, 10 reloads/loaders collected, start/stop failures recovered");
+  }
+
+  private void checkCleanupBoundaries() throws Exception {
+    List<Header> admin = new ArrayList<Header>();
+    admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult result = request("POST", "/api/sample/lifecycle-boundaries", admin, "{}");
+    assertStatus(result, 200, "cleanup boundary probe");
+    if (!result.body.contains("\"socketRecovery\":\"PASSED\"")
+        || !result.body.contains("\"timeoutWorkerDrain\":\"PASSED\"")) {
+      throw new IllegalStateException("cleanup boundary checks incomplete: " + result.body);
+    }
+    System.out.println("SMOKE_CLEANUP_BOUNDARIES " + result.body);
+    addCheck("cleanupBoundaries", "PASSED", result.body);
+    checkUnrelated();
   }
 
   private void checkUnrelated() throws Exception {
