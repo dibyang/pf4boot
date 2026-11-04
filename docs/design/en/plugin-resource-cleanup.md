@@ -2,6 +2,22 @@
 
 [中文](../plugin-resource-cleanup.md)
 
+## Appended Release Hook Boundary Design
+
+- Hooks appending new hooks can leave resources after a successful snapshot while stop reports success. Keep the snapshot but fail if the list remains nonempty; existing pendingCleanup handles remaining work on stop/start without an unbounded loop, new fields, APIs or dependencies.
+- Preserve normal order and successful callbacks executing once. Only cleanup-time appends change behavior: resources must be released before activation. Verify real ports, bounded self-appending failure, real hosts and Java 8/Linux old-binary upgrades. Status: Windows and Linux acceptance passed.
+
+### Appended Hook Acceptance
+
+2026-11-04, baseline `4ef8284`. Both new regressions fail before the repair. Afterward, stop explicitly fails while retaining the child hook/live port; activation first cleans the child, with parent/child each running once. Self-appending hooks execute one snapshot per attempt and stay failed until corrected, then recover.
+
+- Production changes only add the empty-list check after the existing releaseResource snapshot. Normal successful callbacks, failure retries, APIs/configuration/plugin format are preserved. Do not restructure lifecycle critical sections or introduce a general mechanism.
+- Actual Windows Java 8u431 and Linux OpenJDK 8u312 each pass nine modules / 366 JUnit tests, ordinary/production/Gson full hosts and four upgrade runs with unchanged `41a04ab`/`81526a7` binaries. All sixteen matrix checks pass on each OS.
+- Every host adds `appendedReleaseHook`: resources remain owned after incomplete stop, close before activation, and successful parent callbacks are not repeated. Existing 31 DTO roundtrips, 20 restarts, 10 reloads/collected loaders, JPA, dispatch, scheduling and shutdown boundaries remain passing. Old binaries retain business and failure recovery coverage.
+- Shared archive SHA-256: `7d9943df6360697c4172e91dc4d0db31766d7a9051a388db6cb887fedc1f8033`; input-manifest SHA-256: `335abfba82b8327537dd0bf62d2e7b184f43fa719b21d945618ab387d660cd2a`. All 848 inputs remain unchanged after both runs; port 17821 is released.
+- Reports: `build/jvm-hook-review/reports/result.json` and `build/linux-hook-review-evidence/reports/result.json`. Reuse [Java 8/Linux acceptance](java8-linux-acceptance.md) with `-PacceptanceDirectory=jvm-hook-review`. Linux uses existing nobody without deployment or system-service changes.
+- This does not guarantee unmanaged threads registering resources after stop are safe. Failed hooks must remain retryable and eventually complete. The framework neither loops endlessly through self-appending callbacks nor forcibly terminates threads.
+
 Actual Java 8 JVM and Linux acceptance is now complete; see [Java 8 and Linux Runtime Acceptance](java8-linux-acceptance.md) for results and limits. Earlier rounds' untested-platform notes describe their historical state.
 
 ## Twelfth Follow-up Early Failure Drain Design

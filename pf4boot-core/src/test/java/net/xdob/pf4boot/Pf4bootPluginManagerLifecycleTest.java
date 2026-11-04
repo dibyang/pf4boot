@@ -233,6 +233,47 @@ public class Pf4bootPluginManagerLifecycleTest {
   }
 
   @Test
+  public void appendedReleaseHookIsRetainedAndCleanedBeforeRestart() throws Exception {
+    pluginManager.addResolvedPlugin("appended-hook", LifecyclePlugin.class);
+    assertEquals(PluginState.STARTED, pluginManager.startPlugin("appended-hook"));
+    Pf4bootPlugin plugin = (Pf4bootPlugin) pluginManager.getPlugin("appended-hook").getPlugin();
+    AtomicInteger parentCalls = new AtomicInteger(), childCalls = new AtomicInteger();
+    java.net.ServerSocket socket = new java.net.ServerSocket(0);
+    plugin.addReleaseHook(current -> {
+      parentCalls.incrementAndGet();
+      current.addReleaseHook(ignored -> {
+        try { socket.close(); childCalls.incrementAndGet(); }
+        catch (IOException e) { throw new IllegalStateException(e); }
+      });
+    });
+    try {
+      expectStopFailure("appended-hook");
+      assertNull(plugin.getPluginContext()); assertFalse(socket.isClosed());
+      assertEquals(1, plugin.getReleaseHooks().size());
+      assertEquals(PluginState.STARTED, pluginManager.startPlugin("appended-hook"));
+      assertTrue(socket.isClosed()); assertTrue(plugin.getReleaseHooks().isEmpty());
+      assertEquals(1, parentCalls.get()); assertEquals(1, childCalls.get());
+    } finally { socket.close(); }
+  }
+
+  @Test
+  public void selfAppendingReleaseHookFailsBoundedlyUntilCorrected() {
+    pluginManager.addResolvedPlugin("self-hook", LifecyclePlugin.class); pluginManager.startPlugin("self-hook");
+    Pf4bootPlugin plugin = (Pf4bootPlugin) pluginManager.getPlugin("self-hook").getPlugin();
+    AtomicInteger calls = new AtomicInteger();
+    java.util.concurrent.atomic.AtomicReference<java.util.function.Consumer<Pf4bootPlugin>> hook = new java.util.concurrent.atomic.AtomicReference<>();
+    hook.set(current -> { calls.incrementAndGet(); current.addReleaseHook(hook.get()); });
+    plugin.addReleaseHook(hook.get());
+    try {
+      expectStopFailure("self-hook");
+      assertEquals(1, calls.get()); assertEquals(1, plugin.getReleaseHooks().size());
+      assertEquals(PluginState.FAILED, pluginManager.startPlugin("self-hook"));
+      assertEquals(2, calls.get()); assertNull(plugin.getPluginContext());
+    } finally { plugin.getReleaseHooks().clear(); }
+    assertEquals(PluginState.STARTED, pluginManager.startPlugin("self-hook"));
+  }
+
+  @Test
   public void blockedTaskPreventsAnyDependentFromStoppingUntilDrained() throws Exception {
     BlockingTask.entered = new CountDownLatch(1);
     BlockingTask.release = new CountDownLatch(1);

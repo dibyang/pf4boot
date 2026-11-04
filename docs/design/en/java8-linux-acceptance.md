@@ -21,6 +21,8 @@ The output `build/jvm-acceptance` must not exist beforehand. Run its `verify.py 
 
 ## Results
 
+The latest appended-release-hook repair passes 366 JUnit tests, three hosts and four old-binary upgrades on each OS. See [appended hook acceptance](plugin-resource-cleanup.md#appended-hook-acceptance) for its hashes, reports and compatibility correction. The table below preserves the preceding `4ef8284` acceptance as historical evidence.
+
 2026-11-04: the final `build/jvm-acceptance-complete` bundle passes on both platforms. This record is committed with this thread's cleanup repairs; Git history identifies the commit.
 
 | Platform | Actual JVM | Module tests | Real hosts | Old-plugin upgrades |

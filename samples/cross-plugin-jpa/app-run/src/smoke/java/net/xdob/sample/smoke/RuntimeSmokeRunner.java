@@ -66,6 +66,7 @@ public class RuntimeSmokeRunner {
       checkSchedulingBoundaries();
       checkPreRefreshBoundaries();
       checkEarlyStartupDrain();
+      checkAppendedReleaseHook();
       checkPluginLifecycleCleanup();
       String reloadId = checkJpaReload();
       checkJpaReloadRecordPersistence(reloadId);
@@ -320,6 +321,16 @@ public class RuntimeSmokeRunner {
       throw new IllegalStateException("early startup drain checks incomplete: " + result.body);
     }
     System.out.println("SMOKE_EARLY_STARTUP_DRAIN " + result.body); addCheck("earlyStartupDrain", "PASSED", result.body);
+    checkUnrelated();
+  }
+
+  private void checkAppendedReleaseHook() throws Exception {
+    List<Header> admin = new ArrayList<Header>(); admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult result = request("POST", "/api/sample/appended-release-hook", admin, "{}");
+    assertStatus(result, 200, "appended release hook");
+    if (!result.body.contains("\"appendedHookCleanup\":\"PASSED\"")) { throw new IllegalStateException(result.body); }
+    addCheck("appendedReleaseHook", "PASSED", result.body);
+    System.out.println("SMOKE_APPENDED_RELEASE_HOOK " + result.body);
     checkUnrelated();
   }
 

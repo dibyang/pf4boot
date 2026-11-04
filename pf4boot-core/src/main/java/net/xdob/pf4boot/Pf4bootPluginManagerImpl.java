@@ -758,6 +758,10 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       });
     }
     cleanup.throwIfFailed();
+    // 钩子可继续追加资源；保留原重试入口，不把未处理的钩子当作清理成功。
+    if (!pf4bootPlugin.getReleaseHooks().isEmpty()) {
+      throw new PluginRuntimeException("Release hooks were added during cleanup: %s", pf4bootPlugin.getPluginId());
+    }
   }
 
   @Override

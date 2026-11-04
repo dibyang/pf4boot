@@ -2,6 +2,22 @@
 
 [English](en/plugin-resource-cleanup.md)
 
+## 释放钩子追加边界设计
+
+- 释放钩子执行中追加新钩子时，单次快照结束可能仍有资源，却报告 stop 成功。保留快照；结束后列表未空则显式失败，由既有 pendingCleanup 在后续 stop/start 清理，不无限循环，不新增字段、公共 API 或依赖。
+- 正常钩子顺序及成功回调仅执行一次的语义不变。行为修正仅针对清理中继续追加钩子；新资源释放前不允许再次激活。验证端口资源、持续自追加的有界失败、真实宿主及 Java 8/Linux 旧包升级。状态：本地及 Linux 验收通过。
+
+### 追加钩子验收记录
+
+2026-11-04，以 `4ef8284` 为基线。两项新增回归修复前均失败，修复后验证：停止明确失败、子钩子及真实端口仍由待清理记录持有；再次启动先完成子钩子，父/子各执行一次；持续自追加每次只执行一次快照、保持失败，修正回调后可恢复。
+
+- 生产改动仅为原 releaseResource 快照结束后的空列表检查。正常成功钩子、失败钩子重试及 API/配置/插件格式均不变；不为此拆分已有生命周期临界区或新增通用机制。
+- 真实 Windows Java 8u431 与 Linux OpenJDK 8u312 各通过 9 模块 / 366 项 JUnit、普通/production/Gson 三套完整宿主，以及 `41a04ab`、`81526a7` 两组未重编译旧包的四套升级。每端 16 个矩阵检查均通过。
+- 三套宿主均新增 `appendedReleaseHook` 检查，验证新资源在失败停止后保留、激活前关闭、成功父钩子不重跑，并继续通过 31 轮 DTO 读写、20 轮启停、10 轮 reload/旧 loader 回收、JPA、分派、调度和关闭边界。旧包继续通过业务和异常恢复。
+- 同一封存包压缩 SHA-256 为 `7d9943df6360697c4172e91dc4d0db31766d7a9051a388db6cb887fedc1f8033`，输入清单 SHA-256 为 `335abfba82b8327537dd0bf62d2e7b184f43fa719b21d945618ab387d660cd2a`。两端 848 个输入运行后未变，17821 端口已释放。
+- 报告位于 `build/jvm-hook-review/reports/result.json` 和 `build/linux-hook-review-evidence/reports/result.json`，构建及封存方法复用 [Java 8/Linux 验收](java8-linux-acceptance.md)，导出参数为 `-PacceptanceDirectory=jvm-hook-review`。Linux 仍以已有 nobody 执行，未部署或修改系统服务。
+- 这不保证任意未纳管线程在停止之后继续注册资源的安全；钩子失败仍需可重试且最终能完成。框架不会无限执行自追加回调或强杀线程。
+
 真实 Java 8 JVM 与 Linux 的补充验收已完成，结果及验证边界见 [Java 8 与 Linux 运行验收](java8-linux-acceptance.md)。下述各轮的“尚未执行”是当轮历史状态。
 
 ## 第十二轮早期失败排空设计

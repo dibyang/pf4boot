@@ -186,6 +186,31 @@ public class SampleLifecycleProbe implements Pf4bootPluginSupport {
     require(startProbePlugin() == PluginState.STARTED, "failed-start recovery failed");
   }
 
+  /** 清理中追加的释放责任必须阻止不完整停止，并在激活前清理。 */
+  @PostMapping("/api/sample/appended-release-hook")
+  public synchronized Map<String, Object> verifyAppendedHook(
+      @RequestHeader("X-PF4Boot-Admin-Token") String suppliedToken) throws Exception {
+    if (token.isEmpty() || !token.equals(suppliedToken)) { throw new ResponseStatusException(HttpStatus.FORBIDDEN); }
+    Pf4bootPlugin plugin = (Pf4bootPlugin) manager.getPlugin(ID).getPlugin();
+    java.util.concurrent.atomic.AtomicInteger parent = new java.util.concurrent.atomic.AtomicInteger(), child = new java.util.concurrent.atomic.AtomicInteger();
+    try (java.net.ServerSocket socket = new java.net.ServerSocket(0)) {
+      plugin.addReleaseHook(current -> {
+        parent.incrementAndGet();
+        current.addReleaseHook(ignored -> {
+          try { socket.close(); child.incrementAndGet(); }
+          catch (java.io.IOException e) { throw new IllegalStateException(e); }
+        });
+      });
+      try { manager.stopPlugin(ID); throw new IllegalStateException("appended hook was ignored"); }
+      catch (org.pf4j.PluginRuntimeException expected) { }
+      require(plugin.getPluginContext() == null && !socket.isClosed(), "incomplete cleanup was not retained");
+      require(startProbePlugin() == PluginState.STARTED, "appended hook recovery failed");
+      require(socket.isClosed() && plugin.getReleaseHooks().isEmpty(), "appended resource retained after restart");
+      require(parent.get() == 1 && child.get() == 1, "successful release hook repeated");
+    }
+    Map<String, Object> result = new LinkedHashMap<>(); result.put("appendedHookCleanup", "PASSED"); return result;
+  }
+
   /** 新夹具专用入口，不改变未重编译旧插件使用的 lifecycle-probe 验收。 */
   @PostMapping("/api/sample/pre-refresh-boundaries")
   public synchronized Map<String, Object> verifyBeforeRefresh(
