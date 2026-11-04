@@ -63,6 +63,9 @@ public class RuntimeSmokeRunner {
       checkCleanupBoundaries();
       checkDispatchBoundaries();
       checkUnloadBoundaries();
+      checkSchedulingBoundaries();
+      checkPreRefreshBoundaries();
+      checkEarlyStartupDrain();
       checkPluginLifecycleCleanup();
       String reloadId = checkJpaReload();
       checkJpaReloadRecordPersistence(reloadId);
@@ -70,6 +73,7 @@ public class RuntimeSmokeRunner {
       checkJpaReloadDrainTimeoutNoMutation();
       checkJpaProviderIsolation();
       checkActuator();
+      checkManagerCloseBoundaries();
       addCheck("cleanup", "PASSED", "process cleanup requested");
       status = "PASSED";
       return 0;
@@ -165,6 +169,7 @@ public class RuntimeSmokeRunner {
     command.add("--server.port=" + port);
     command.add("--spring.pf4boot.management.http.token=sample-token");
     command.add("--sample.lifecycle-probe-enabled=true");
+    command.add("--spring.pf4boot.custom-plugin-loader=net.xdob.sample.host.SampleUnloadFailureLoader");
     command.add("--spring.pf4boot.management.http.operation-store.type=file");
     command.add("--spring.pf4boot.management.http.operation-store.directory=" + smokeDir.resolve("operations"));
     command.add("--spring.pf4boot.jpa.reload.mode=" + jpaReloadMode);
@@ -184,7 +189,8 @@ public class RuntimeSmokeRunner {
         throw new IllegalStateException("Host exited before readiness; inspect " + smokeDir.resolve("logs"));
       }
       HttpResult result = request("GET", "/api/sample/workflow/summary", null, null);
-      if (result.status == 200) {
+      if (result.status == 200
+          && request("GET", "/api/sample/unrelated/health", null, null).status == 200) {
         System.out.println("SMOKE_HOST_READY port=" + port);
         addCheck("hostReady", "PASSED", "HTTP 200");
         return;
@@ -197,11 +203,16 @@ public class RuntimeSmokeRunner {
   private void checkPluginLifecycleCleanup() throws Exception {
     List<Header> admin = new ArrayList<Header>();
     admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
-    HttpResult result = request("POST", "/api/sample/lifecycle-probe", admin, "{}");
+    HttpResult result = request("POST", "/api/sample/json-lifecycle-probe", admin, "{}");
     assertStatus(result, 200, "plugin lifecycle cleanup");
     if (!result.body.contains("\"collectedLoaders\":10")
-        || !result.body.contains("\"failureRecovery\":\"PASSED\"")) {
+        || !result.body.contains("\"failureRecovery\":\"PASSED\"")
+        || !result.body.contains("\"jsonRoundTrips\":31")) {
       throw new IllegalStateException("lifecycle probe did not complete: " + result.body);
+    }
+    String expectedConverter = System.getProperty("sample.expected-json-converter");
+    if (expectedConverter != null && !result.body.contains("\"jsonConverter\":\"" + expectedConverter + "\"")) {
+      throw new IllegalStateException("unexpected JSON converter: " + result.body);
     }
     checkUnrelated();
     checkWorkflow();
@@ -246,12 +257,70 @@ public class RuntimeSmokeRunner {
     assertStatus(result, 200, "unload boundary probe");
     if (!result.body.contains("\"multiLevelUnload\":\"PASSED\"")
         || !result.body.contains("\"concurrentStart\":\"PASSED\"")
-        || !result.body.contains("\"listenerFailure\":\"PASSED\"")) {
+        || !result.body.contains("\"listenerFailure\":\"PASSED\"")
+        || !result.body.contains("\"reentrantStartRejected\":\"PASSED\"")
+        || !result.body.contains("\"uncheckedLoaderClose\":\"PASSED\"")
+        || !result.body.contains("\"extensionReplacement\":\"PASSED\"")
+        || !result.body.contains("\"cleanupReentry\":\"PASSED\"")) {
       throw new IllegalStateException("unload checks incomplete: " + result.body);
     }
     System.out.println("SMOKE_UNLOAD_BOUNDARIES " + result.body);
     addCheck("unloadBoundaries", "PASSED", result.body);
     checkWorkflow(); checkUnrelated();
+  }
+
+  private void checkManagerCloseBoundaries() throws Exception {
+    List<Header> admin = new ArrayList<Header>();
+    admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult result = request("POST", "/api/sample/manager-close-boundaries", admin, "{}");
+    assertStatus(result, 200, "manager close boundary probe");
+    if (!result.body.contains("\"shutdownDrain\":\"PASSED\"")
+        || !result.body.contains("\"shutdownReentry\":\"PASSED\"")
+        || !result.body.contains("\"terminalAdmission\":\"PASSED\"")) {
+      throw new IllegalStateException("manager close checks incomplete: " + result.body);
+    }
+    System.out.println("SMOKE_MANAGER_CLOSE_BOUNDARIES " + result.body);
+    addCheck("managerCloseBoundaries", "PASSED", result.body);
+  }
+
+  private void checkSchedulingBoundaries() throws Exception {
+    List<Header> admin = new ArrayList<Header>(); admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult result = request("POST", "/api/sample/scheduling-boundaries", admin, "{}");
+    assertStatus(result, 200, "scheduling boundary probe");
+    if (!result.body.contains("\"invalidStarts\":5")
+        || !result.body.contains("\"schedulingRollback\":\"PASSED\"")
+        || !result.body.contains("\"staleTaskAdmission\":\"PASSED\"")
+        || !result.body.contains("\"hostWorkPreserved\":\"PASSED\"")) {
+      throw new IllegalStateException("scheduling checks incomplete: " + result.body);
+    }
+    System.out.println("SMOKE_SCHEDULING_BOUNDARIES " + result.body); addCheck("schedulingBoundaries", "PASSED", result.body);
+    checkUnrelated();
+  }
+
+  private void checkPreRefreshBoundaries() throws Exception {
+    List<Header> admin = new ArrayList<Header>(); admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult result = request("POST", "/api/sample/pre-refresh-boundaries", admin, "{}");
+    assertStatus(result, 200, "pre-refresh boundary probe");
+    if (!result.body.contains("\"failedStarts\":5")
+        || !result.body.contains("\"earlyResourceRelease\":\"PASSED\"")
+        || !result.body.contains("\"destructionRetry\":\"PASSED\"")) {
+      throw new IllegalStateException("pre-refresh checks incomplete: " + result.body);
+    }
+    System.out.println("SMOKE_PRE_REFRESH_BOUNDARIES " + result.body); addCheck("preRefreshBoundaries", "PASSED", result.body);
+    checkUnrelated();
+  }
+
+  private void checkEarlyStartupDrain() throws Exception {
+    List<Header> admin = new ArrayList<Header>(); admin.add(new Header("X-PF4Boot-Admin-Token", "sample-token"));
+    HttpResult result = request("POST", "/api/sample/early-startup-drain", admin, "{}");
+    assertStatus(result, 200, "early startup drain probe");
+    if (!result.body.contains("\"inFlightDrain\":\"PASSED\"")
+        || !result.body.contains("\"activationRetry\":\"PASSED\"")
+        || !result.body.contains("\"socketRecovery\":\"PASSED\"")) {
+      throw new IllegalStateException("early startup drain checks incomplete: " + result.body);
+    }
+    System.out.println("SMOKE_EARLY_STARTUP_DRAIN " + result.body); addCheck("earlyStartupDrain", "PASSED", result.body);
+    checkUnrelated();
   }
 
   private void checkUnrelated() throws Exception {
@@ -513,7 +582,7 @@ public class RuntimeSmokeRunner {
       HttpURLConnection connection = (HttpURLConnection) new URL("http://127.0.0.1:" + port + path).openConnection();
       connection.setRequestMethod(method);
       connection.setConnectTimeout(5000);
-      connection.setReadTimeout("/api/sample/lifecycle-probe".equals(path) ? 120000 : 20000);
+      connection.setReadTimeout(path.endsWith("lifecycle-probe") ? 120000 : 20000);
       if (headers != null) {
         for (Header header : headers) {
           connection.setRequestProperty(header.name, header.value);

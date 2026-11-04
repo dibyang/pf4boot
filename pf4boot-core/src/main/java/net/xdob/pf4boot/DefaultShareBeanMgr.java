@@ -57,7 +57,7 @@ public class DefaultShareBeanMgr
    * key: pluginId
    */
   private final Map<String, SharingBeans> pluginSharingBeans = new ConcurrentHashMap<>();
-  private final Map<String, Set<String>> pluginExtensionBeans = new ConcurrentHashMap<>();
+  private final Map<String, Map<String, Object>> pluginExtensionBeans = new ConcurrentHashMap<>();
 
   public DefaultShareBeanMgr(AutoExportMgr autoExportMgr) {
     this.autoExportMgr = autoExportMgr;
@@ -88,8 +88,8 @@ public class DefaultShareBeanMgr
   }
 
   public int getRegisteredExtensionBeanCount(String pluginId) {
-    Set<String> beanNames = pluginExtensionBeans.get(pluginId);
-    return beanNames == null ? 0 : beanNames.size();
+    Map<String, Object> beans = pluginExtensionBeans.get(pluginId);
+    return beans == null ? 0 : beans.size();
   }
 
   @Override
@@ -170,8 +170,8 @@ public class DefaultShareBeanMgr
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     Set<String> extensionClassNames = pluginManager.getExtensionClassNames(wrapper.getPluginId());
     String group = pf4bootPlugin.getGroup();
-    Set<String> registeredBeanNames = ConcurrentHashMap.newKeySet();
-    pluginExtensionBeans.put(wrapper.getPluginId(), registeredBeanNames);
+    Map<String, Object> registeredBeans = new ConcurrentHashMap<>();
+    pluginExtensionBeans.put(wrapper.getPluginId(), registeredBeans);
 
     for (String extensionClassName : extensionClassNames) {
       try {
@@ -189,15 +189,12 @@ public class DefaultShareBeanMgr
         } finally {
           ConfigurableApplicationContext platform = pluginManager.getPlatformContext(group);
           if (platform.containsLocalBean(beanName) && platform.getBean(beanName) == bean) {
-            registeredBeanNames.add(beanName);
+            registeredBeans.put(beanName, bean);
           }
         }
       } catch (ClassNotFoundException e) {
         throw new IllegalArgumentException(e.getMessage(), e);
       }
-    }
-    if (!registeredBeanNames.isEmpty()) {
-      pluginExtensionBeans.put(wrapper.getPluginId(), registeredBeanNames);
     }
   }
 
@@ -359,18 +356,21 @@ public class DefaultShareBeanMgr
   private void unregisterExtensions(Pf4bootPlugin pf4bootPlugin) {
     Pf4bootPluginManager pluginManager = pf4bootPlugin.getPluginManager();
     String pluginId = pf4bootPlugin.getPluginId();
-    Set<String> beanNames = pluginExtensionBeans.get(pluginId);
-    if (beanNames == null) { return; }
+    Map<String, Object> beans = pluginExtensionBeans.get(pluginId);
+    if (beans == null) { return; }
     String group = pf4bootPlugin.getGroup();
     PluginCleanup cleanup = new PluginCleanup();
-    for (String beanName : new ArrayList<>(beanNames)) {
+    for (Map.Entry<String, Object> entry : new ArrayList<>(beans.entrySet())) {
+      String beanName = entry.getKey();
       cleanup.run("extension " + beanName, () -> {
-        pluginManager.unregisterBeanFromPlatformContext(group, beanName);
-        beanNames.remove(beanName);
+        if (ownsBean(pluginManager.getPlatformContext(group), beanName, entry.getValue())) {
+          pluginManager.unregisterBeanFromPlatformContext(group, beanName);
+        }
+        beans.remove(beanName, entry.getValue());
       });
     }
-    if (beanNames.isEmpty()) {
-      pluginExtensionBeans.remove(pluginId);
+    if (beans.isEmpty()) {
+      pluginExtensionBeans.remove(pluginId, beans);
     }
     cleanup.throwIfFailed();
   }
@@ -441,8 +441,11 @@ public class DefaultShareBeanMgr
   }
 
   private boolean ownsBean(ConfigurableApplicationContext context, SharingBean bean) {
-    return context.getBeanFactory().containsLocalBean(bean.getBeanName())
-        && context.getBeanFactory().getBean(bean.getBeanName()) == bean.getBean();
+    return ownsBean(context, bean.getBeanName(), bean.getBean());
+  }
+
+  private boolean ownsBean(ConfigurableApplicationContext context, String name, Object bean) {
+    return context.getBeanFactory().containsLocalBean(name) && context.getBeanFactory().getBean(name) == bean;
   }
 
   @Override

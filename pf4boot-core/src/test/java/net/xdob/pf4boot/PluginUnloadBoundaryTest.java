@@ -23,17 +23,25 @@ public class PluginUnloadBoundaryTest {
   public static class PlainPlugin extends Pf4bootPlugin {
     public PlainPlugin(PluginWrapper wrapper) { super(wrapper); }
   }
+  @PluginStarter(Config.class)
+  public static class SocketPlugin extends Pf4bootPlugin implements org.springframework.beans.factory.DisposableBean {
+    ServerSocket socket;
+    public SocketPlugin(PluginWrapper wrapper) { super(wrapper); }
+    public void start() { try { socket = new ServerSocket(0); } catch (IOException e) { throw new IllegalStateException(e); } }
+    public void destroy() throws IOException { if (socket != null) { socket.close(); } }
+  }
   private static class Loader extends URLClassLoader {
     final String id;
     final List<String> order;
     boolean closed;
     boolean fail;
     boolean block;
+    Throwable unchecked;
     final CountDownLatch closing = new CountDownLatch(1);
     final CountDownLatch release = new CountDownLatch(1);
     Loader(String id, List<String> order) { super(new URL[0], PlainPlugin.class.getClassLoader()); this.id = id; this.order = order; }
     public void close() throws IOException {
-      if (closed) { return; }
+      if (closed) { throwUnchecked(); return; }
       if (block) {
         closing.countDown();
         try { if (!release.await(3, TimeUnit.SECONDS)) { throw new IOException("close barrier timeout"); } }
@@ -41,6 +49,11 @@ public class PluginUnloadBoundaryTest {
       }
       if (fail) { throw new IOException("injected loader close failure"); }
       super.close(); closed = true; order.add(id);
+      throwUnchecked();
+    }
+    private void throwUnchecked() {
+      if (unchecked instanceof RuntimeException) { throw (RuntimeException) unchecked; }
+      if (unchecked instanceof Error) { throw (Error) unchecked; }
     }
   }
   private static class Manager extends Pf4bootPluginManagerImpl {
@@ -75,7 +88,7 @@ public class PluginUnloadBoundaryTest {
       manager = new Manager(host, props, Files.createTempDirectory("pf4boot-unload-boundary"));
     }
     public void close() throws Exception {
-      for (Loader loader : manager.loaders.values()) { loader.fail = false; loader.release.countDown(); }
+      for (Loader loader : manager.loaders.values()) { loader.fail = false; loader.unchecked = null; loader.release.countDown(); }
       try { manager.close(); }
       finally { host.close(); for (Loader loader : manager.loaders.values()) { loader.close(); } }
     }
@@ -202,6 +215,63 @@ public class PluginUnloadBoundaryTest {
       f.manager.unregisterBeanFromPlatformContext("", "removed");
       assertFalse(merged.containsKey("removed")); assertSame(retained, merged.get("retained"));
       assertFalse(factory.containsBean("removed")); assertTrue(factory.containsBean("retained"));
+    }
+  }
+
+  @Test public void unloadCallbacksCannotRestartPendingProviderAndLeakItsSocket() throws Exception {
+    try (Fixture f = new Fixture()) {
+      f.manager.add("base", SocketPlugin.class); f.manager.add("leaf", PlainPlugin.class, "base");
+      f.manager.startPlugin("leaf");
+      PluginWrapper original = f.manager.getPlugin("base");
+      SocketPlugin provider = (SocketPlugin) original.getPlugin();
+      int port = provider.socket.getLocalPort();
+      List<String> callbacks = new ArrayList<>();
+      PluginStateListener listener = event -> {
+        if (event.getPlugin().getPluginState() == PluginState.UNLOADED) {
+          callbacks.add(event.getPlugin().getPluginId());
+          assertTrue(f.manager.loaders.get("base").closed); assertTrue(f.manager.loaders.get("leaf").closed);
+          assertFalse(f.manager.graphContainsConsumer("base"));
+          try { f.manager.startPlugin("base"); fail("provider must be absent before notification"); }
+          catch (PluginNotFoundException expected) { }
+        }
+      };
+      f.manager.addPluginStateListener(listener);
+      try {
+        assertTrue(f.manager.unloadPlugin("base"));
+        assertEquals(Arrays.asList("leaf", "base"), callbacks);
+        assertNull(provider.getPluginContext()); assertTrue(provider.socket.isClosed());
+        assertFalse(ApplicationContextProvider.containsApplicationContext(original.getPluginClassLoader()));
+        try (ServerSocket rebound = new ServerSocket(port)) { assertTrue(rebound.isBound()); }
+      } finally {
+        f.manager.removePluginStateListener(listener);
+        if (provider.getPluginContext() != null) {
+          ApplicationContextProvider.unregisterApplicationContext(provider.getPluginContext()); provider.closePluginContext();
+          f.manager.getStartedPlugins().remove(original);
+        }
+      }
+    }
+  }
+
+  @Test public void runtimeCloseFailureBlocksRestartOnPartiallyClosedLoader() throws Exception {
+    verifyUncheckedCloseFailure(new IllegalStateException("unchecked close failure"));
+  }
+
+  @Test public void closeErrorBlocksRestartOnPartiallyClosedLoader() throws Exception {
+    verifyUncheckedCloseFailure(new LinkageError("close error"));
+  }
+
+  private void verifyUncheckedCloseFailure(Throwable failure) throws Exception {
+    try (Fixture f = new Fixture()) {
+      f.manager.add("unchecked", PlainPlugin.class); f.manager.startPlugin("unchecked");
+      PluginWrapper original = f.manager.getPlugin("unchecked");
+      Loader loader = f.manager.loaders.get("unchecked"); loader.unchecked = failure;
+      expectUnloadFailure(f.manager, "unchecked");
+      assertSame(original, f.manager.getPlugin("unchecked")); assertTrue(f.manager.tracks("unchecked"));
+      assertEquals(PluginState.FAILED, original.getPluginState()); assertSame(failure, original.getFailedException());
+      assertTrue(loader.closed); assertEquals(PluginState.FAILED, f.manager.startPlugin("unchecked"));
+      assertNull(((Pf4bootPlugin) original.getPlugin()).getPluginContext());
+      loader.unchecked = null; assertTrue(f.manager.unloadPlugin("unchecked"));
+      assertFalse(f.manager.tracks("unchecked")); assertEquals(Collections.singletonList("unchecked"), f.manager.closed);
     }
   }
 }

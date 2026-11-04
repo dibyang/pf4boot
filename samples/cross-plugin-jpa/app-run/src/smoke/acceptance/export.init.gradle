@@ -1,0 +1,46 @@
+// 导出已构建制品及各模块独立测试 classpath，不重新解析远端依赖。
+gradle.projectsEvaluated {
+    def root = gradle.rootProject
+    root.tasks.register('exportJvmAcceptance') {
+        doLast {
+            def out = new File(root.buildDir, root.findProperty('acceptanceDirectory') ?: 'jvm-acceptance')
+            if (!out.canonicalPath.startsWith(root.buildDir.canonicalPath + File.separator)) {
+                throw new GradleException('Acceptance output must stay inside build')
+            }
+            if (out.exists()) { throw new GradleException("Acceptance output already exists: $out") }
+            out.mkdirs()
+            def manifest = [modules: [], expectedTests: 0]
+            def entries = [:]
+            root.subprojects.findAll { it.name.startsWith('pf4boot-') }.each { p ->
+                def results = p.fileTree("$p.buildDir/test-results/test").matching { include 'TEST-*.xml' }.files.sort()
+                if (!results.empty) {
+                    manifest.expectedTests += results.sum { new XmlSlurper().parse(it).@tests.text().toInteger() }
+                    def cp = []
+                    p.sourceSets.test.runtimeClasspath.files.findAll { it.exists() }.each { f ->
+                        if (!entries.containsKey(f.absolutePath)) {
+                            def relative = "cp/${entries.size()}/${f.name}"
+                            entries[f.absolutePath] = relative
+                            if (f.directory) { root.copy { from f; into new File(out, relative) } }
+                            else { root.copy { from f; into new File(out, relative).parentFile } }
+                        }
+                        cp.add(entries[f.absolutePath])
+                    }
+                    manifest.modules.add([name: p.name, cp: cp, tests: results.collect { new XmlSlurper().parse(it).@name.text() }])
+                }
+            }
+            root.copy {
+                from root.file('samples/cross-plugin-jpa/app-run/build/runtime')
+                include 'lib/**', 'config/**', 'plugins/*', 'repository/**'
+                into new File(out, 'runtime')
+            }
+            root.copy { from root.file('samples/cross-plugin-jpa/app-run/build/classes/java/smoke'); into new File(out, 'smoke') }
+            ['41a04ab', '81526a7'].each { revision ->
+                root.copy { from root.file("build/compatibility-$revision/plugins"); into new File(out, "baselines/$revision") }
+            }
+            root.copy { from root.file('samples/cross-plugin-jpa/app-run/src/smoke/resources/application-gson.yml'); into out }
+            root.copy { from root.file('samples/cross-plugin-jpa/app-run/src/smoke/acceptance/verify.py'); into out }
+            new File(out, 'classpath.json').setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(manifest)), 'UTF-8')
+            println "ACCEPTANCE_EXPORTED=$out"
+        }
+    }
+}

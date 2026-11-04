@@ -34,7 +34,6 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import java.io.Closeable;
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
@@ -84,6 +83,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 	private final ReentrantLock stateLock = new ReentrantLock();
 	private final AtomicBoolean starting = new AtomicBoolean(false);
   private final AtomicBoolean stopping = new AtomicBoolean(false);
+  private boolean shutdownStarted;
 
   private final Pf4bootPluginSupport pluginSupport;
   private ScheduledExecutorService scheduled;
@@ -162,18 +162,23 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     if(group==null||group.isEmpty()){
       return platformContext;
     }
-
-		return platformContexts.computeIfAbsent(Strings.nullToEmpty(group),
-			k -> {
-				ConfigurableApplicationContext context = new AnnotationConfigApplicationContext();
-				context.setId("platform_"+k);
-				context.setParent(platformContext);
-				context.refresh();
-				//仅共享Bean定义，不继承事件监听链1
-				context.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
-				LOG.info("create PlatformContext {} for {}", context.getId(), group);
-				return context;
-			});
+    // 排空中的在途任务仍可查询已有上下文，不能让只读查询等待生命周期锁。
+    ConfigurableApplicationContext existing = platformContexts.get(group);
+    if (existing != null) { return existing; }
+    try (AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      existing = platformContexts.get(group);
+      if (existing != null) { return existing; }
+      checkOpen();
+      return platformContexts.computeIfAbsent(group, key -> {
+        ConfigurableApplicationContext context = new AnnotationConfigApplicationContext();
+        context.setId("platform_" + key);
+        context.setParent(platformContext);
+        context.refresh();
+        context.getBeanFactory().setParentBeanFactory(platformContext.getBeanFactory());
+        LOG.info("create PlatformContext {} for {}", context.getId(), group);
+        return context;
+      });
+    }
   }
 
   public void publishEvent(ConfigurableApplicationContext pluginContext, Object event){
@@ -203,7 +208,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 
   private void notifyAppCacheFree() {
-    publishEvent(new AppCacheFreeEvent(applicationContext));
+    if (rootContext != null) { publishEvent(new AppCacheFreeEvent(applicationContext)); }
   }
 
   @Override
@@ -368,13 +373,27 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   @PreDestroy
   public void close(){
-    try {
-      stopPlugins();
-    } finally {
+    try (AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      if (rootContext == null) { return; }
+      if (starting.get()) { throw new PluginRuntimeException("Cannot close plugin manager from an activation callback"); }
+      shutdownStarted = true;
+      mainApplicationStarted = false;
       cancelAutoStartPlugins();
-      if(scheduled !=null) {
+      if (scheduled != null) {
         scheduled.shutdownNow();
         scheduled = null;
+      }
+      stopPlugins();
+      List<String> remaining = new ArrayList<>(pendingCleanup.keySet());
+      for (PluginWrapper wrapper : getPlugins()) {
+        if (wrapper.getPluginState().isStarted()
+            || (wrapper.getPluginState() == PluginState.FAILED
+                && ((Pf4bootPlugin) wrapper.getPlugin()).getPluginContext() != null)) {
+          if (!remaining.contains(wrapper.getPluginId())) { remaining.add(wrapper.getPluginId()); }
+        }
+      }
+      if (!remaining.isEmpty()) {
+        throw new PluginRuntimeException("Cannot close plugin manager before plugin cleanup succeeds: %s", remaining);
       }
       closePlatformContexts();
       closeContext(platformContext);
@@ -382,6 +401,11 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       rootContext = null;
     }
 
+  }
+
+  /** 关闭开始后只允许清理重试，不允许通过回调或并发调用重新激活插件。 */
+  private void checkOpen() {
+    if (shutdownStarted) { throw new PluginRuntimeException("Plugin manager is closing or closed"); }
   }
 
   private void closePlatformContexts() {
@@ -404,11 +428,6 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public PluginDescriptorFinder getPluginDescriptorFinder() {
     return super.getPluginDescriptorFinder();
-  }
-
-  @Override
-  public void loadPlugins() {
-    super.loadPlugins();
   }
 
   @Override
@@ -537,11 +556,14 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   @Override
   public void setApplicationStarted(boolean mainApplicationStarted) {
-    this.mainApplicationStarted = mainApplicationStarted;
-    if(mainApplicationStarted){
-      scheduleAutoStartPlugins();
-    } else {
-      cancelAutoStartPlugins();
+    try (AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      if (mainApplicationStarted) { checkOpen(); }
+      this.mainApplicationStarted = mainApplicationStarted;
+      if (mainApplicationStarted) {
+        scheduleAutoStartPlugins();
+      } else {
+        cancelAutoStartPlugins();
+      }
     }
   }
 
@@ -552,7 +574,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     if (autoStartFuture == null || autoStartFuture.isCancelled() || autoStartFuture.isDone()) {
       autoStartFuture = scheduled.scheduleWithFixedDelay(() -> {
         try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
-          doStartPlugins(true);
+          if (!shutdownStarted && mainApplicationStarted) { doStartPlugins(true); }
         }
       }, 10, 20, TimeUnit.SECONDS);
     }
@@ -882,6 +904,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public void startPlugins() {
     try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkOpen();
       doStartPlugins(false);
       notifyAppCacheFree();
     }
@@ -894,6 +917,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 	protected PluginState startPlugin(String pluginId, boolean autoStartPlugin) {
     try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkOpen();
       checkPluginId(pluginId);
       Pf4bootPluginWrapper pluginWrapper = (Pf4bootPluginWrapper) getPlugin(pluginId);
       if(pluginWrapper!=null) {
@@ -963,6 +987,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
 
     ClassLoader oldClassLoader = replaceClassLoader(plugin.getWrapper().getPluginClassLoader());
+    boolean alreadyStarting = starting.getAndSet(true);
 		try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock, 10, TimeUnit.SECONDS)) {
 			for (PluginDependency dependency : pluginDescriptor.getDependencies()) {
 				// start dependency only if it marked as required (non-optional) or if it optional and loaded
@@ -1026,6 +1051,8 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 			notifyAppCacheFree();
     } catch (Throwable e) {
       pluginWrapper.setPluginState(PluginState.FAILED);
+      // 排空可能失败；即使尚无上下文，也必须保留欠清理记录。null 表示计划尚未执行。
+      pendingCleanup.putIfAbsent(pluginWrapper.getPluginId(), null);
       try (PluginDrainScope drain = drainPlugins(Collections.singletonList(pluginWrapper.getPluginId()))) {
         cleanupPlugin(plugin);
       } catch (Throwable cleanupFailure) {
@@ -1040,6 +1067,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       }
       throw new PluginRuntimeException(e, "Plugin start failed: %s", pluginWrapper.getPluginId());
 		}finally {
+      starting.set(alreadyStarting);
       replaceClassLoader(oldClassLoader);
     }
   }
@@ -1212,6 +1240,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public void restartPlugins() {
     try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkOpen();
       doStopPlugins();
       startPlugins();
     }
@@ -1220,6 +1249,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public PluginState restartPlugin(String pluginId) {
     try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkOpen();
       PluginWrapper plugin = getPlugin(pluginId);
       if(plugin.getPluginState().equals(PluginState.STARTED)){
         this.stopPlugin(pluginId);
@@ -1233,6 +1263,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public void reloadPlugins(boolean restartStartedOnly) {
     try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkOpen();
       List<String> startedPluginIds = getStartedPlugins().stream()
           .map(PluginWrapper::getPluginId)
           .collect(Collectors.toList());
@@ -1259,6 +1290,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public PluginState reloadPlugin(String pluginId) {
     try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkOpen();
       PluginWrapper plugin = getPlugin(pluginId);
       this.stopPlugin(pluginId);
       unloadPlugin(pluginId);
@@ -1272,6 +1304,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
   @Override
   public PluginState upgradePlugin(String pluginId, Path newPluginPath, Path rollbackPluginPath) {
     try(AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkOpen();
       checkPluginId(pluginId);
       Assert.notNull(newPluginPath, "newPluginPath must not be null");
 
@@ -1328,7 +1361,22 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
 
   @Override
   public String loadPlugin(Path pluginPath) {
-    return super.loadPlugin(pluginPath);
+    try (AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkOpen();
+      boolean alreadyStarting = starting.getAndSet(true);
+      try { return super.loadPlugin(pluginPath); }
+      finally { starting.set(alreadyStarting); }
+    }
+  }
+
+  @Override
+  public void loadPlugins() {
+    try (AutoCloseableLock lock = AutoCloseableLock.acquire(stateLock)) {
+      checkOpen();
+      boolean alreadyStarting = starting.getAndSet(true);
+      try { super.loadPlugins(); }
+      finally { starting.set(alreadyStarting); }
+    }
   }
 
   @Override
@@ -1348,13 +1396,17 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
       try (PluginDrainScope drain = drainPlugins(affected)) {
         doStopPlugin(pluginId, unloadDependents, null);
         PluginCleanup cleanup = new PluginCleanup();
+        List<PluginStateEvent> events = new ArrayList<>();
         cleanup.run("unload resources", () -> {
           for (String id : affected) {
-            unloadStoppedPlugin(id, cleanup);
+            unloadStoppedPlugin(id, events);
           }
         });
         if (resolveDependencies) {
           cleanup.run("resolve dependencies", this::resolveDependencies);
+        }
+        for (PluginStateEvent event : events) {
+          cleanup.run("unload notification " + event.getPlugin().getPluginId(), () -> firePluginStateEvent(event));
         }
         cleanup.throwIfFailed();
         return true;
@@ -1375,15 +1427,15 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     order.add(pluginId);
   }
 
-  /** 已排空并停止；先完成可能失败的关闭，成功后才提交卸载记录并通知观察者。 */
-  private void unloadStoppedPlugin(String pluginId, PluginCleanup cleanup) {
+  /** 已排空并停止；关闭成功后提交记录并收集事件，由整个批次收尾后通知观察者。 */
+  private void unloadStoppedPlugin(String pluginId, List<PluginStateEvent> events) {
     PluginWrapper pluginWrapper = getPlugin(pluginId);
     PluginState previousState = pluginWrapper.getPluginState();
     ClassLoader classLoader = getPluginClassLoaders().get(pluginId);
     if (classLoader instanceof Closeable) {
       try {
         ((Closeable) classLoader).close();
-      } catch (IOException failure) {
+      } catch (Throwable failure) {
         pluginWrapper.setPluginState(PluginState.FAILED);
         pluginWrapper.setFailedException(failure);
         getResolvedPlugins().remove(pluginWrapper);
@@ -1396,8 +1448,7 @@ public class Pf4bootPluginManagerImpl extends AbstractPluginManager
     getResolvedPlugins().remove(pluginWrapper);
     getUnresolvedPlugins().remove(pluginWrapper);
     getPluginClassLoaders().remove(pluginId);
-    cleanup.run("unload notification " + pluginId,
-        () -> firePluginStateEvent(new PluginStateEvent(this, pluginWrapper, previousState)));
+    events.add(new PluginStateEvent(this, pluginWrapper, previousState));
   }
 
 

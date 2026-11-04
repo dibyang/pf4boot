@@ -8,6 +8,9 @@ import org.springframework.web.context.request.async.DeferredResult;
 import org.springframework.web.context.request.async.WebAsyncTask;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.handler.MappedInterceptor;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.DisposableBean;
 import java.net.ServerSocket;
 import java.util.concurrent.Callable;
 
@@ -40,6 +43,10 @@ public class CleanupProbeFixtures {
   @RestController
   @ConditionalOnProperty(name = "sample.cleanup-probe-enabled", havingValue = "true")
   public static class ProbeController {
+    @GetMapping("/api/sample/unrelated/json-payload")
+    public JsonPayload jsonPayload() { return new JsonPayload(); }
+    @PostMapping("/api/sample/unrelated/json-payload")
+    public JsonPayload jsonRoundtrip(@RequestBody JsonPayload value) { return value; }
     @GetMapping("/api/sample/unrelated/async-dispatch")
     public void asyncDispatch(javax.servlet.http.HttpServletRequest request) {
       request.startAsync().dispatch("/api/sample/workflow/dispatch-target");
@@ -76,6 +83,24 @@ public class CleanupProbeFixtures {
       task.onTimeout(() -> "timed-out");
       return task;
     }
+  }
+  public static class JsonPayload { public String value = "plugin-json"; }
+  @Component
+  @ConditionalOnProperty(name = "sample.scheduling.invalid", havingValue = "true")
+  public static class InvalidSchedulingProbe {
+    @Scheduled(fixedDelay = 1000000, fixedRate = 1000000, initialDelay = 60000)
+    public void run() { }
+  }
+  @Component
+  @ConditionalOnProperty(name = "sample.scheduling.stale-probe", havingValue = "true")
+  public static class StaleSchedulingProbe implements DisposableBean {
+    private volatile boolean closed;
+    @Scheduled(fixedDelay = 1000000)
+    public void run() {
+      if (closed) { System.setProperty("sample.scheduling.after-close", "true"); }
+      System.setProperty("sample.scheduling.called", "true");
+    }
+    public void destroy() { closed = true; }
   }
   private static void waitForRelease(String property) throws Exception {
     long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5);

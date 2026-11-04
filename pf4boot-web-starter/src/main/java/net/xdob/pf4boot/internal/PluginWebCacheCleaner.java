@@ -12,12 +12,16 @@ import org.springframework.web.servlet.mvc.method.annotation.ExceptionHandlerExc
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerAdapter;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Predicate;
 
 /**
- * 摘除宿主 MVC 方法缓存对插件类型的引用。
- * Spring 5.3 的这些缓存没有公开清理 API；仅移除当前插件拥有的键，保留其它插件与宿主缓存。
+ * 摘除宿主 MVC/JSON 派生缓存对插件类型的引用。
+ * MVC 方法缓存按 loader 移除；JSON 缓存整体失效但保留 mapper 配置，随后按需预热。
  */
 public final class PluginWebCacheCleaner {
   private PluginWebCacheCleaner() { }
@@ -27,17 +31,57 @@ public final class PluginWebCacheCleaner {
     PluginCleanup cleanup = new PluginCleanup();
     ListableBeanFactory factory = context instanceof ConfigurableApplicationContext
         ? ((ConfigurableApplicationContext) context).getBeanFactory() : context;
+    Set<Object> jsonMappers = Collections.newSetFromMap(new IdentityHashMap<>());
     for (RequestMappingHandlerAdapter adapter : factory.getBeansOfType(RequestMappingHandlerAdapter.class).values()) {
       for (String field : new String[]{"sessionAttributesHandlerCache", "initBinderCache", "modelAttributeCache"}) {
         cleanup.run(field, () -> clearMap(adapter, field, key -> ownedClass(key, loader)));
       }
       cleanup.run("argument resolvers", () -> clearArguments(adapter, "argumentResolvers", loader));
       cleanup.run("binder resolvers", () -> clearArguments(adapter, "initBinderArgumentResolvers", loader));
+      for (Object converter : adapter.getMessageConverters()) {
+        cleanup.run("JSON converter caches", () -> clearJsonConverter(converter, jsonMappers));
+      }
     }
     for (HandlerExceptionResolver resolver : factory.getBeansOfType(HandlerExceptionResolver.class).values()) {
       cleanup.run("exception resolvers", () -> clearExceptionResolver(resolver, loader));
     }
     cleanup.throwIfFailed();
+  }
+
+  /** JSON 库保持可选，只处理实际配置的 MVC converter，不创建新的 mapper 或 Bean。 */
+  private static void clearJsonConverter(Object converter, Set<Object> seen) {
+    Class<?> type = converter.getClass();
+    while (type != null && !type.getName().equals("org.springframework.http.converter.json.AbstractJackson2HttpMessageConverter")) {
+      if (type.getName().equals("org.springframework.http.converter.json.GsonHttpMessageConverter")) {
+        Object gson = call(converter, "getGson");
+        if (seen.add(gson)) { clearMap(gson, "typeTokenCache", key -> true); }
+        return;
+      }
+      type = type.getSuperclass();
+    }
+    if (type == null) { return; }
+    Object mapper = call(converter, "getObjectMapper");
+    if (!seen.add(mapper)) { return; }
+    Method clear = ReflectionUtils.findMethod(mapper.getClass(), "clearCaches");
+    if (clear != null) {
+      ReflectionUtils.makeAccessible(clear);
+      ReflectionUtils.invokeMethod(clear, mapper);
+    } else {
+      // Jackson 2.13 没有统一清理入口；沿用公开方法及固定版本字段适配。
+      Object roots = fieldValue(mapper, "_rootDeserializers");
+      if (!(roots instanceof Map)) { throw new IllegalStateException("Unsupported Jackson root deserializer cache"); }
+      ((Map<?, ?>) roots).clear();
+      call(call(mapper, "getSerializerProvider"), "flushCachedSerializers");
+      call(fieldValue(call(mapper, "getDeserializationContext"), "_cache"), "flushCachedDeserializers");
+      call(call(mapper, "getTypeFactory"), "clearCache");
+    }
+  }
+
+  private static Object call(Object target, String name) {
+    Method method = ReflectionUtils.findMethod(target.getClass(), name);
+    if (method == null) { throw new IllegalStateException("JSON cache method missing: " + name); }
+    ReflectionUtils.makeAccessible(method);
+    return ReflectionUtils.invokeMethod(method, target);
   }
 
   private static void clearExceptionResolver(HandlerExceptionResolver resolver, ClassLoader loader) {

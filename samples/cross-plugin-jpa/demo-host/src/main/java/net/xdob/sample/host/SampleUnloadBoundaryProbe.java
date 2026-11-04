@@ -1,6 +1,7 @@
 package net.xdob.sample.host;
 
 import net.xdob.pf4boot.*;
+import net.xdob.pf4boot.modal.DynamicBeanConflictPolicy;
 import net.xdob.pf4boot.spring.boot.Pf4bootProperties;
 import org.pf4j.*;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,14 +41,19 @@ public class SampleUnloadBoundaryProbe {
     try {
       properties.setPluginDrainTimeoutMillis(50);
       verifyDependentScope(base); verifyConcurrentStart(); verifyListenerFailure();
+      verifyUncheckedLoaderClose(); verifyExtensionReplacement();
+      verifyCleanupReentry();
       require(get(base + "/api/sample/unrelated/health").contains("UP"), "unrelated restart health");
       get(base + "/api/sample/workflow/summary");
       Map<String, Object> result = new LinkedHashMap<>();
       result.put("multiLevelUnload", "PASSED"); result.put("concurrentStart", "PASSED");
-      result.put("listenerFailure", "PASSED"); return result;
+      result.put("listenerFailure", "PASSED"); result.put("reentrantStartRejected", "PASSED");
+      result.put("uncheckedLoaderClose", "PASSED"); result.put("extensionReplacement", "PASSED");
+      result.put("cleanupReentry", "PASSED"); return result;
     } finally {
       properties.setPluginDrainTimeoutMillis(timeout);
       System.clearProperty("sample.dispatch.inner-block"); System.clearProperty("sample.dispatch.inner-entered");
+      System.clearProperty("sample.unload.fail-loader");
     }
   }
   private void verifyDependentScope(String base) throws Exception {
@@ -75,15 +81,23 @@ public class SampleUnloadBoundaryProbe {
       finally { pool.shutdownNow(); require(pool.awaitTermination(3, TimeUnit.SECONDS), "leaf client still running"); }
     }
     List<String> notified = new ArrayList<>();
+    AtomicInteger reentryRejected = new AtomicInteger();
     PluginStateListener listener = event -> {
       if (order.contains(event.getPlugin().getPluginId()) && event.getPlugin().getPluginState() == PluginState.UNLOADED) {
-        require(closed(event.getPlugin()), "notification preceded loader close"); notified.add(event.getPlugin().getPluginId());
+        for (String id : order) {
+          require(manager.getPlugin(id) == null && closed(original.get(id)), "notification preceded batch cleanup " + id);
+          require(((Pf4bootPlugin) original.get(id).getPlugin()).getPluginContext() == null, "notification retained context " + id);
+        }
+        try { manager.startPlugin(DOMAIN); throw new IllegalStateException("notification restarted pending provider"); }
+        catch (PluginNotFoundException expected) { reentryRejected.incrementAndGet(); }
+        notified.add(event.getPlugin().getPluginId());
       }
     };
     manager.addPluginStateListener(listener);
     try { require(manager.unloadPlugin(DOMAIN), "dependent unload retry"); }
     finally { manager.removePluginStateListener(listener); }
     require(order.equals(notified), "dependent unload order: " + notified);
+    require(reentryRejected.get() == order.size(), "unload notification reentry not rejected");
     for (String id : Arrays.asList(DOMAIN, SERVICE, WORKFLOW)) {
       require(manager.getPlugin(id) == null && closed(original.get(id)), "dependent cleanup " + id);
       require(id.equals(manager.loadPlugin(original.get(id).getPluginPath())), "dependent reload " + id);
@@ -147,6 +161,65 @@ public class SampleUnloadBoundaryProbe {
   private void reload(Path path) {
     require(UNRELATED.equals(manager.loadPlugin(path)), "unrelated load after unload");
     require(manager.startPlugin(UNRELATED) == PluginState.STARTED, "unrelated start after unload");
+  }
+  private void verifyUncheckedLoaderClose() {
+    PluginWrapper original = manager.getPlugin(UNRELATED);
+    System.setProperty("sample.unload.fail-loader", "true");
+    try {
+      try { manager.unloadPlugin(UNRELATED); throw new IllegalStateException("unchecked loader failure not reported"); }
+      catch (PluginRuntimeException expected) { }
+      require(manager.getPlugin(UNRELATED) == original && closed(original), "partial loader close fixture");
+      require(original.getPluginState() == PluginState.FAILED && original.getFailedException() instanceof IllegalStateException, "unchecked close did not fail closed");
+      require(manager.startPlugin(UNRELATED) == PluginState.FAILED, "restart reused partially closed loader");
+      require(((Pf4bootPlugin) original.getPlugin()).getPluginContext() == null, "restart created context on closed loader");
+    } finally { System.clearProperty("sample.unload.fail-loader"); }
+    require(manager.unloadPlugin(UNRELATED), "unchecked close retry failed");
+    reload(original.getPluginPath());
+  }
+  private void verifyExtensionReplacement() throws Exception {
+    String name = "net.xdob.sample.unrelated.CleanupProbeExtension";
+    String group = ((Pf4bootPlugin) manager.getPlugin(UNRELATED).getPlugin()).getGroup();
+    Object replacement = new Object();
+    DynamicBeanConflictPolicy previous = properties.getDynamicBeanConflictPolicy();
+    int port = Integer.parseInt(System.getProperty("sample.extension.port"));
+    try {
+      properties.setDynamicBeanConflictPolicy(DynamicBeanConflictPolicy.REPLACE);
+      manager.registerBeanToPlatformContext(group, name, replacement);
+      require(manager.stopPlugin(UNRELATED) == PluginState.STOPPED, "replaced extension owner stop");
+      require(manager.getPlatformContext(group).getBean(name) == replacement, "stopping old owner removed replacement");
+      try (java.net.ServerSocket released = new java.net.ServerSocket(port)) { require(released.isBound(), "original extension port retained"); }
+    } finally {
+      properties.setDynamicBeanConflictPolicy(previous);
+      if (manager.getPlatformContext(group).getBeanFactory().containsLocalBean(name)
+          && manager.getPlatformContext(group).getBean(name) == replacement) {
+        manager.unregisterBeanFromPlatformContext(group, name);
+      }
+    }
+    require(manager.startPlugin(UNRELATED) == PluginState.STARTED, "extension owner restart failed");
+  }
+  private void verifyCleanupReentry() throws Exception {
+    PluginWrapper original = manager.getPlugin(UNRELATED);
+    int port = Integer.parseInt(System.getProperty("sample.extension.port"));
+    AtomicBoolean attempted = new AtomicBoolean();
+    AtomicInteger rejected = new AtomicInteger();
+    org.springframework.context.ConfigurableApplicationContext host = manager.getApplicationContext();
+    org.springframework.context.ApplicationListener<net.xdob.pf4boot.spring.boot.PreStopPluginEvent> listener = event -> {
+      if (UNRELATED.equals(event.getPlugin().getPluginId()) && attempted.compareAndSet(false, true)) {
+        try { manager.restartPlugin(UNRELATED); throw new IllegalStateException("cleanup callback restart succeeded"); }
+        catch (PluginRuntimeException expected) { rejected.incrementAndGet(); }
+      }
+    };
+    host.addApplicationListener(listener);
+    try {
+      require(manager.stopPlugin(UNRELATED) == PluginState.STOPPED, "cleanup reentry stop");
+      require(rejected.get() == 1, "active cleanup restart not rejected");
+      require(((Pf4bootPlugin) original.getPlugin()).getPluginContext() == null, "cleanup reentry retained context");
+      require(!ApplicationContextProvider.containsApplicationContext(original.getPluginClassLoader()), "cleanup reentry retained global registration");
+      try (java.net.ServerSocket rebound = new java.net.ServerSocket(port)) { require(rebound.isBound(), "cleanup reentry retained port"); }
+    } finally {
+      host.getBean("applicationEventMulticaster", org.springframework.context.event.ApplicationEventMulticaster.class).removeApplicationListener(listener);
+    }
+    require(manager.startPlugin(UNRELATED) == PluginState.STARTED, "restart after cleanup reentry failed");
   }
   private boolean closed(PluginWrapper wrapper) { return ((PluginClassLoader) wrapper.getPluginClassLoader()).isClosed(); }
   private String get(String address) throws Exception {

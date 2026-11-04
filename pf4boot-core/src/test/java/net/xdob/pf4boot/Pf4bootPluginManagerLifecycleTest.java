@@ -125,6 +125,55 @@ public class Pf4bootPluginManagerLifecycleTest {
   }
 
   @Test
+  public void failureBeforeRefreshDestroysRegisteredSingletonsAndAllowsRestart() throws Exception {
+    pluginManager.addResolvedPlugin("before-refresh", BeforeRefreshPlugin.class);
+    BeforeRefreshPlugin plugin = (BeforeRefreshPlugin) pluginManager.getPlugin("before-refresh").getPlugin();
+    try {
+      for (int i = 0; i < 5; i++) {
+        assertEquals(PluginState.FAILED, pluginManager.startPlugin("before-refresh"));
+        assertNull(plugin.getPluginContext());
+        assertEquals(i + 1, plugin.destroys);
+        try (java.net.ServerSocket rebound = new java.net.ServerSocket(plugin.port)) {
+          assertTrue(rebound.isBound());
+        }
+      }
+      plugin.failBeforeRefresh = false;
+      assertEquals(PluginState.STARTED, pluginManager.startPlugin("before-refresh"));
+      assertEquals(PluginState.STOPPED, pluginManager.stopPlugin("before-refresh"));
+      assertEquals(6, plugin.destroys);
+    } finally { plugin.closeSocket(); }
+  }
+
+  @Test
+  public void failureBeforeRefreshRetainsFailedDestructionForRetry() throws Exception {
+    pluginManager.addResolvedPlugin("before-refresh-retry", BeforeRefreshPlugin.class);
+    BeforeRefreshPlugin plugin = (BeforeRefreshPlugin) pluginManager.getPlugin("before-refresh-retry").getPlugin();
+    plugin.failDestroy = true;
+    try {
+      assertEquals(PluginState.FAILED, pluginManager.startPlugin("before-refresh-retry"));
+      assertTrue(plugin.getPluginContext() != null);
+      assertFalse(plugin.socket.isClosed());
+      assertEquals(1, plugin.destroys);
+      assertEquals(1, plugin.markerDestroyed);
+      assertEquals(PluginState.FAILED, pluginManager.startPlugin("before-refresh-retry"));
+      assertEquals(1, plugin.opens);
+      assertEquals(2, plugin.destroys);
+      assertEquals(1, plugin.markerDestroyed);
+      plugin.failDestroy = false;
+      assertEquals(PluginState.STOPPED, pluginManager.stopPlugin("before-refresh-retry"));
+      assertNull(plugin.getPluginContext());
+      assertTrue(plugin.socket.isClosed());
+      assertEquals(3, plugin.destroys);
+      assertEquals(1, plugin.markerDestroyed);
+      plugin.failBeforeRefresh = false;
+      assertEquals(PluginState.STARTED, pluginManager.startPlugin("before-refresh-retry"));
+      assertEquals(PluginState.STOPPED, pluginManager.stopPlugin("before-refresh-retry"));
+      assertEquals(4, plugin.destroys);
+      assertEquals(2, plugin.markerDestroyed);
+    } finally { plugin.failDestroy = false; plugin.closeSocket(); }
+  }
+
+  @Test
   public void fiftyRestartsReleaseContextsAndDestroyBeans() {
     int contextsBefore = ApplicationContextProvider.getRegisteredContextCount();
     Resource.closed.set(0);
@@ -288,6 +337,63 @@ public class Pf4bootPluginManagerLifecycleTest {
       assertEquals(contexts, ApplicationContextProvider.getRegisteredContextCount());
       assertNull(((Pf4bootPlugin) pluginManager.getPlugin("failing").getPlugin()).getPluginContext());
     }
+  }
+
+  @Test
+  public void preStopRestartCannotConsumeActiveCleanupOrRetainClosedContext() {
+    int contexts = ApplicationContextProvider.getRegisteredContextCount();
+    Resource.closed.set(0);
+    pluginManager.addResolvedPlugin("cleanup-reentry", ResourcePlugin.class);
+    assertEquals(PluginState.STARTED, pluginManager.startPlugin("cleanup-reentry"));
+    ClassLoader loader = pluginManager.getPlugin("cleanup-reentry").getPluginClassLoader();
+    AtomicInteger rejected = new AtomicInteger();
+    org.springframework.context.ApplicationListener<net.xdob.pf4boot.spring.boot.PreStopPluginEvent> listener = event -> {
+      if (event.getPlugin().getPluginId().equals("cleanup-reentry")) {
+        try { pluginManager.restartPlugin("cleanup-reentry"); throw new AssertionError("active cleanup restart succeeded"); }
+        catch (org.pf4j.PluginRuntimeException expected) { rejected.incrementAndGet(); }
+      }
+    };
+    applicationContext.addApplicationListener(listener);
+    try {
+      assertEquals(PluginState.STOPPED, pluginManager.stopPlugin("cleanup-reentry"));
+      assertTrue(rejected.get() > 0);
+      assertNull(((Pf4bootPlugin) pluginManager.getPlugin("cleanup-reentry").getPlugin()).getPluginContext());
+      assertFalse(ApplicationContextProvider.containsApplicationContext(loader));
+      assertEquals(contexts, ApplicationContextProvider.getRegisteredContextCount());
+      assertEquals(1, Resource.closed.get());
+    } finally {
+      applicationContext.getBean("applicationEventMulticaster", org.springframework.context.event.ApplicationEventMulticaster.class).removeApplicationListener(listener);
+    }
+    assertEquals(PluginState.STARTED, pluginManager.startPlugin("cleanup-reentry"));
+  }
+
+  @Test
+  public void failedStartCleanupReentryIsReportedAndRecoversAfterCallbackRemoval() {
+    pluginManager.close();
+    java.util.concurrent.atomic.AtomicBoolean failStart = new java.util.concurrent.atomic.AtomicBoolean(true);
+    pluginManager = new TestPluginManager(applicationContext, pluginsRoot, new Pf4bootProperties(), new Pf4bootPluginSupport() {
+      public void startedPlugin(Pf4bootPlugin plugin) {
+        if (failStart.get()) { throw new IllegalStateException("start failure before cleanup"); }
+      }
+    });
+    int contexts = ApplicationContextProvider.getRegisteredContextCount();
+    Resource.closed.set(0);
+    pluginManager.addResolvedPlugin("failed-cleanup-reentry", ResourcePlugin.class);
+    org.springframework.context.ApplicationListener<net.xdob.pf4boot.spring.boot.PreStopPluginEvent> listener = event -> {
+      if (event.getPlugin().getPluginId().equals("failed-cleanup-reentry")) { pluginManager.stopPlugin("failed-cleanup-reentry"); }
+    };
+    applicationContext.addApplicationListener(listener);
+    try {
+      assertEquals(PluginState.FAILED, pluginManager.startPlugin("failed-cleanup-reentry"));
+      assertNull(((Pf4bootPlugin) pluginManager.getPlugin("failed-cleanup-reentry").getPlugin()).getPluginContext());
+      assertEquals(contexts, ApplicationContextProvider.getRegisteredContextCount());
+      assertEquals(1, Resource.closed.get());
+    } finally {
+      applicationContext.getBean("applicationEventMulticaster", org.springframework.context.event.ApplicationEventMulticaster.class).removeApplicationListener(listener);
+    }
+    failStart.set(false);
+    assertEquals(PluginState.STARTED, pluginManager.startPlugin("failed-cleanup-reentry"));
+    assertEquals(1, Resource.closed.get());
   }
 
   @Test
@@ -690,5 +796,33 @@ public class Pf4bootPluginManagerLifecycleTest {
   }
 
   public static class LifecycleConfig {
+  }
+
+  @PluginStarter(LifecycleConfig.class)
+  public static class BeforeRefreshPlugin extends Pf4bootPlugin implements org.springframework.beans.factory.DisposableBean {
+    boolean failBeforeRefresh = true, failDestroy;
+    java.net.ServerSocket socket;
+    int port, destroys, opens, markerDestroyed;
+    public BeforeRefreshPlugin(PluginWrapper wrapper) { super(wrapper); }
+    @Override
+    protected org.springframework.context.ConfigurableApplicationContext createPluginContext(
+        org.springframework.context.ConfigurableApplicationContext parent) {
+      org.springframework.context.ConfigurableApplicationContext context = super.createPluginContext(parent);
+      org.springframework.beans.factory.support.DefaultListableBeanFactory factory =
+          (org.springframework.beans.factory.support.DefaultListableBeanFactory) context.getBeanFactory();
+      factory.registerSingleton("earlyMarker", new Object());
+      factory.registerDisposableBean("earlyMarker", () -> markerDestroyed++);
+      try { socket = new java.net.ServerSocket(port); port = socket.getLocalPort(); opens++; }
+      catch (IOException e) { throw new IllegalStateException(e); }
+      if (failBeforeRefresh) { throw new IllegalStateException("failure before refresh"); }
+      return context;
+    }
+    @Override
+    public void destroy() throws Exception {
+      destroys++;
+      if (failDestroy) { throw new IOException("destruction blocked"); }
+      closeSocket();
+    }
+    void closeSocket() throws IOException { if (socket != null) { socket.close(); } }
   }
 }

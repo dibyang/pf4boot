@@ -1,0 +1,4 @@
+spring:
+  mvc:
+    converters:
+      preferred-json-mapper: gson

@@ -1,0 +1,22 @@
+// 仅用于显式运行的兼容性测试，不改变生产或测试编译依赖。
+def compatibility = gradle.startParameter.projectProperties['jacksonCompatibility']
+if (!(compatibility in ['2.13.5', 'none'])) {
+    throw new GradleException('Use -PjacksonCompatibility=2.13.5 or none')
+}
+allprojects {
+    plugins.withId('java') {
+        configurations.matching { it.name == 'testRuntimeClasspath' }.all {
+            if (compatibility == 'none') {
+                exclude group: 'com.fasterxml.jackson.core'
+                exclude group: 'com.fasterxml.jackson.datatype'
+                exclude group: 'com.fasterxml.jackson.module'
+            } else {
+                resolutionStrategy.eachDependency {
+                    if (requested.group.startsWith('com.fasterxml.jackson')) {
+                        useVersion(compatibility)
+                    }
+                }
+            }
+        }
+    }
+}

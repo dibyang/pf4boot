@@ -26,12 +26,13 @@ import org.springframework.util.StringValueResolver;
 import java.lang.reflect.Method;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 public class DefaultScheduledMgr implements ScheduledMgr {
 	static final Logger logger = LoggerFactory.getLogger(DefaultScheduledMgr.class);
 
-	private final Map<String, PluginScheduledTasks> scheduledTasks = new HashMap<>(16);
+	private final Map<String, PluginScheduledTasks> scheduledTasks = new ConcurrentHashMap<>(16);
 	private final PluginWorkTracker workTracker = new PluginWorkTracker();
 	//private final ScheduledTaskRegistrar registrar;
 
@@ -118,12 +119,17 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 	private void processScheduled(PluginScheduledTasks pluginScheduledTasks, Scheduled scheduled, Method method, Object bean) {
 		try {
 			String pluginId = pluginScheduledTasks.getPluginId();
-			Runnable runnable = new DrainingScheduledRunnable(pluginId, createRunnable(bean, method));
+			Runnable runnable = new DrainingScheduledRunnable(pluginScheduledTasks, createRunnable(bean, method));
 			boolean processedSchedule = false;
 			String errorMessage =
 					"Exactly one of the 'cron', 'fixedDelay(String)', or 'fixedRate(String)' attributes is required";
 
-			Set<ScheduledTask> tasks = new LinkedHashSet<>(4);
+			// 共享 scheduler 会立即提交，后续校验失败时也必须持有已返回的取消句柄。
+			Map<Object, Set<ScheduledTask>> scheduledTasks = pluginScheduledTasks.getScheduledTasks();
+			Set<ScheduledTask> tasks;
+			synchronized (scheduledTasks) {
+				tasks = scheduledTasks.computeIfAbsent(bean, key -> new LinkedHashSet<>(4));
+			}
 
 			// Determine initial delay
 			long initialDelay = convertToMillis(scheduled.initialDelay(), scheduled.timeUnit());
@@ -231,12 +237,6 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 			// Check whether we had any attribute set
 			Assert.isTrue(processedSchedule, errorMessage);
 
-			// Finally register the scheduled tasks
-			Map<Object, Set<ScheduledTask>> scheduledTasks = pluginScheduledTasks.getScheduledTasks();
-			synchronized (scheduledTasks) {
-				Set<ScheduledTask> regTasks = scheduledTasks.computeIfAbsent(bean, key -> new LinkedHashSet<>(4));
-				regTasks.addAll(tasks);
-			}
 		}
 		catch (IllegalArgumentException ex) {
 			throw new IllegalStateException(
@@ -294,18 +294,24 @@ public class DefaultScheduledMgr implements ScheduledMgr {
 	}
 
 	private class DrainingScheduledRunnable implements Runnable {
-		private final String pluginId;
+		private final PluginScheduledTasks owner;
 		private final Runnable delegate;
 
-		private DrainingScheduledRunnable(String pluginId, Runnable delegate) {
-			this.pluginId = pluginId;
+		private DrainingScheduledRunnable(PluginScheduledTasks owner, Runnable delegate) {
+			this.owner = owner;
 			this.delegate = delegate;
 		}
 
 		@Override
 		public void run() {
-			if (!workTracker.tryEnter(pluginId)) {
-				logger.debug("skip scheduled task for draining plugin {}", pluginId);
+			String pluginId = owner.getPluginId();
+			boolean admitted;
+			// 与排空原子准入共用锁，已出队的旧任务不能借用重启后的同名插件。
+			synchronized (workTracker) {
+				admitted = scheduledTasks.get(pluginId) == owner && workTracker.tryEnter(pluginId);
+			}
+			if (!admitted) {
+				logger.debug("skip scheduled task for retired or draining plugin {}", pluginId);
 				return;
 			}
 			try {

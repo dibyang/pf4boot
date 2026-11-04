@@ -187,8 +187,12 @@ public class Pf4bootPlugin extends Plugin {
   private void freeContext( AnnotationConfigApplicationContext context) {
     DefaultListableBeanFactory beanFactory = context.getDefaultListableBeanFactory();
     PluginCleanup cleanup = new PluginCleanup();
-    if (!context.isActive() && beanFactory instanceof PluginListableBeanFactory) {
-      cleanup.run("retry destruction", () -> ((PluginListableBeanFactory) beanFactory).retryDestruction());
+    if (!context.isActive()) {
+      if (beanFactory instanceof PluginListableBeanFactory) {
+        cleanup.run("retry destruction", () -> ((PluginListableBeanFactory) beanFactory).retryDestruction());
+      }
+      // refresh 前失败时 Spring close 不销毁单例，仍须释放已登记的资源。
+      cleanup.run("destroy inactive singletons", beanFactory::destroySingletons);
     }
     cleanup.run("close Spring context", context::close);
     if (beanFactory instanceof PluginListableBeanFactory) {
