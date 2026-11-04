@@ -39,6 +39,52 @@ gradle.projectsEvaluated {
             }
             root.copy { from root.file('samples/cross-plugin-jpa/app-run/src/smoke/resources/application-gson.yml'); into out }
             root.copy { from root.file('samples/cross-plugin-jpa/app-run/src/smoke/acceptance/verify.py'); into out }
+            if (root.findProperty('releaseAcceptance') == 'true') {
+                def report = []
+                def repository = new File(System.getProperty('user.home'), '.m2/repository/net/xdob/pf4boot')
+                root.subprojects.findAll { !it.path.startsWith(':samples') }.each { p ->
+                    def artifacts = new File(repository, "$p.name/$root.version")
+                    def names = ["${p.name}-${root.version}.jar", "${p.name}-${root.version}.pom",
+                                 "${p.name}-${root.version}-sources.jar", "${p.name}-${root.version}-javadoc.jar"]
+                    names.each { name ->
+                        def f = new File(artifacts, name)
+                        if (!f.isFile() || f.length() == 0 || !new File(artifacts, name + '.asc').isFile()) {
+                            throw new GradleException("Missing release artifact or signature: $f")
+                        }
+                    }
+                    def pom = new XmlSlurper().parse(new File(artifacts, names[1]))
+                    if (pom.version.text() != '3.3.0' || pom.licenses.license.size() == 0 ||
+                            pom.developers.developer.size() == 0 || !pom.scm.url.text() ||
+                            pom.dependencies.dependency.any { it.version.text().contains('SNAPSHOT') ||
+                                (it.groupId.text() == 'net.xdob.pf4boot' && it.version.text() != '3.3.0') }) {
+                        throw new GradleException("Invalid release POM: $p.name")
+                    }
+                    def jar = new File(artifacts, names[0])
+                    def digest = { f -> java.security.MessageDigest.getInstance('SHA-256').digest(f.bytes).encodeHex().toString() }
+                    if (digest(jar) != digest(p.tasks.jar.archiveFile.get().asFile)) {
+                        throw new GradleException("Published JAR differs from final build: $p.name")
+                    }
+                    def zip = new java.util.zip.ZipFile(jar)
+                    try {
+                        zip.entries().findAll { it.name.endsWith('.class') }.each { entry ->
+                            zip.getInputStream(entry).withCloseable { stream ->
+                                def data = new DataInputStream(stream)
+                                if (data.readInt() != (int) 0xCAFEBABE) { throw new GradleException('Invalid class') }
+                                data.readUnsignedShort()
+                                if (data.readUnsignedShort() > 52) { throw new GradleException("Not Java 8: $entry") }
+                            }
+                        }
+                    } finally { zip.close() }
+                    report.add([module: p.name, version: '3.3.0', jarSha256: digest(jar), attachments: names])
+                    root.copy { from artifacts; into new File(out, "published/$p.name") }
+                }
+                root.copy { from root.file('build/release-3.3-consumer/build/runtime/lib'); into new File(out, 'consumer-lib') }
+                root.copy { from root.file('build/release-3.3-consumer/build/resolved-framework.json'); into out }
+                root.copy { from root.file('build/release-3.3-baseline/pf4boot-cross-plugin-jpa-sample'); include 'lib/**', 'plugins/**', 'config/**'; into new File(out, 'release-3.2.0') }
+                root.copy { from root.file('build/release-3.3-baseline/original-3.2.0.zip'); into out }
+                root.copy { from root.file('samples/cross-plugin-jpa/app-run/src/smoke/acceptance/release_upgrade.py'); into out }
+                new File(out, 'published-artifacts.json').setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(report)), 'UTF-8')
+            }
             new File(out, 'classpath.json').setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(manifest)), 'UTF-8')
             println "ACCEPTANCE_EXPORTED=$out"
         }

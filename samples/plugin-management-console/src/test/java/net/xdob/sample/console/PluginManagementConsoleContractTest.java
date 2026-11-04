@@ -28,6 +28,8 @@ public class PluginManagementConsoleContractTest {
     assertTrue(html.contains("X-Idempotency-Key"));
     assertTrue(html.contains("repositoryVersion"));
     assertTrue(html.contains("repositoryRollback"));
+    assertTrue(html.contains("value=\"plugin-workflow-3.3.0.zip\""));
+    assertTrue(html.contains("3.3.0-SNAPSHOT") == false);
     assertTrue(html.contains("localStorage") == false);
   }
 }

@@ -1,0 +1,65 @@
+plugins { id 'java' }
+
+// 独立工程仅消费 Maven POM/JAR，不允许仓库内 project 替代掩盖发布问题。
+repositories {
+    maven {
+        url = uri(findProperty('releaseRepo'))
+        content { includeGroup 'net.xdob.pf4boot' }
+        metadataSources { mavenPom(); artifact() }
+    }
+    maven {
+        url = uri(new File(System.getProperty('user.home'), '.m2/repository'))
+        content { excludeGroup 'net.xdob.pf4boot' }
+    }
+    maven {
+        url 'https://maven.aliyun.com/repository/public/'
+        content { excludeGroup 'net.xdob.pf4boot' }
+    }
+    mavenCentral { content { excludeGroup 'net.xdob.pf4boot' } }
+}
+
+sourceCompatibility = '1.8'
+targetCompatibility = '1.8'
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+
+dependencies {
+    ['pf4boot-starter', 'pf4boot-actuator', 'pf4boot-management-starter',
+     'pf4boot-jpa-management-starter', 'pf4boot-web-starter',
+     'pf4boot-jpa-domain-starter', 'pf4boot-jpa-starter'].each {
+        implementation "net.xdob.pf4boot:$it:3.3.0"
+    }
+    implementation 'net.xdob.h2db:h2db:2.3.0'
+    implementation('net.xdob.springframework.boot:spring-boot-starter-web:2.7.22') {
+        exclude group: 'org.slf4j'
+    }
+    implementation 'org.slf4j:slf4j-api:1.7.36'
+    implementation 'ch.qos.logback:logback-classic:1.2.13'
+    implementation 'com.google.guava:guava:33.4.0-jre'
+    implementation 'com.google.code.gson:gson:2.12.1'
+    implementation 'org.apache.commons:commons-lang3:3.17.0'
+}
+
+jar { archiveBaseName = 'demo-host'; archiveVersion = '3.3.0' }
+
+tasks.register('assembleConsumer', Copy) {
+    dependsOn jar
+    into layout.buildDirectory.dir('runtime/lib')
+    from configurations.runtimeClasspath
+    from tasks.jar
+    doFirst {
+        def modules = configurations.runtimeClasspath.resolvedConfiguration.resolvedArtifacts.findAll {
+            it.moduleVersion.id.group == 'net.xdob.pf4boot'
+        }
+        if (modules.size() != 11 || modules.any { it.moduleVersion.id.version != '3.3.0' }) {
+            throw new GradleException("Expected eleven release modules from Maven: $modules")
+        }
+        def localRoot = file(findProperty('releaseRepo')).canonicalPath + File.separator
+        if (modules.any { !it.file.canonicalPath.startsWith(localRoot) }) {
+            throw new GradleException('Framework artifact did not resolve from the designated Maven repository')
+        }
+        file("$buildDir/resolved-framework.json").text = groovy.json.JsonOutput.prettyPrint(
+            groovy.json.JsonOutput.toJson(modules.collect {
+                [module: it.moduleVersion.id.toString(), file: it.file.canonicalPath]
+            }))
+    }
+}
